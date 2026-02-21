@@ -473,7 +473,8 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(147, 51, 234, 0.6)',
+    borderColor: 'rgba(147, 51, 234, 0.8)',
+    backgroundColor: 'rgba(88, 28, 135, 0.3)',
   },
   secondaryButtonInner: {
     paddingVertical: 16,
