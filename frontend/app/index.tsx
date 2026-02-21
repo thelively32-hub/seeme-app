@@ -360,14 +360,9 @@ export default function HomeScreen() {
               onPress={handleLogin}
               activeOpacity={0.8}
             >
-              <LinearGradient
-                colors={['rgba(147, 51, 234, 0.3)', 'rgba(168, 85, 247, 0.2)']}
-                style={styles.secondaryButtonInner}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+              <View style={styles.secondaryButtonInner}>
                 <Text style={styles.secondaryButtonText}>Log In</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             {/* Terms text */}
