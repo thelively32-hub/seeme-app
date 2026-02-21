@@ -51,11 +51,11 @@ export default function HomeScreen() {
   }));
 
   const handleSignUp = () => {
-    console.log('Sign Up pressed');
+    router.push('/(auth)/signup');
   };
 
   const handleLogin = () => {
-    console.log('Log In pressed');
+    router.push('/(auth)/login');
   };
 
   return (
