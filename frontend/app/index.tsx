@@ -7,7 +7,7 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  ImageBackground,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -25,21 +25,24 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   
   // Animation values
-  const contentOpacity = useSharedValue(0);
+  const imageOpacity = useSharedValue(0);
+  const imageScale = useSharedValue(1.1);
   const buttonsOpacity = useSharedValue(0);
   const buttonsTranslateY = useSharedValue(30);
 
   useEffect(() => {
-    // Animate content fade in
-    contentOpacity.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.cubic) });
+    // Animate image
+    imageOpacity.value = withTiming(1, { duration: 1000, easing: Easing.out(Easing.cubic) });
+    imageScale.value = withTiming(1, { duration: 1500, easing: Easing.out(Easing.cubic) });
     
     // Animate buttons
-    buttonsOpacity.value = withDelay(400, withTiming(1, { duration: 600 }));
-    buttonsTranslateY.value = withDelay(400, withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) }));
+    buttonsOpacity.value = withDelay(600, withTiming(1, { duration: 600 }));
+    buttonsTranslateY.value = withDelay(600, withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) }));
   }, []);
 
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
+  const animatedImageStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
+    transform: [{ scale: imageScale.value }],
   }));
 
   const animatedButtonsStyle = useAnimatedStyle(() => ({
@@ -59,39 +62,38 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      <Animated.View style={[styles.imageContainer, animatedContentStyle]}>
-        <ImageBackground
+      {/* Background gradient */}
+      <LinearGradient
+        colors={['#1a0a2e', '#0d0415', '#0d0415']}
+        style={styles.backgroundGradient}
+      />
+
+      {/* Main image with people and logo */}
+      <Animated.View style={[styles.imageContainer, animatedImageStyle]}>
+        <Image
           source={require('../assets/images/social-background.png')}
-          style={styles.backgroundImage}
-          resizeMode="cover"
-          imageStyle={styles.imageStyle}
-        >
-          {/* Gradient overlay at top and bottom */}
-          <LinearGradient
-            colors={[
-              'rgba(13, 4, 21, 0.3)',
-              'rgba(13, 4, 21, 0)',
-              'rgba(13, 4, 21, 0)',
-              'rgba(13, 4, 21, 0.7)',
-              'rgba(13, 4, 21, 1)',
-            ]}
-            style={styles.imageOverlay}
-            locations={[0, 0.15, 0.5, 0.75, 1]}
-          />
-        </ImageBackground>
+          style={styles.mainImage}
+          resizeMode="contain"
+        />
+        {/* Bottom fade gradient */}
+        <LinearGradient
+          colors={['transparent', 'rgba(13, 4, 21, 0.8)', '#0d0415']}
+          style={styles.imageFade}
+          locations={[0, 0.6, 1]}
+        />
       </Animated.View>
 
       {/* Bottom content section */}
-      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 20 }]}>
+      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
         {/* Taglines */}
-        <Animated.View style={[styles.textContainer, animatedContentStyle]}>
+        <View style={styles.textContainer}>
           <Text style={styles.headline}>
             Experience social life{'\n'}like never before!
           </Text>
           <Text style={styles.subtitle}>
             Find the hottest spots with live social radar.
           </Text>
-        </Animated.View>
+        </View>
 
         {/* Buttons Section */}
         <Animated.View style={[styles.buttonsContainer, animatedButtonsStyle]}>
@@ -138,25 +140,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0d0415',
   },
-  imageContainer: {
-    flex: 1,
-    width: '100%',
-  },
-  backgroundImage: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'flex-end',
-  },
-  imageStyle: {
-    // Position image to show people and logo
-  },
-  imageOverlay: {
+  backgroundGradient: {
     ...StyleSheet.absoluteFillObject,
   },
+  imageContainer: {
+    width: '100%',
+    height: height * 0.55,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  mainImage: {
+    width: width * 1.2,
+    height: '100%',
+  },
+  imageFade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+  },
   bottomSection: {
+    flex: 1,
     backgroundColor: '#0d0415',
     paddingHorizontal: 28,
-    paddingTop: 0,
+    justifyContent: 'flex-end',
   },
   textContainer: {
     alignItems: 'center',
