@@ -216,13 +216,13 @@ export default function HomeScreen() {
         {/* Dark overlay gradient for better text readability */}
         <LinearGradient
           colors={[
-            'rgba(26, 10, 46, 0.3)',
-            'rgba(13, 4, 21, 0.5)',
-            'rgba(13, 4, 21, 0.85)',
-            'rgba(13, 4, 21, 0.95)',
+            'rgba(26, 10, 46, 0.15)',
+            'rgba(13, 4, 21, 0.6)',
+            'rgba(13, 4, 21, 0.92)',
+            'rgba(13, 4, 21, 0.98)',
           ]}
           style={styles.overlay}
-          locations={[0, 0.4, 0.7, 1]}
+          locations={[0, 0.35, 0.6, 1]}
         >
           <View style={[styles.content, { paddingTop: insets.top + 20 }]}>
             {/* Spacer to push content down */}
