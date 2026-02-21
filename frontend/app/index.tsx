@@ -356,13 +356,20 @@ export default function HomeScreen() {
 
             {/* Secondary Button - Log In */}
             <TouchableOpacity
-              style={styles.secondaryButton}
               onPress={handleLogin}
               activeOpacity={0.8}
+              style={{
+                marginTop: 14,
+                borderRadius: 30,
+                borderWidth: 2,
+                borderColor: '#9333ea',
+                backgroundColor: 'rgba(88, 28, 135, 0.4)',
+                paddingVertical: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <View style={styles.secondaryButtonInner}>
-                <Text style={styles.secondaryButtonText}>Log In</Text>
-              </View>
+              <Text style={styles.secondaryButtonText}>Log In</Text>
             </TouchableOpacity>
 
             {/* Terms text */}
