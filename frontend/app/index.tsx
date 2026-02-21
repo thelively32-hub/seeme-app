@@ -9,67 +9,223 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Path, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, RadialGradient, Stop, G, Ellipse } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withRepeat,
+  withSequence,
   Easing,
+  interpolate,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-// SEE ME Logo Component - Modern minimal eye with subtle smile
-const SeeMeLogo = ({ size = 80 }: { size?: number }) => {
+// Animated Bokeh/Glow particle component
+const BokehParticle = ({ 
+  size, 
+  color, 
+  x, 
+  y, 
+  delay 
+}: { 
+  size: number; 
+  color: string; 
+  x: number; 
+  y: number; 
+  delay: number;
+}) => {
+  const opacity = useSharedValue(0.2);
+  const scale = useSharedValue(0.8);
+
+  useEffect(() => {
+    opacity.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(0.6, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.2, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+    scale.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1.2, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.8, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: x,
+          top: y,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+};
+
+// SEE ME Logo - Vibrant eye with orange/magenta gradient and smile
+const SeeMeLogo = ({ size = 160 }: { size?: number }) => {
+  const pulseValue = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.5);
+
+  useEffect(() => {
+    pulseValue.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.4, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseValue.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
   return (
     <View style={{ alignItems: 'center' }}>
-      <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Defs>
-          <RadialGradient id="eyeGradient" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor="#a78bfa" />
-            <Stop offset="100%" stopColor="#7c3aed" />
-          </RadialGradient>
-          <RadialGradient id="irisGradient" cx="50%" cy="40%" r="50%">
-            <Stop offset="0%" stopColor="#60a5fa" />
-            <Stop offset="100%" stopColor="#1e40af" />
-          </RadialGradient>
-        </Defs>
-        
-        {/* Outer eye shape - elegant almond */}
-        <Path
-          d="M50 25 C75 25 95 50 95 50 C95 50 75 75 50 75 C25 75 5 50 5 50 C5 50 25 25 50 25"
-          fill="url(#eyeGradient)"
-          opacity={0.9}
-        />
-        
-        {/* Inner white/light area */}
-        <Path
-          d="M50 30 C70 30 85 50 85 50 C85 50 70 70 50 70 C30 70 15 50 15 50 C15 50 30 30 50 30"
-          fill="#f8fafc"
-          opacity={0.95}
-        />
-        
-        {/* Iris */}
-        <Circle cx="50" cy="50" r="18" fill="url(#irisGradient)" />
-        
-        {/* Pupil */}
-        <Circle cx="50" cy="50" r="8" fill="#0f172a" />
-        
-        {/* Pupil highlight */}
-        <Circle cx="46" cy="46" r="3" fill="#ffffff" opacity={0.8} />
-        
-        {/* Subtle smile curve below eye */}
-        <Path
-          d="M35 80 Q50 90 65 80"
-          stroke="#a78bfa"
-          strokeWidth="3"
-          strokeLinecap="round"
-          fill="none"
-          opacity={0.8}
-        />
-      </Svg>
+      {/* Glow effect behind logo */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: size * 1.5,
+            height: size * 1.5,
+            borderRadius: size * 0.75,
+            backgroundColor: '#ff6b35',
+            top: -size * 0.25,
+          },
+          glowStyle,
+        ]}
+      />
+      <Animated.View style={animatedStyle}>
+        <Svg width={size} height={size} viewBox="0 0 200 200">
+          <Defs>
+            {/* Main eye gradient - orange to magenta */}
+            <RadialGradient id="eyeMainGradient" cx="30%" cy="30%" r="70%">
+              <Stop offset="0%" stopColor="#ff8c42" />
+              <Stop offset="50%" stopColor="#ff6b35" />
+              <Stop offset="100%" stopColor="#d63384" />
+            </RadialGradient>
+            
+            {/* Inner eye gradient */}
+            <RadialGradient id="innerEyeGradient" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor="#1a0a2e" />
+              <Stop offset="100%" stopColor="#0d0415" />
+            </RadialGradient>
+            
+            {/* Highlight gradient */}
+            <RadialGradient id="highlightGradient" cx="30%" cy="30%" r="50%">
+              <Stop offset="0%" stopColor="#ffffff" />
+              <Stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          
+          {/* Outer eye shape - stylized almond */}
+          <Path
+            d="M100 40 
+               C150 40 185 75 190 100 
+               C185 125 150 160 100 160 
+               C50 160 15 125 10 100 
+               C15 75 50 40 100 40"
+            fill="url(#eyeMainGradient)"
+          />
+          
+          {/* Inner curve detail - left */}
+          <Path
+            d="M100 50 
+               C140 50 170 80 175 100 
+               C170 120 140 150 100 150 
+               C60 150 30 120 25 100 
+               C30 80 60 50 100 50"
+            fill="none"
+            stroke="#ff9f5a"
+            strokeWidth="2"
+            opacity={0.6}
+          />
+          
+          {/* Inner dark circle (iris area) */}
+          <Circle cx="100" cy="100" r="45" fill="url(#innerEyeGradient)" />
+          
+          {/* Spiral/swirl inside eye */}
+          <Path
+            d="M100 70 
+               Q130 85 115 100 
+               Q100 115 85 100 
+               Q70 85 100 70"
+            fill="none"
+            stroke="#ff6b35"
+            strokeWidth="4"
+            opacity={0.8}
+          />
+          
+          {/* Inner spiral continue */}
+          <Path
+            d="M100 80 
+               Q115 90 108 100 
+               Q100 110 92 100 
+               Q85 90 100 80"
+            fill="none"
+            stroke="#d63384"
+            strokeWidth="3"
+            opacity={0.6}
+          />
+          
+          {/* Main highlight - white reflection */}
+          <Circle cx="75" cy="75" r="12" fill="#ffffff" opacity={0.95} />
+          
+          {/* Secondary smaller highlight */}
+          <Circle cx="85" cy="90" r="5" fill="#ffffff" opacity={0.5} />
+          
+          {/* Smile curve below the eye */}
+          <Path
+            d="M60 170 Q100 195 140 170"
+            stroke="url(#eyeMainGradient)"
+            strokeWidth="8"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
     </View>
   );
 };
@@ -79,24 +235,24 @@ export default function HomeScreen() {
   
   // Animation values
   const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.8);
+  const logoScale = useSharedValue(0.5);
   const textOpacity = useSharedValue(0);
-  const textTranslateY = useSharedValue(20);
+  const textTranslateY = useSharedValue(30);
   const buttonsOpacity = useSharedValue(0);
-  const buttonsTranslateY = useSharedValue(30);
+  const buttonsTranslateY = useSharedValue(40);
 
   useEffect(() => {
     // Animate logo
     logoOpacity.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.cubic) });
-    logoScale.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.back) });
+    logoScale.value = withTiming(1, { duration: 1000, easing: Easing.out(Easing.back) });
     
     // Animate text
-    textOpacity.value = withDelay(300, withTiming(1, { duration: 600 }));
-    textTranslateY.value = withDelay(300, withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) }));
+    textOpacity.value = withDelay(400, withTiming(1, { duration: 700 }));
+    textTranslateY.value = withDelay(400, withTiming(0, { duration: 700, easing: Easing.out(Easing.cubic) }));
     
     // Animate buttons
-    buttonsOpacity.value = withDelay(600, withTiming(1, { duration: 600 }));
-    buttonsTranslateY.value = withDelay(600, withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) }));
+    buttonsOpacity.value = withDelay(700, withTiming(1, { duration: 600 }));
+    buttonsTranslateY.value = withDelay(700, withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) }));
   }, []);
 
   const animatedLogoStyle = useAnimatedStyle(() => ({
@@ -114,68 +270,113 @@ export default function HomeScreen() {
     transform: [{ translateY: buttonsTranslateY.value }],
   }));
 
-  const handleGetStarted = () => {
-    // Navigate to onboarding/registration
-    console.log('Get Started pressed');
+  const handleSignUp = () => {
+    console.log('Sign Up pressed');
   };
 
   const handleLogin = () => {
-    // Navigate to login
     console.log('Log In pressed');
   };
+
+  // Bokeh particles configuration
+  const bokehParticles = [
+    { size: 80, color: 'rgba(214, 51, 132, 0.3)', x: -20, y: 60, delay: 0 },
+    { size: 120, color: 'rgba(255, 107, 53, 0.2)', x: width - 80, y: 100, delay: 500 },
+    { size: 60, color: 'rgba(168, 85, 247, 0.35)', x: 40, y: height * 0.3, delay: 1000 },
+    { size: 100, color: 'rgba(236, 72, 153, 0.25)', x: width - 60, y: height * 0.4, delay: 300 },
+    { size: 50, color: 'rgba(255, 140, 66, 0.3)', x: 20, y: height * 0.55, delay: 800 },
+    { size: 70, color: 'rgba(147, 51, 234, 0.3)', x: width - 100, y: height * 0.65, delay: 200 },
+    { size: 40, color: 'rgba(236, 72, 153, 0.4)', x: width * 0.3, y: 40, delay: 600 },
+    { size: 55, color: 'rgba(255, 107, 53, 0.25)', x: width * 0.6, y: height * 0.75, delay: 400 },
+  ];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       <LinearGradient
-        colors={['#1a0a2e', '#0f1629', '#0a1628']}
+        colors={['#1a0a2e', '#120820', '#0d0415', '#1a0a2e']}
         style={styles.gradient}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
+        locations={[0, 0.3, 0.7, 1]}
       >
-        <View style={[styles.content, { paddingTop: insets.top + 60 }]}>
+        {/* Bokeh/Glow particles */}
+        {bokehParticles.map((particle, index) => (
+          <BokehParticle
+            key={index}
+            size={particle.size}
+            color={particle.color}
+            x={particle.x}
+            y={particle.y}
+            delay={particle.delay}
+          />
+        ))}
+
+        <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
           {/* Logo Section */}
           <Animated.View style={[styles.logoContainer, animatedLogoStyle]}>
-            <SeeMeLogo size={90} />
-            <Text style={styles.brandName}>SEE ME</Text>
+            <SeeMeLogo size={150} />
           </Animated.View>
 
-          {/* Text Section */}
+          {/* Brand Name with glow effect */}
+          <Animated.View style={[styles.brandContainer, animatedTextStyle]}>
+            <Text style={styles.brandName}>SEE ME</Text>
+            {/* Glow text layer */}
+            <Text style={[styles.brandName, styles.brandNameGlow]}>SEE ME</Text>
+          </Animated.View>
+
+          {/* Taglines */}
           <Animated.View style={[styles.textContainer, animatedTextStyle]}>
-            <Text style={styles.headline}>Be Seen. Connect.</Text>
-            <Text style={styles.subtitle}>Real-time verified presence, worldwide.</Text>
+            <Text style={styles.headline}>Experience social life</Text>
+            <Text style={styles.headline}>like never before!</Text>
+            <Text style={styles.subtitle}>Find the hottest spots with live social radar.</Text>
           </Animated.View>
 
           {/* Spacer */}
           <View style={styles.spacer} />
 
           {/* Buttons Section */}
-          <Animated.View style={[styles.buttonsContainer, animatedButtonsStyle, { paddingBottom: insets.bottom + 40 }]}>
-            {/* Primary Button */}
+          <Animated.View style={[styles.buttonsContainer, animatedButtonsStyle, { paddingBottom: insets.bottom + 20 }]}>
+            {/* Primary Button - Sign Up */}
             <TouchableOpacity
               style={styles.primaryButtonWrapper}
-              onPress={handleGetStarted}
+              onPress={handleSignUp}
               activeOpacity={0.9}
             >
               <LinearGradient
-                colors={['#8b5cf6', '#6366f1', '#4f46e5']}
+                colors={['#ff8c42', '#ff6b35', '#e85d04']}
                 style={styles.primaryButton}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Text style={styles.primaryButtonText}>Get Started</Text>
+                <Text style={styles.primaryButtonText}>Sign Up</Text>
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Secondary Button */}
+            {/* Secondary Button - Log In */}
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={handleLogin}
               activeOpacity={0.8}
             >
-              <Text style={styles.secondaryButtonText}>Log In</Text>
+              <LinearGradient
+                colors={['rgba(147, 51, 234, 0.3)', 'rgba(168, 85, 247, 0.2)']}
+                style={styles.secondaryButtonInner}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.secondaryButtonText}>Log In</Text>
+              </LinearGradient>
             </TouchableOpacity>
+
+            {/* Terms text */}
+            <Text style={styles.termsText}>
+              By continuing, you agree to our{' '}
+              <Text style={styles.termsLink}>Terms of Service</Text>
+              {' '}and{' '}
+              <Text style={styles.termsLink}>Privacy Policy</Text>
+            </Text>
           </Animated.View>
         </View>
       </LinearGradient>
@@ -192,56 +393,71 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: 28,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 30,
+  },
+  brandContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+    position: 'relative',
   },
   brandName: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 48,
+    fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 6,
-    marginTop: 16,
+    letterSpacing: 4,
+    textShadowColor: 'rgba(255, 107, 53, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
+  },
+  brandNameGlow: {
+    position: 'absolute',
+    color: 'transparent',
+    textShadowColor: 'rgba(236, 72, 153, 0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 40,
   },
   textContainer: {
     alignItems: 'center',
-    marginTop: 48,
+    marginTop: 32,
   },
   headline: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.95)',
     textAlign: 'center',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.55)',
     textAlign: 'center',
-    marginTop: 12,
-    letterSpacing: 0.3,
+    marginTop: 16,
+    letterSpacing: 0.2,
+    lineHeight: 22,
   },
   spacer: {
     flex: 1,
   },
   buttonsContainer: {
     width: '100%',
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   primaryButtonWrapper: {
-    borderRadius: 28,
+    borderRadius: 30,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#8b5cf6',
+        shadowColor: '#ff6b35',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 16,
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
       },
       android: {
-        elevation: 12,
+        elevation: 15,
       },
     }),
   },
@@ -249,28 +465,42 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 28,
+    borderRadius: 30,
   },
   primaryButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   secondaryButton: {
-    marginTop: 16,
-    paddingVertical: 18,
+    marginTop: 14,
+    borderRadius: 30,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(147, 51, 234, 0.6)',
+  },
+  secondaryButtonInner: {
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 28,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   secondaryButtonText: {
-    fontSize: 17,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
-    letterSpacing: 0.5,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: 1,
+  },
+  termsText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.4)',
+    textAlign: 'center',
+    marginTop: 20,
+    lineHeight: 16,
+  },
+  termsLink: {
+    color: 'rgba(255, 107, 53, 0.7)',
+    textDecorationLine: 'underline',
   },
 });
