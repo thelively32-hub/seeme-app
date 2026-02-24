@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://presence-real.preview.emergentagent.com';
 
@@ -7,16 +8,22 @@ const USER_KEY = 'seeme_user';
 
 class ApiService {
   private token: string | null = null;
+  private initialized: boolean = false;
 
-  constructor() {
-    this.loadToken();
+  async init() {
+    if (this.initialized) return;
+    await this.loadToken();
+    this.initialized = true;
   }
 
   private async loadToken() {
     try {
+      if (Platform.OS === 'web' && typeof window === 'undefined') {
+        return;
+      }
       this.token = await AsyncStorage.getItem(TOKEN_KEY);
     } catch (e) {
-      console.error('Error loading token:', e);
+      console.log('Token not loaded yet');
     }
   }
 
