@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Image,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../src/services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -18,19 +21,12 @@ interface Place {
   id: string;
   name: string;
   type: string;
+  address: string;
   distance: string;
-  activity: number; // 0-100
-  peopleCount: number;
+  activity: number;
+  people_count: number;
   trending: boolean;
 }
-
-const mockPlaces: Place[] = [
-  { id: '1', name: 'Neon Club', type: 'Nightclub', distance: '0.3 km', activity: 92, peopleCount: 156, trending: true },
-  { id: '2', name: 'Skybar Rooftop', type: 'Bar', distance: '0.5 km', activity: 78, peopleCount: 89, trending: true },
-  { id: '3', name: 'The Social House', type: 'Lounge', distance: '0.8 km', activity: 65, peopleCount: 52, trending: false },
-  { id: '4', name: 'Velvet Room', type: 'Club', distance: '1.2 km', activity: 45, peopleCount: 34, trending: false },
-  { id: '5', name: 'Cafe Luna', type: 'Cafe', distance: '0.2 km', activity: 38, peopleCount: 18, trending: false },
-];
 
 const getActivityColor = (activity: number) => {
   if (activity >= 80) return ['#ff5533', '#ff7b35'];
@@ -46,7 +42,7 @@ const getActivityLabel = (activity: number) => {
   return 'Chill';
 };
 
-const PlaceCard = ({ place }: { place: Place }) => {
+const PlaceCard = ({ place, onCheckIn }: { place: Place; onCheckIn: (place: Place) => void }) => {
   const activityColors = getActivityColor(place.activity);
   const activityLabel = getActivityLabel(place.activity);
 
@@ -95,9 +91,12 @@ const PlaceCard = ({ place }: { place: Place }) => {
         <View style={styles.placeStats}>
           <View style={styles.statItem}>
             <Ionicons name="people" size={16} color="rgba(255,255,255,0.6)" />
-            <Text style={styles.statText}>{place.peopleCount} people</Text>
+            <Text style={styles.statText}>{place.people_count} people</Text>
           </View>
-          <TouchableOpacity style={styles.checkInButton}>
+          <TouchableOpacity 
+            style={styles.checkInButton}
+            onPress={() => onCheckIn(place)}
+          >
             <Ionicons name="qr-code" size={16} color="#ff7b35" />
             <Text style={styles.checkInText}>Check In</Text>
           </TouchableOpacity>
@@ -110,14 +109,59 @@ const PlaceCard = ({ place }: { place: Place }) => {
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const filters = [
     { id: 'all', label: 'All', icon: 'apps' },
     { id: 'trending', label: 'Trending', icon: 'flame' },
     { id: 'nearby', label: 'Nearby', icon: 'location' },
-    { id: 'clubs', label: 'Clubs', icon: 'musical-notes' },
-    { id: 'bars', label: 'Bars', icon: 'wine' },
+    { id: 'Nightclub', label: 'Clubs', icon: 'musical-notes' },
+    { id: 'Bar', label: 'Bars', icon: 'wine' },
   ];
+
+  const loadPlaces = useCallback(async () => {
+    try {
+      let params: any = {};
+      if (selectedFilter === 'trending') {
+        params.trending = true;
+      } else if (selectedFilter !== 'all' && selectedFilter !== 'nearby') {
+        params.type = selectedFilter;
+      }
+      
+      const data = await api.getPlaces(params.type, params.trending, 20);
+      setPlaces(data);
+    } catch (e) {
+      console.error('Error loading places:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedFilter]);
+
+  useEffect(() => {
+    loadPlaces();
+  }, [loadPlaces]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadPlaces();
+  };
+
+  const handleCheckIn = async (place: Place) => {
+    try {
+      await api.checkIn(place.id);
+      Alert.alert(
+        'Checked In! ✓',
+        `You're now at ${place.name}. Enjoy your time!`,
+        [{ text: 'OK' }]
+      );
+      loadPlaces(); // Refresh to update counts
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not check in. Please try again.');
+    }
+  };
 
   return (
     <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
@@ -174,15 +218,32 @@ export default function ExploreScreen() {
       </View>
 
       {/* Places List */}
-      <ScrollView
-        style={styles.placesList}
-        contentContainerStyle={styles.placesContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {mockPlaces.map((place) => (
-          <PlaceCard key={place.id} place={place} />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ff7b35" />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.placesList}
+          contentContainerStyle={styles.placesContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#ff7b35"
+            />
+          }
+        >
+          {places.map((place) => (
+            <PlaceCard 
+              key={place.id} 
+              place={place}
+              onCheckIn={handleCheckIn}
+            />
+          ))}
+        </ScrollView>
+      )}
     </LinearGradient>
   );
 }
@@ -272,6 +333,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   placesList: {
     flex: 1,
