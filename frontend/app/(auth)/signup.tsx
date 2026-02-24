@@ -14,9 +14,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function SignupScreen() {
   const insets = useSafeAreaInsets();
+  const { signup } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,14 +40,18 @@ export default function SignupScreen() {
       setError('Password must be at least 6 characters');
       return;
     }
+    
     setLoading(true);
     setError('');
     
-    // Navigate to onboarding
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await signup(name, email, password);
       router.push('/onboarding/set-vibe');
-    }, 500);
+    } catch (e: any) {
+      setError(e.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -92,6 +98,7 @@ export default function SignupScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
