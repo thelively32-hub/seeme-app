@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,9 +35,9 @@ export default function LoginScreen() {
     setError('');
     try {
       await login(email, password);
-      router.replace('/(tabs)');
-    } catch (e) {
-      setError('Invalid credentials');
+      router.replace('/(tabs)/explore');
+    } catch (e: any) {
+      setError(e.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -74,6 +75,7 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
