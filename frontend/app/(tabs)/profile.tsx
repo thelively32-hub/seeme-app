@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,32 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Image,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
+import api from '../../src/services/api';
 
 const { width } = Dimensions.get('window');
+
+interface UserStats {
+  vibes: number;
+  connection_rate: number;
+  total_checkins: number;
+  unique_places: number;
+  best_night: string;
+  is_premium: boolean;
+}
+
+interface CheckinHistory {
+  id: string;
+  place_name: string;
+  checked_in_at: string;
+}
 
 const StatCard = ({
   icon,
@@ -38,53 +55,76 @@ const StatCard = ({
 
 const PlaceHistoryCard = ({
   name,
-  location,
   date,
-  tags,
 }: {
   name: string;
-  location: string;
   date: string;
-  tags: string[];
 }) => (
   <View style={styles.placeHistoryCard}>
     <View style={styles.placeHistoryInfo}>
       <Text style={styles.placeHistoryName}>{name}</Text>
-      <Text style={styles.placeHistoryLocation}>{location}</Text>
       <Text style={styles.placeHistoryDate}>{date}</Text>
-    </View>
-    <View style={styles.placeHistoryTags}>
-      {tags.map((tag, index) => (
-        <View key={index} style={styles.tag}>
-          <Text style={styles.tagText}>{tag}</Text>
-        </View>
-      ))}
     </View>
   </View>
 );
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [checkinHistory, setCheckinHistory] = useState<CheckinHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const loadData = useCallback(async () => {
+    try {
+      const [statsData, historyData] = await Promise.all([
+        api.getUserStats(),
+        api.getCheckinHistory(5),
+      ]);
+      setStats(statsData);
+      setCheckinHistory(historyData);
+    } catch (e) {
+      console.error('Error loading profile data:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    refreshUser();
+    loadData();
+  };
+
+  const handleLogout = async () => {
+    await logout();
     router.replace('/');
   };
 
-  // Mock data for profile
-  const profileData = {
-    name: user?.name || 'Alex',
-    vibes: user?.vibes || 124,
-    connectionRate: user?.connectionRate || 18,
-    placesVisited: 12,
-    bestNight: 'Saturday',
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   };
 
-  const placeHistory = [
-    { name: 'Neon Club', location: 'Hollywood', date: 'Sat 8:00pm', tags: ['Friends', 'Dancing', 'Top'] },
-    { name: 'Skybar Rooftop', location: 'Downtown', date: 'Fri 9:30pm', tags: ['Date', 'Drinks'] },
-  ];
+  if (loading) {
+    return (
+      <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ff7b35" />
+        </View>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
@@ -92,12 +132,17 @@ export default function ProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 10 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#ff7b35"
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.placeholder} />
           <TouchableOpacity style={styles.settingsButton}>
             <Ionicons name="settings-outline" size={24} color="#fff" />
           </TouchableOpacity>
@@ -116,7 +161,13 @@ export default function ProfileScreen() {
               <Ionicons name="eye" size={20} color="#ff7b35" />
             </View>
           </View>
-          <Text style={styles.profileName}>{profileData.name}</Text>
+          <Text style={styles.profileName}>{user?.name || 'User'}</Text>
+          {stats?.is_premium && (
+            <View style={styles.premiumBadge}>
+              <Ionicons name="star" size={14} color="#ffc107" />
+              <Text style={styles.premiumText}>SEE ME LIVE</Text>
+            </View>
+          )}
         </View>
 
         {/* VIBE STATS */}
@@ -128,53 +179,73 @@ export default function ProfileScreen() {
           <View style={styles.statsGrid}>
             <StatCard
               icon="hand-right"
-              value={profileData.vibes}
+              value={stats?.vibes || user?.vibes || 0}
               label="Vibes"
               color="#ff7b35"
             />
             <StatCard
               icon="trending-up"
-              value={`${profileData.connectionRate}%`}
+              value={`${stats?.connection_rate || 0}%`}
               label="Connection Rate"
               color="#4caf50"
+            />
+          </View>
+          <View style={styles.statsGridRow2}>
+            <StatCard
+              icon="location"
+              value={stats?.unique_places || 0}
+              label="Places Visited"
+              color="#2196f3"
+            />
+            <StatCard
+              icon="checkmark-circle"
+              value={stats?.total_checkins || 0}
+              label="Total Check-ins"
+              color="#9c27b0"
             />
           </View>
         </View>
 
         {/* Places You've Been */}
-        <View style={styles.placesSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Places You've Been</Text>
-            <View style={styles.sectionIcons}>
-              <Ionicons name="location" size={18} color="rgba(255,255,255,0.5)" />
-              <Ionicons name="grid" size={18} color="rgba(255,255,255,0.5)" style={{ marginLeft: 12 }} />
+        {checkinHistory.length > 0 && (
+          <View style={styles.placesSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitleWhite}>Recent Check-ins</Text>
             </View>
+            {checkinHistory.map((checkin) => (
+              <PlaceHistoryCard
+                key={checkin.id}
+                name={checkin.place_name}
+                date={formatDate(checkin.checked_in_at)}
+              />
+            ))}
           </View>
-          {placeHistory.map((place, index) => (
-            <PlaceHistoryCard key={index} {...place} />
-          ))}
-        </View>
+        )}
 
         {/* Best Night */}
-        <View style={styles.bestNightSection}>
-          <LinearGradient
-            colors={['rgba(255, 123, 53, 0.15)', 'rgba(236, 64, 122, 0.1)']}
-            style={styles.bestNightCard}
-          >
-            <View style={styles.bestNightHeader}>
-              <Ionicons name="flame" size={20} color="#ff7b35" />
-              <Text style={styles.bestNightTitle}>BEST NIGHT</Text>
-            </View>
-            <Text style={styles.bestNightValue}>{profileData.bestNight}</Text>
-            <Text style={styles.bestNightSubtext}>Your most active night</Text>
-          </LinearGradient>
-        </View>
+        {stats?.best_night && (
+          <View style={styles.bestNightSection}>
+            <LinearGradient
+              colors={['rgba(255, 123, 53, 0.15)', 'rgba(236, 64, 122, 0.1)']}
+              style={styles.bestNightCard}
+            >
+              <View style={styles.bestNightHeader}>
+                <Ionicons name="flame" size={20} color="#ff7b35" />
+                <Text style={styles.bestNightTitle}>BEST NIGHT</Text>
+              </View>
+              <Text style={styles.bestNightValue}>{stats.best_night}</Text>
+              <Text style={styles.bestNightSubtext}>Your most active night</Text>
+            </LinearGradient>
+          </View>
+        )}
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color="#ff5555" />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </LinearGradient>
   );
@@ -183,6 +254,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -197,13 +273,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  backButton: {
+  placeholder: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   settingsButton: {
     width: 44,
@@ -246,6 +318,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 12,
   },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 193, 7, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+    gap: 6,
+  },
+  premiumText: {
+    color: '#ffc107',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   vibeStatsSection: {
     marginBottom: 24,
   },
@@ -261,13 +348,19 @@ const styles = StyleSheet.create({
     color: '#ffc107',
     letterSpacing: 1,
   },
-  sectionIcons: {
-    flexDirection: 'row',
-    marginLeft: 'auto',
+  sectionTitleWhite: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   statsGrid: {
     flexDirection: 'row',
     gap: 12,
+  },
+  statsGridRow2: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
   },
   statCard: {
     flex: 1,
@@ -295,6 +388,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 4,
+    textAlign: 'center',
   },
   placesSection: {
     marginBottom: 24,
@@ -308,38 +402,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
   },
   placeHistoryInfo: {
-    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   placeHistoryName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#fff',
-  },
-  placeHistoryLocation: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 2,
   },
   placeHistoryDate: {
     fontSize: 12,
     color: '#ff7b35',
-    marginTop: 4,
-  },
-  placeHistoryTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tag: {
-    backgroundColor: 'rgba(255, 123, 53, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#ff7b35',
-    fontWeight: '500',
   },
   bestNightSection: {
     marginBottom: 24,
