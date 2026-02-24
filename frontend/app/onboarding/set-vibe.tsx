@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -90,11 +91,13 @@ const IntentionOption = ({
 
 export default function SetVibeScreen() {
   const insets = useSafeAreaInsets();
-  const { updateUser } = useAuth();
+  const { setVibe } = useAuth();
   
   const [gender, setGender] = useState<Gender | null>(null);
   const [lookingFor, setLookingFor] = useState<LookingFor[]>([]);
   const [intention, setIntention] = useState<Intention | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const toggleLookingFor = (option: LookingFor) => {
     if (option === 'everyone') {
@@ -109,10 +112,22 @@ export default function SetVibeScreen() {
     }
   };
 
-  const handleContinue = () => {
-    if (gender && lookingFor.length > 0 && intention) {
-      updateUser({ gender, lookingFor, intention });
-      router.replace('/(tabs)');
+  const handleContinue = async () => {
+    if (!gender || lookingFor.length === 0 || !intention) {
+      setError('Please complete all selections');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await setVibe(gender, lookingFor, intention);
+      router.replace('/(tabs)/explore');
+    } catch (e: any) {
+      setError(e.message || 'Failed to save preferences');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -131,6 +146,8 @@ export default function SetVibeScreen() {
 
         <Text style={styles.title}>Set Your Vibe</Text>
         <Text style={styles.subtitle}>Let others know what you're looking for</Text>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Your Gender */}
         <View style={styles.section}>
@@ -211,7 +228,7 @@ export default function SetVibeScreen() {
           <TouchableOpacity
             style={[styles.continueButtonWrapper, !isComplete && styles.continueButtonDisabled]}
             onPress={handleContinue}
-            disabled={!isComplete}
+            disabled={!isComplete || loading}
             activeOpacity={0.9}
           >
             <LinearGradient
@@ -220,7 +237,11 @@ export default function SetVibeScreen() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.continueButtonText}>Continue</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -253,6 +274,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255,255,255,0.6)',
     marginBottom: 32,
+  },
+  errorText: {
+    color: '#ff5555',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
   },
   section: {
     marginBottom: 28,
