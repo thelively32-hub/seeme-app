@@ -1,68 +1,88 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import api from '../services/api';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  age: number;
-  gender: 'man' | 'woman' | 'nonbinary';
-  lookingFor: ('men' | 'women' | 'everyone')[];
-  intention: 'friends' | 'date' | 'casual';
+  age: number | null;
+  gender: string | null;
+  looking_for: string[] | null;
+  intention: string | null;
   vibes: number;
-  connectionRate: number;
+  connection_rate: number;
+  is_premium: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (data: Partial<User> & { password: string }) => Promise<void>;
-  logout: () => void;
-  updateUser: (data: Partial<User>) => void;
+  signup: (name: string, email: string, password: string) => Promise<void>;
+  setVibe: (gender: string, lookingFor: string[], intention: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const storedUser = await api.getStoredUser();
+      if (storedUser) {
+        setUser(storedUser);
+        // Verify token is still valid
+        try {
+          const freshUser = await api.getMe();
+          setUser(freshUser);
+        } catch (e) {
+          // Token invalid, clear it
+          await api.logout();
+          setUser(null);
+        }
+      }
+    } catch (e) {
+      console.error('Error loading user:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string) => {
-    // Mock login - replace with real API call
-    setUser({
-      id: '1',
-      name: 'Alex',
-      email: email,
-      age: 25,
-      gender: 'man',
-      lookingFor: ['women'],
-      intention: 'date',
-      vibes: 124,
-      connectionRate: 18,
-    });
+    const response = await api.login(email, password);
+    setUser(response.user);
   };
 
-  const signup = async (data: Partial<User> & { password: string }) => {
-    // Mock signup - replace with real API call
-    setUser({
-      id: '1',
-      name: data.name || 'New User',
-      email: data.email || '',
-      age: data.age || 25,
-      gender: data.gender || 'man',
-      lookingFor: data.lookingFor || ['everyone'],
-      intention: data.intention || 'friends',
-      vibes: 0,
-      connectionRate: 0,
-    });
+  const signup = async (name: string, email: string, password: string) => {
+    const response = await api.register(name, email, password);
+    setUser(response.user);
   };
 
-  const logout = () => {
+  const setVibe = async (gender: string, lookingFor: string[], intention: string) => {
+    const updatedUser = await api.setVibe(gender, lookingFor, intention);
+    setUser(updatedUser);
+  };
+
+  const logout = async () => {
+    await api.logout();
     setUser(null);
   };
 
-  const updateUser = (data: Partial<User>) => {
-    if (user) {
-      setUser({ ...user, ...data });
+  const refreshUser = async () => {
+    try {
+      const freshUser = await api.getMe();
+      setUser(freshUser);
+    } catch (e) {
+      console.error('Error refreshing user:', e);
     }
   };
 
@@ -71,10 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
+        isLoading,
         login,
         signup,
+        setVibe,
         logout,
-        updateUser,
+        refreshUser,
       }}
     >
       {children}
