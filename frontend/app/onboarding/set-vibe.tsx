@@ -145,7 +145,9 @@ export default function SetVibeScreen() {
         </TouchableOpacity>
 
         <Text style={styles.title}>Set Your Vibe</Text>
-        <Text style={styles.subtitle}>Let others know what you're looking for</Text>
+        <Text style={styles.subtitle}>
+          SEE ME helps you discover social spaces where people are open to connect — no pressure, just real moments.
+        </Text>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -176,7 +178,7 @@ export default function SetVibeScreen() {
 
         {/* Looking For */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Looking for</Text>
+          <Text style={styles.sectionTitle}>Open to meet</Text>
           <View style={styles.chipsContainer}>
             <ChipOption
               label="Men"
@@ -200,23 +202,23 @@ export default function SetVibeScreen() {
 
         {/* What are you looking for */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What are you looking for?</Text>
+          <Text style={styles.sectionTitle}>Your social vibe</Text>
           <View style={styles.intentionContainer}>
             <IntentionOption
-              label="Friends"
+              label="New Friends"
               icon="people"
               selected={intention === 'friends'}
               onPress={() => setIntention('friends')}
             />
             <IntentionOption
-              label="Date"
+              label="Open"
               icon="heart"
               selected={intention === 'date'}
               onPress={() => setIntention('date')}
             />
             <IntentionOption
               label="Casual"
-              icon="flame"
+              icon="cafe"
               selected={intention === 'casual'}
               onPress={() => setIntention('casual')}
             />

@@ -18,7 +18,7 @@ export default function RadarScreen() {
     <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
       <View style={[styles.content, { paddingTop: insets.top + 20 }]}>
         <Text style={styles.title}>Social Radar</Text>
-        <Text style={styles.subtitle}>Live activity around you</Text>
+        <Text style={styles.subtitle}>Social energy around you</Text>
 
         {/* Radar visualization placeholder */}
         <View style={styles.radarContainer}>
@@ -45,11 +45,11 @@ export default function RadarScreen() {
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#ff5533' }]} />
-            <Text style={styles.legendText}>Hot (80%+)</Text>
+            <Text style={styles.legendText}>Hot Vibe</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#ffc107' }]} />
-            <Text style={styles.legendText}>Active (50%+)</Text>
+            <Text style={styles.legendText}>Active</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#4caf50' }]} />

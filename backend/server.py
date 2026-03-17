@@ -273,31 +273,31 @@ def calculate_activity_level(active_count: int) -> dict:
     if active_count >= 20:
         return {
             "level": "trending",
-            "label": "Trending now 🔥",
+            "label": "Hot social vibe 🔥",
             "is_trending": True
         }
     elif active_count >= 10:
         return {
             "level": "high",
-            "label": "High activity",
+            "label": "Active social scene",
             "is_trending": False
         }
     elif active_count >= 4:
         return {
             "level": "medium",
-            "label": "Getting busy",
+            "label": "Growing social energy",
             "is_trending": False
         }
     elif active_count >= 1:
         return {
             "level": "low",
-            "label": "Low activity",
+            "label": "Quiet vibe",
             "is_trending": False
         }
     else:
         return {
             "level": "none",
-            "label": "Be the first one here 👀",
+            "label": "Fresh spot — be first 👀",
             "is_trending": False
         }
 

@@ -328,8 +328,8 @@ export default function ExploreScreen() {
 
       // Success!
       Alert.alert(
-        '✓ Checked In!',
-        `You're now at ${place.name}`,
+        "You're part of the vibe ✓",
+        `Now at ${place.name}`,
         [{ text: 'OK' }]
       );
       
@@ -444,7 +444,7 @@ export default function ExploreScreen() {
       <View style={styles.liveHeader}>
         <View style={styles.liveIndicator}>
           <View style={styles.liveDot} />
-          <Text style={styles.liveText}>Live Activity</Text>
+          <Text style={styles.liveText}>Social Energy</Text>
         </View>
         <Text style={styles.lastUpdateText}>{formatLastUpdate()}</Text>
       </View>
@@ -486,7 +486,7 @@ export default function ExploreScreen() {
           {/* Footer */}
           <View style={styles.listFooter}>
             <Text style={styles.footerText}>
-              Activity updates every 30 seconds
+              Social energy updates in real-time
             </Text>
           </View>
         </ScrollView>

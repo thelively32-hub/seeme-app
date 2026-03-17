@@ -89,10 +89,10 @@ export default function HomeScreen() {
         {/* Taglines */}
         <View style={styles.textContainer}>
           <Text style={styles.headline}>
-            Experience social life{'\n'}like never before!
+            Discover social vibes{'\n'}where people connect
           </Text>
           <Text style={styles.subtitle}>
-            Find the hottest spots with live social radar.
+            Real-time social energy radar for bars & clubs
           </Text>
         </View>
 

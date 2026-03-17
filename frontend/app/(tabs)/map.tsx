@@ -546,7 +546,7 @@ export default function MapScreen() {
       });
 
       // Success feedback
-      Alert.alert('Checked in successfully ✅', `You're now at ${selectedPlace.name}`);
+      Alert.alert("You're part of the vibe ✓", `Now at ${selectedPlace.name}`);
       
       // Close sheet and refresh
       setSheetVisible(false);
