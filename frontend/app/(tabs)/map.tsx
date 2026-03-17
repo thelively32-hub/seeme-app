@@ -8,13 +8,14 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  ScrollView,
+  RefreshControl,
+  Modal,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import api from '../../src/services/api';
 import useLocation from '../../src/hooks/useLocation';
 
@@ -72,27 +73,196 @@ const getActivityBarWidth = (level: string): string => {
   }
 };
 
+// Animated trending indicator
+const TrendingBadge = () => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <Text style={{ fontSize: 16 }}>🔥</Text>
+    </Animated.View>
+  );
+};
+
+// Place Card Component for Map View
+const PlaceMapCard = ({ 
+  place, 
+  onPress,
+}: { 
+  place: NearbyPlace; 
+  onPress: () => void;
+}) => {
+  const colors = getActivityColors(place.activity_level);
+
+  return (
+    <TouchableOpacity 
+      style={styles.placeMapCard} 
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {/* Activity indicator dot */}
+      <View style={[styles.activityDot, { backgroundColor: getMarkerColor(place.activity_level) }]}>
+        {place.is_trending && <Ionicons name="flame" size={12} color="#fff" />}
+      </View>
+      
+      <View style={styles.placeMapInfo}>
+        <View style={styles.placeMapHeader}>
+          <Text style={styles.placeMapName} numberOfLines={1}>{place.name}</Text>
+          {place.is_trending && <TrendingBadge />}
+        </View>
+        <Text style={styles.placeMapType}>{place.type} • {place.distance}</Text>
+        <Text style={[styles.placeMapActivity, { color: colors.text }]}>
+          {place.activity_label}
+        </Text>
+      </View>
+      
+      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
+    </TouchableOpacity>
+  );
+};
+
+// Place Detail Modal
+const PlaceDetailModal = ({
+  visible,
+  place,
+  onCheckIn,
+  onClose,
+  checkingIn,
+}: {
+  visible: boolean;
+  place: NearbyPlace | null;
+  onCheckIn: () => void;
+  onClose: () => void;
+  checkingIn: boolean;
+}) => {
+  if (!place) return null;
+  
+  const colors = getActivityColors(place.activity_level);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          {/* Close button */}
+          <TouchableOpacity style={styles.modalClose} onPress={onClose}>
+            <Ionicons name="close" size={24} color="rgba(255,255,255,0.5)" />
+          </TouchableOpacity>
+
+          {/* Place header */}
+          <View style={styles.modalHeader}>
+            <View style={[styles.modalActivityDot, { backgroundColor: getMarkerColor(place.activity_level) }]}>
+              {place.is_trending ? (
+                <Ionicons name="flame" size={24} color="#fff" />
+              ) : (
+                <Ionicons name="location" size={24} color="#fff" />
+              )}
+            </View>
+            <View style={styles.modalTitleContainer}>
+              <View style={styles.modalNameRow}>
+                <Text style={styles.modalPlaceName}>{place.name}</Text>
+                {place.is_trending && <TrendingBadge />}
+              </View>
+              <Text style={styles.modalPlaceType}>{place.type} • {place.distance}</Text>
+            </View>
+          </View>
+
+          {/* Activity Bar */}
+          <View style={[styles.activityContainer, { backgroundColor: colors.bg }]}>
+            <View style={styles.activityBarBg}>
+              <LinearGradient
+                colors={colors.bar}
+                style={[styles.activityBarFill, { width: getActivityBarWidth(place.activity_level) }]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              />
+            </View>
+            <Text style={[styles.activityLabel, { color: colors.text }]}>
+              {place.activity_label}
+            </Text>
+          </View>
+
+          {/* Address if available */}
+          {place.address && (
+            <View style={styles.addressContainer}>
+              <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.5)" />
+              <Text style={styles.addressText}>{place.address}</Text>
+            </View>
+          )}
+
+          {/* Source indicator */}
+          <View style={styles.sourceContainer}>
+            <Ionicons 
+              name={place.source === 'google' ? 'logo-google' : 'business'} 
+              size={14} 
+              color="rgba(255,255,255,0.3)" 
+            />
+            <Text style={styles.sourceText}>
+              {place.source === 'google' ? 'Google Places' : 'SEE ME verified'}
+            </Text>
+          </View>
+
+          {/* Check-in Button */}
+          <TouchableOpacity 
+            style={[styles.checkInButton, checkingIn && styles.checkInButtonDisabled]}
+            onPress={onCheckIn}
+            disabled={checkingIn}
+          >
+            {checkingIn ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="location" size={20} color="#fff" />
+                <Text style={styles.checkInButtonText}>Check In Here</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
-  const bottomSheetRef = useRef<BottomSheet>(null);
   
   const [places, setPlaces] = useState<NearbyPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<NearbyPlace | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   
   const { getCurrentLocation, permissionGranted, requestPermission } = useLocation();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  
-  // Bottom sheet snap points
-  const snapPoints = useMemo(() => ['35%'], []);
 
   // Load user location and nearby places
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       
       // Get current location
       const location = await getCurrentLocation();
@@ -103,16 +273,18 @@ export default function MapScreen() {
         if (!granted) {
           Alert.alert(
             'Location Required',
-            'Please enable location services to see nearby places on the map.',
+            'Please enable location services to see nearby places.',
             [{ text: 'OK' }]
           );
           setLoading(false);
+          setRefreshing(false);
           return;
         }
         // Try again after permission
         const retryLocation = await getCurrentLocation();
         if (!retryLocation) {
           setLoading(false);
+          setRefreshing(false);
           return;
         }
         setUserLocation({ latitude: retryLocation.latitude, longitude: retryLocation.longitude });
@@ -142,6 +314,7 @@ export default function MapScreen() {
       Alert.alert('Error', 'Could not load nearby places. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [getCurrentLocation, requestPermission]);
 
@@ -150,32 +323,10 @@ export default function MapScreen() {
     loadData();
   }, []);
 
-  // Center map on user location when it changes
-  useEffect(() => {
-    if (userLocation && mapRef.current && mapReady) {
-      mapRef.current.animateToRegion({
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      }, 1000);
-    }
-  }, [userLocation, mapReady]);
-
-  // Handle marker press
-  const handleMarkerPress = (place: NearbyPlace) => {
+  // Handle place selection
+  const handlePlacePress = (place: NearbyPlace) => {
     setSelectedPlace(place);
-    bottomSheetRef.current?.expand();
-    
-    // Animate map to the selected place
-    if (mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: place.latitude,
-        longitude: place.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 500);
-    }
+    setModalVisible(true);
   };
 
   // Handle check-in
@@ -210,8 +361,8 @@ export default function MapScreen() {
       );
       
       // Refresh places to update activity
-      loadData();
-      bottomSheetRef.current?.close();
+      loadData(false);
+      setModalVisible(false);
       setSelectedPlace(null);
       
     } catch (e: any) {
@@ -234,32 +385,12 @@ export default function MapScreen() {
     }
   };
 
-  // Re-center map on user
-  const centerOnUser = () => {
-    if (userLocation && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      }, 500);
-    }
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData(false);
   };
 
-  // Default region (fallback if no location)
-  const initialRegion = userLocation ? {
-    latitude: userLocation.latitude,
-    longitude: userLocation.longitude,
-    latitudeDelta: 0.02,
-    longitudeDelta: 0.02,
-  } : {
-    latitude: 40.7128,
-    longitude: -74.0060,
-    latitudeDelta: 0.02,
-    longitudeDelta: 0.02,
-  };
-
-  if (loading && !userLocation) {
+  if (loading && !places.length) {
     return (
       <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
         <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
@@ -270,204 +401,137 @@ export default function MapScreen() {
     );
   }
 
+  // Sort places by activity level
+  const sortedPlaces = [...places].sort((a, b) => {
+    const order = { trending: 0, high: 1, medium: 2, low: 3, none: 4 };
+    return (order[a.activity_level as keyof typeof order] || 5) - (order[b.activity_level as keyof typeof order] || 5);
+  });
+
+  // Count places by activity
+  const activityCounts = {
+    trending: places.filter(p => p.activity_level === 'trending').length,
+    high: places.filter(p => p.activity_level === 'high').length,
+    medium: places.filter(p => p.activity_level === 'medium').length,
+    low: places.filter(p => p.activity_level === 'low').length,
+  };
+
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          initialRegion={initialRegion}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-          onMapReady={() => setMapReady(true)}
-          customMapStyle={mapDarkStyle}
-        >
-          {places.map((place) => (
-            <Marker
-              key={place.id}
-              coordinate={{
-                latitude: place.latitude,
-                longitude: place.longitude,
-              }}
-              onPress={() => handleMarkerPress(place)}
-            >
-              <View style={[
-                styles.markerContainer,
-                { backgroundColor: getMarkerColor(place.activity_level) }
-              ]}>
-                <Ionicons 
-                  name={place.activity_level === 'trending' ? 'flame' : 'location'} 
-                  size={16} 
-                  color="#fff" 
-                />
-              </View>
-            </Marker>
-          ))}
-        </MapView>
-
-        {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <Text style={styles.headerTitle}>Map</Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={loadData}>
-            <Ionicons name="refresh" size={22} color="#ff7b35" />
-          </TouchableOpacity>
+    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View>
+          <Text style={styles.headerTitle}>Nearby</Text>
+          <Text style={styles.headerSubtitle}>
+            {places.length} places within 2km
+          </Text>
         </View>
-
-        {/* Center on user button */}
-        <TouchableOpacity 
-          style={[styles.centerButton, { bottom: insets.bottom + 120 }]}
-          onPress={centerOnUser}
-        >
-          <Ionicons name="locate" size={24} color="#ff7b35" />
+        <TouchableOpacity style={styles.refreshButton} onPress={() => loadData(true)}>
+          <Ionicons name="refresh" size={22} color="#ff7b35" />
         </TouchableOpacity>
-
-        {/* Legend */}
-        <View style={[styles.legend, { top: insets.top + 70 }]}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#ff5533' }]} />
-            <Text style={styles.legendText}>Trending</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#ff9800' }]} />
-            <Text style={styles.legendText}>High</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#ffc107' }]} />
-            <Text style={styles.legendText}>Medium</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#4caf50' }]} />
-            <Text style={styles.legendText}>Low</Text>
-          </View>
-        </View>
-
-        {/* Places count */}
-        {places.length > 0 && (
-          <View style={[styles.placesCount, { bottom: insets.bottom + 180 }]}>
-            <Ionicons name="business" size={14} color="#fff" />
-            <Text style={styles.placesCountText}>{places.length} places nearby</Text>
-          </View>
-        )}
       </View>
 
-      {/* Bottom Sheet for Place Details */}
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={-1}
-        snapPoints={snapPoints}
-        enablePanDownToClose={true}
-        backgroundStyle={styles.bottomSheetBackground}
-        handleIndicatorStyle={styles.bottomSheetIndicator}
-        onChange={(index) => {
-          if (index === -1) {
-            setSelectedPlace(null);
+      {/* Activity Summary */}
+      <View style={styles.summaryContainer}>
+        <View style={styles.summaryItem}>
+          <View style={[styles.summaryDot, { backgroundColor: '#ff5533' }]} />
+          <Text style={styles.summaryText}>{activityCounts.trending} Trending</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <View style={[styles.summaryDot, { backgroundColor: '#ff9800' }]} />
+          <Text style={styles.summaryText}>{activityCounts.high} High</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <View style={[styles.summaryDot, { backgroundColor: '#ffc107' }]} />
+          <Text style={styles.summaryText}>{activityCounts.medium} Medium</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <View style={[styles.summaryDot, { backgroundColor: '#4caf50' }]} />
+          <Text style={styles.summaryText}>{activityCounts.low} Low</Text>
+        </View>
+      </View>
+
+      {/* Places List */}
+      {places.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="location-outline" size={64} color="rgba(255,255,255,0.3)" />
+          <Text style={styles.emptyTitle}>No places found nearby</Text>
+          <Text style={styles.emptySubtitle}>Try refreshing or check back later</Text>
+          <TouchableOpacity style={styles.emptyButton} onPress={() => loadData(true)}>
+            <Text style={styles.emptyButtonText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.placesList}
+          contentContainerStyle={styles.placesContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#ff7b35"
+            />
           }
-        }}
-      >
-        <BottomSheetView style={styles.bottomSheetContent}>
-          {selectedPlace && (
-            <>
-              {/* Place header */}
-              <View style={styles.placeHeader}>
-                <View style={styles.placeInfo}>
-                  <View style={styles.placeNameRow}>
-                    <Text style={styles.placeName}>{selectedPlace.name}</Text>
-                    {selectedPlace.is_trending && (
-                      <Text style={styles.trendingEmoji}>🔥</Text>
-                    )}
-                  </View>
-                  <Text style={styles.placeType}>
-                    {selectedPlace.type} • {selectedPlace.distance}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Activity Bar */}
-              <View style={[
-                styles.activityContainer, 
-                { backgroundColor: getActivityColors(selectedPlace.activity_level).bg }
-              ]}>
-                <View style={styles.activityBarBg}>
-                  <LinearGradient
-                    colors={getActivityColors(selectedPlace.activity_level).bar}
-                    style={[styles.activityBarFill, { width: getActivityBarWidth(selectedPlace.activity_level) }]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+        >
+          {/* Section: Trending & High Activity */}
+          {sortedPlaces.filter(p => p.activity_level === 'trending' || p.activity_level === 'high').length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Hot Right Now 🔥</Text>
+              {sortedPlaces
+                .filter(p => p.activity_level === 'trending' || p.activity_level === 'high')
+                .map((place) => (
+                  <PlaceMapCard 
+                    key={place.id} 
+                    place={place}
+                    onPress={() => handlePlacePress(place)}
                   />
-                </View>
-                <Text style={[
-                  styles.activityLabel, 
-                  { color: getActivityColors(selectedPlace.activity_level).text }
-                ]}>
-                  {selectedPlace.activity_label}
-                </Text>
-              </View>
-
-              {/* Address if available */}
-              {selectedPlace.address && (
-                <View style={styles.addressContainer}>
-                  <Ionicons name="location-outline" size={16} color="rgba(255,255,255,0.5)" />
-                  <Text style={styles.addressText}>{selectedPlace.address}</Text>
-                </View>
-              )}
-
-              {/* Check-in Button */}
-              <TouchableOpacity 
-                style={[styles.checkInButton, checkingIn && styles.checkInButtonDisabled]}
-                onPress={handleCheckIn}
-                disabled={checkingIn}
-              >
-                {checkingIn ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="location" size={20} color="#fff" />
-                    <Text style={styles.checkInButtonText}>Check In Here</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </>
+                ))}
+            </View>
           )}
-        </BottomSheetView>
-      </BottomSheet>
-    </GestureHandlerRootView>
+
+          {/* Section: Other Places */}
+          {sortedPlaces.filter(p => p.activity_level !== 'trending' && p.activity_level !== 'high').length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Other Places</Text>
+              {sortedPlaces
+                .filter(p => p.activity_level !== 'trending' && p.activity_level !== 'high')
+                .map((place) => (
+                  <PlaceMapCard 
+                    key={place.id} 
+                    place={place}
+                    onPress={() => handlePlacePress(place)}
+                  />
+                ))}
+            </View>
+          )}
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Tap a place to check in
+            </Text>
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Place Detail Modal */}
+      <PlaceDetailModal
+        visible={modalVisible}
+        place={selectedPlace}
+        onCheckIn={handleCheckIn}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedPlace(null);
+        }}
+        checkingIn={checkingIn}
+      />
+    </LinearGradient>
   );
 }
-
-// Dark map style for better visibility
-const mapDarkStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1d1d2d' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1d1d2d' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263c3f' }] },
-  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6b9a76' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#746855' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
-  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#f3d19c' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
-  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
-  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] },
-];
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a0a2e',
-  },
-  mapContainer: {
-    flex: 1,
-  },
-  map: {
-    width: width,
-    height: height,
   },
   loadingContainer: {
     flex: 1,
@@ -480,21 +544,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: 'rgba(26, 10, 46, 0.9)',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#fff',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 2,
   },
   refreshButton: {
     width: 44,
@@ -504,110 +568,179 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  markerContainer: {
-    width: 32,
-    height: 32,
+  summaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: 20,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    marginBottom: 16,
   },
-  centerButton: {
-    position: 'absolute',
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(26, 10, 46, 0.95)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 123, 53, 0.3)',
-  },
-  legend: {
-    position: 'absolute',
-    left: 16,
-    backgroundColor: 'rgba(26, 10, 46, 0.9)',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  legendItem: {
+  summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 3,
+    gap: 6,
   },
-  legendDot: {
+  summaryDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginRight: 8,
   },
-  legendText: {
+  summaryText: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
-  },
-  placesCount: {
-    position: 'absolute',
-    left: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(26, 10, 46, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  placesCountText: {
-    color: '#fff',
-    fontSize: 13,
     fontWeight: '500',
   },
-  // Bottom Sheet styles
-  bottomSheetBackground: {
+  placesList: {
+    flex: 1,
+  },
+  placesContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  placeMapCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  activityDot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  placeMapInfo: {
+    flex: 1,
+  },
+  placeMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  placeMapName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    flex: 1,
+  },
+  placeMapType: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 2,
+  },
+  placeMapActivity: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptySubtitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  emptyButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#ff7b35',
+    borderRadius: 20,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.3)',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
     backgroundColor: '#1a0a2e',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  bottomSheetIndicator: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    width: 40,
+  modalClose: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bottomSheetContent: {
-    padding: 20,
-    paddingTop: 8,
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  placeHeader: {
-    marginBottom: 16,
+  modalActivityDot: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
-  placeInfo: {
+  modalTitleContainer: {
     flex: 1,
   },
-  placeNameRow: {
+  modalNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  placeName: {
+  modalPlaceName: {
     fontSize: 22,
     fontWeight: '700',
     color: '#fff',
   },
-  trendingEmoji: {
-    fontSize: 18,
-  },
-  placeType: {
+  modalPlaceType: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 4,
@@ -615,7 +748,7 @@ const styles = StyleSheet.create({
   activityContainer: {
     borderRadius: 12,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   activityBarBg: {
     height: 6,
@@ -637,12 +770,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   addressText: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
     flex: 1,
+  },
+  sourceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 20,
+  },
+  sourceText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 12,
   },
   checkInButton: {
     flexDirection: 'row',
@@ -652,7 +795,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff7b35',
     paddingVertical: 16,
     borderRadius: 25,
-    marginTop: 8,
   },
   checkInButtonDisabled: {
     opacity: 0.7,
