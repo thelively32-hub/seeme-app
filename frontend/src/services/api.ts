@@ -218,6 +218,14 @@ class ApiService {
     return this.request(query);
   }
 
+  // Nearby Places with Google Places integration
+  async getNearbyPlaces(lat: number, lng: number, radius?: number, limit?: number) {
+    let query = `/api/places/nearby?lat=${lat}&lng=${lng}`;
+    if (radius) query += `&radius=${radius}`;
+    if (limit) query += `&limit=${limit}`;
+    return this.request(query);
+  }
+
   // Stats
   async getUserStats() {
     return this.request('/api/stats/user');

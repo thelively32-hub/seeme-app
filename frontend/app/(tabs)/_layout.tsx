@@ -43,9 +43,9 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="radar"
+        name="map"
         options={{
-          title: 'Radar',
+          title: 'Map',
           tabBarIcon: ({ color, size }) => (
             <View style={{ 
               width: 50, 
@@ -61,8 +61,17 @@ export default function TabsLayout() {
               shadowRadius: 10,
               elevation: 8,
             }}>
-              <Ionicons name="radio" size={26} color="#fff" />
+              <Ionicons name="map" size={26} color="#fff" />
             </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="radar"
+        options={{
+          title: 'Radar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="radio" size={size} color={color} />
           ),
         }}
       />

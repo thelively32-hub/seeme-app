@@ -1,4 +1,5 @@
 import os
+import httpx
 from datetime import datetime, timedelta
 from typing import Optional, List
 from contextlib import asynccontextmanager
@@ -14,6 +15,10 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 load_dotenv()
+
+# Google Places API Configuration
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyCPKT55qhr18vD63d91A5Ys6NoZvsq3D0s")
+GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
 # ============== CONFIGURATION ==============
 
@@ -635,6 +640,224 @@ async def get_places(
     return result
 
 
+# Configuration for nearby places
+NEARBY_RADIUS_METERS = int(os.getenv("NEARBY_RADIUS_METERS", "2000"))  # 2km default for Google Places
+NEARBY_MAX_PLACES = int(os.getenv("NEARBY_MAX_PLACES", "25"))
+
+
+# ============== GOOGLE PLACES INTEGRATION ==============
+
+class NearbyPlaceResponse(BaseModel):
+    """Response model for nearby places including Google Places data"""
+    id: str
+    name: str
+    type: str
+    latitude: float
+    longitude: float
+    address: Optional[str] = None
+    activity_level: str
+    activity_label: str
+    is_trending: bool
+    distance: Optional[str] = None
+    google_place_id: Optional[str] = None
+    source: str = "internal"  # "internal" or "google"
+
+
+async def fetch_google_places(lat: float, lng: float, radius: int = 2000) -> List[dict]:
+    """
+    Fetch nearby bars and nightclubs from Google Places API.
+    Returns raw place data from Google.
+    """
+    places = []
+    
+    # Search for bars
+    bar_params = {
+        "location": f"{lat},{lng}",
+        "radius": radius,
+        "type": "bar",
+        "key": GOOGLE_PLACES_API_KEY
+    }
+    
+    # Search for night clubs
+    club_params = {
+        "location": f"{lat},{lng}",
+        "radius": radius,
+        "type": "night_club",
+        "key": GOOGLE_PLACES_API_KEY
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # Fetch bars
+            bar_response = await client.get(GOOGLE_PLACES_URL, params=bar_params, timeout=10.0)
+            if bar_response.status_code == 200:
+                bar_data = bar_response.json()
+                if bar_data.get("status") == "OK":
+                    for place in bar_data.get("results", []):
+                        places.append({
+                            "name": place.get("name"),
+                            "place_id": place.get("place_id"),
+                            "latitude": place.get("geometry", {}).get("location", {}).get("lat"),
+                            "longitude": place.get("geometry", {}).get("location", {}).get("lng"),
+                            "address": place.get("vicinity", ""),
+                            "type": "Bar",
+                            "source": "google"
+                        })
+                else:
+                    print(f"Google Places API bar search: {bar_data.get('status')}")
+            
+            # Fetch clubs
+            club_response = await client.get(GOOGLE_PLACES_URL, params=club_params, timeout=10.0)
+            if club_response.status_code == 200:
+                club_data = club_response.json()
+                if club_data.get("status") == "OK":
+                    for place in club_data.get("results", []):
+                        # Check if already added from bar search
+                        if not any(p.get("place_id") == place.get("place_id") for p in places):
+                            places.append({
+                                "name": place.get("name"),
+                                "place_id": place.get("place_id"),
+                                "latitude": place.get("geometry", {}).get("location", {}).get("lat"),
+                                "longitude": place.get("geometry", {}).get("location", {}).get("lng"),
+                                "address": place.get("vicinity", ""),
+                                "type": "Nightclub",
+                                "source": "google"
+                            })
+                else:
+                    print(f"Google Places API club search: {club_data.get('status')}")
+                    
+        except httpx.TimeoutException:
+            print("Google Places API timeout")
+        except Exception as e:
+            print(f"Google Places API error: {e}")
+    
+    return places
+
+
+async def save_google_place_to_db(place_data: dict) -> str:
+    """
+    Save a Google Place to MongoDB if it doesn't exist.
+    Returns the MongoDB document ID.
+    """
+    google_place_id = place_data.get("place_id")
+    
+    # Check if place already exists by google_place_id
+    existing = await places_collection.find_one({"google_place_id": google_place_id})
+    
+    if existing:
+        return str(existing["_id"])
+    
+    # Create new place document
+    new_place = {
+        "name": place_data.get("name"),
+        "type": place_data.get("type", "Bar"),
+        "address": place_data.get("address", ""),
+        "latitude": place_data.get("latitude"),
+        "longitude": place_data.get("longitude"),
+        "google_place_id": google_place_id,
+        "source": "google",
+        "created_at": datetime.utcnow(),
+    }
+    
+    result = await places_collection.insert_one(new_place)
+    print(f"Saved new Google Place: {place_data.get('name')} (ID: {result.inserted_id})")
+    return str(result.inserted_id)
+
+
+@app.get("/api/places/nearby", response_model=List[NearbyPlaceResponse], tags=["Places"])
+async def get_nearby_places(
+    lat: float,
+    lng: float,
+    radius: Optional[int] = None,
+    limit: Optional[int] = None
+):
+    """
+    Get places near a specific location combining:
+    1. Internal database places
+    2. Google Places API results (bars and nightclubs)
+    
+    New Google places are automatically saved to the database.
+    Activity levels are calculated for all places.
+    """
+    # Cleanup expired check-ins first
+    await cleanup_expired_checkins()
+    
+    search_radius = radius or NEARBY_RADIUS_METERS
+    max_places = limit or NEARBY_MAX_PLACES
+    
+    # Step 1: Fetch from Google Places API
+    google_places = await fetch_google_places(lat, lng, search_radius)
+    print(f"Found {len(google_places)} places from Google Places API")
+    
+    # Step 2: Save new Google places to database and collect IDs
+    google_place_ids = set()
+    for gp in google_places:
+        if gp.get("latitude") and gp.get("longitude"):
+            place_id = await save_google_place_to_db(gp)
+            google_place_ids.add(place_id)
+    
+    # Step 3: Get all places from database within radius
+    cursor = places_collection.find({})
+    all_db_places = await cursor.to_list(length=200)
+    
+    # Step 4: Filter by distance and build response
+    places_with_distance = []
+    
+    for p in all_db_places:
+        if not p.get("latitude") or not p.get("longitude"):
+            continue
+            
+        distance_m = calculate_distance_meters(lat, lng, p["latitude"], p["longitude"])
+        
+        # Only include places within radius
+        if distance_m <= search_radius:
+            places_with_distance.append({
+                "place": p,
+                "distance_m": distance_m
+            })
+    
+    # Sort by distance (closest first)
+    places_with_distance.sort(key=lambda x: x["distance_m"])
+    
+    # Limit results
+    places_with_distance = places_with_distance[:max_places]
+    
+    # Step 5: Build response with activity data
+    result = []
+    for item in places_with_distance:
+        p = item["place"]
+        place_id = str(p["_id"])
+        distance_m = item["distance_m"]
+        
+        # Get REAL activity count
+        active_count = await get_active_checkins_count(place_id)
+        activity = calculate_activity_level(active_count)
+        
+        # Format distance
+        if distance_m >= 1000:
+            distance_str = f"{distance_m / 1000:.1f} km"
+        else:
+            distance_str = f"{int(distance_m)} m"
+        
+        result.append(NearbyPlaceResponse(
+            id=place_id,
+            name=p["name"],
+            type=p.get("type", "Bar"),
+            latitude=p["latitude"],
+            longitude=p["longitude"],
+            address=p.get("address"),
+            activity_level=activity["level"],
+            activity_label=activity["label"],
+            is_trending=activity["is_trending"],
+            distance=distance_str,
+            google_place_id=p.get("google_place_id"),
+            source=p.get("source", "internal")
+        ))
+    
+    print(f"Returning {len(result)} nearby places for ({lat}, {lng})")
+    return result
+
+
 @app.get("/api/places/{place_id}", response_model=PlaceResponse, tags=["Places"])
 async def get_place(place_id: str):
     """Get single place details with real activity"""
@@ -662,6 +885,63 @@ async def get_place(place_id: str):
         is_trending=activity["is_trending"],
         activity_updated_at=datetime.utcnow(),
     )
+
+
+@app.post("/api/places/seed-nearby", tags=["Places"])
+async def seed_nearby_places(
+    lat: float,
+    lng: float,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Seed sample places near a specific location (for demo/testing).
+    Creates 6 sample places within 2km of the given coordinates.
+    """
+    import random
+    
+    # Check if there are already places near this location
+    existing = await places_collection.count_documents({})
+    
+    # Sample place templates
+    place_types = [
+        {"name": "Neon Club", "type": "Nightclub", "desc": "The hottest nightclub in town"},
+        {"name": "Skybar Rooftop", "type": "Bar", "desc": "Stunning views and craft cocktails"},
+        {"name": "The Social House", "type": "Lounge", "desc": "Relaxed vibes and great conversations"},
+        {"name": "Velvet Room", "type": "Club", "desc": "Exclusive club experience"},
+        {"name": "Cafe Luna", "type": "Cafe", "desc": "Cozy cafe with live music"},
+        {"name": "Pulse Nightclub", "type": "Nightclub", "desc": "EDM and house music paradise"},
+        {"name": "The Whiskey Bar", "type": "Bar", "desc": "Premium whiskeys and jazz"},
+        {"name": "Rooftop 360", "type": "Bar", "desc": "360 degree city views"},
+    ]
+    
+    created = []
+    for i, template in enumerate(place_types):
+        # Generate random offset (within 2km)
+        lat_offset = random.uniform(-0.015, 0.015)  # ~1.5km
+        lng_offset = random.uniform(-0.015, 0.015)
+        
+        place = {
+            "name": f"{template['name']} {existing + i + 1}",
+            "type": template["type"],
+            "address": f"{100 + i * 10} Main Street",
+            "latitude": lat + lat_offset,
+            "longitude": lng + lng_offset,
+            "description": template["desc"],
+            "created_at": datetime.utcnow(),
+        }
+        
+        result = await places_collection.insert_one(place)
+        created.append({
+            "id": str(result.inserted_id),
+            "name": place["name"],
+            "latitude": place["latitude"],
+            "longitude": place["longitude"]
+        })
+    
+    return {
+        "message": f"Created {len(created)} places near ({lat}, {lng})",
+        "places": created
+    }
 
 
 # ============== CHECK-IN ENDPOINTS ==============
