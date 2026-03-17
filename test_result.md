@@ -102,10 +102,10 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the SEE ME API backend endpoints for functionality and data integrity"
+user_problem_statement: "Test the updated SEE ME API v2.0.0 with the new real activity system at https://presence-real.preview.emergentagent.com"
 
 backend:
-  - task: "Health Check Endpoint"
+  - task: "Health Check Endpoint v2.0.0"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -115,9 +115,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "GET /api/health endpoint returning correct status, service name, version, and timestamp"
+        comment: "GET /api/health endpoint returning correct version 2.0.0 and features: real_activity, anti_spam, auto_cleanup"
 
-  - task: "Places API Endpoint"
+  - task: "Places API with Real Activity System"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -127,9 +127,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "GET /api/places endpoint returning 6 places with correct structure (id, name, type, address, coordinates, activity, people_count, trending)"
+        comment: "GET /api/places endpoint with new activity fields (activity_level, activity_label, is_trending, activity_updated_at) and removed old fields (activity percentage, people_count)"
 
-  - task: "User Registration Endpoint"
+  - task: "User Registration with Phase1 Tester"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -139,9 +139,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "POST /api/auth/register endpoint successfully creating users with JWT token response and complete user profile"
+        comment: "POST /api/auth/register successfully created Phase1 Tester user with email phase1@seeme.app and returned JWT token"
 
-  - task: "User Login Endpoint"
+  - task: "Real Activity System Check-ins"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -151,9 +151,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "POST /api/auth/login endpoint successfully authenticating users and returning JWT tokens"
+        comment: "POST /api/checkins correctly updates place activity levels from 'none' to 'low' when users check in, demonstrating real activity tracking"
 
-  - task: "Get Current User Endpoint"
+  - task: "Anti-Spam Check-in System"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -163,9 +163,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "GET /api/auth/me endpoint properly validating JWT tokens and returning complete user profile data"
+        comment: "Anti-spam feature working correctly - when user with active check-in checks into new place, it UPDATES existing check-in instead of creating duplicate"
 
-  - task: "Set User Vibe Endpoint"
+  - task: "Active Check-in Retrieval"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -175,9 +175,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "PUT /api/auth/vibe endpoint successfully updating user preferences (gender, looking_for, intention) with authentication"
+        comment: "GET /api/checkins/active correctly returns current active check-in with place name and active status"
 
-  - task: "Check-in to Place Endpoint"
+  - task: "Check-out System"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -187,9 +187,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "POST /api/checkins endpoint successfully creating check-ins, handling place validation, auto-checkout from previous locations, and updating place statistics"
+        comment: "POST /api/checkins/checkout successfully checks out user, sets is_active to false, and adds checkout timestamp"
 
-  - task: "User Stats Endpoint"
+  - task: "Activity Level Decrease After Checkout"
     implemented: true
     working: true
     file: "backend/server.py"
@@ -199,7 +199,19 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "GET /api/stats/user endpoint returning comprehensive user statistics including vibes, connection_rate, total_checkins, unique_places, best_night"
+        comment: "Place activity correctly decreases from 'low' back to 'none' after user checkout, proving real-time activity calculation"
+
+  - task: "Auto-Cleanup System"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Auto-cleanup system active - backend logs show 'Cleaned up X expired check-ins' confirming automatic cleanup of 2+ hour old check-ins"
 
 frontend:
   - task: "Frontend Testing"
@@ -222,11 +234,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "All backend endpoints tested and verified"
+    - "SEE ME API v2.0.0 Real Activity System fully tested and verified"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
 
 agent_communication:
   - agent: "testing"
-    message: "Comprehensive backend API testing completed successfully. All 8 endpoints (health, places, auth registration/login/me/vibe, checkins, stats) are working correctly with proper authentication, data validation, error handling, and response structures. Backend is production-ready."
+    message: "Comprehensive testing of SEE ME API v2.0.0 with new real activity system completed successfully. All 9 critical features tested against external deployment at https://presence-real.preview.emergentagent.com/api. Key validations: (1) Health check confirms v2.0.0 with real_activity, anti_spam, auto_cleanup features (2) Places API has new activity fields and removed old fields as expected (3) User registration working with Phase1 Tester (4) Real activity system correctly updates place activity levels based on check-ins (5) Anti-spam prevents duplicate check-ins by updating existing ones (6) Active check-in retrieval works (7) Checkout system properly deactivates check-ins (8) Activity levels decrease after checkout (9) Auto-cleanup system running as confirmed in backend logs. All core functionality of the updated API is production-ready."

@@ -18,28 +18,40 @@ class ApiService {
 
   private async loadToken() {
     try {
+      // Skip on server-side rendering
       if (Platform.OS === 'web' && typeof window === 'undefined') {
         return;
       }
       this.token = await AsyncStorage.getItem(TOKEN_KEY);
     } catch (e) {
-      console.log('Token not loaded yet');
+      // Token will be loaded when needed
     }
   }
 
   async setToken(token: string) {
     this.token = token;
-    await AsyncStorage.setItem(TOKEN_KEY, token);
+    try {
+      await AsyncStorage.setItem(TOKEN_KEY, token);
+    } catch (e) {
+      console.log('Could not save token');
+    }
   }
 
   async clearToken() {
     this.token = null;
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    await AsyncStorage.removeItem(USER_KEY);
+    try {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      await AsyncStorage.removeItem(USER_KEY);
+    } catch (e) {
+      // Ignore
+    }
   }
 
   async getStoredUser() {
     try {
+      if (Platform.OS === 'web' && typeof window === 'undefined') {
+        return null;
+      }
       const user = await AsyncStorage.getItem(USER_KEY);
       return user ? JSON.parse(user) : null;
     } catch (e) {
@@ -48,11 +60,20 @@ class ApiService {
   }
 
   async setStoredUser(user: any) {
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    try {
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    } catch (e) {
+      // Ignore
+    }
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_URL}${endpoint}`;
+    
+    // Ensure token is loaded
+    if (!this.initialized) {
+      await this.init();
+    }
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -124,7 +145,7 @@ class ApiService {
     await this.clearToken();
   }
 
-  // Places
+  // Places - Updated for new activity system
   async getPlaces(type?: string, trending?: boolean, limit?: number) {
     let query = '/api/places?';
     if (type) query += `type=${type}&`;
@@ -149,6 +170,10 @@ class ApiService {
     return this.request('/api/checkins/checkout', {
       method: 'POST',
     });
+  }
+
+  async getActiveCheckin() {
+    return this.request('/api/checkins/active');
   }
 
   async getCheckinHistory(limit?: number) {

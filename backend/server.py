@@ -12,7 +12,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-import random
 
 load_dotenv()
 
@@ -36,22 +35,9 @@ db = client.seeme_db
 users_collection = db.users
 places_collection = db.places
 checkins_collection = db.checkins
-connections_collection = db.connections
 
 
 # ============== MODELS ==============
-
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v, values=None):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-
 
 # User Models
 class UserCreate(BaseModel):
@@ -93,26 +79,20 @@ class TokenResponse(BaseModel):
 
 
 # Place Models
-class PlaceBase(BaseModel):
+class PlaceResponse(BaseModel):
+    id: str
     name: str
-    type: str  # club, bar, lounge, cafe, restaurant
+    type: str
     address: str
     latitude: float
     longitude: float
     description: Optional[str] = None
-
-
-class PlaceCreate(PlaceBase):
-    pass
-
-
-class PlaceResponse(PlaceBase):
-    id: str
-    activity: int = 0  # 0-100
-    people_count: int = 0
-    trending: bool = False
+    # New activity fields
+    activity_level: str  # none, low, medium, high, trending
+    activity_label: str
+    is_trending: bool
+    activity_updated_at: datetime
     distance: Optional[str] = None
-    created_at: datetime
 
 
 # Check-in Models
@@ -131,17 +111,91 @@ class CheckInResponse(BaseModel):
     is_active: bool = True
 
 
-# Connection Models
-class ConnectionRequest(BaseModel):
-    target_user_id: str
+# ============== ACTIVITY SYSTEM ==============
+
+async def get_active_checkins_count(place_id: str) -> int:
+    """
+    Count REAL active check-ins for a place.
+    - Must be active (is_active=True)
+    - Must be recent (< 2 hours)
+    - Must not have checked out (checked_out_at=None)
+    """
+    two_hours_ago = datetime.utcnow() - timedelta(hours=2)
+    
+    count = await checkins_collection.count_documents({
+        "place_id": place_id,
+        "is_active": True,
+        "checked_in_at": {"$gte": two_hours_ago},
+        "checked_out_at": None
+    })
+    
+    return count
 
 
-class ConnectionResponse(BaseModel):
-    id: str
-    user_id: str
-    target_user_id: str
-    status: str  # pending, accepted, rejected
-    created_at: datetime
+def calculate_activity_level(active_count: int) -> dict:
+    """
+    Calculate activity level based on active check-ins.
+    Thresholds:
+    - trending: 20+
+    - high: 10-19
+    - medium: 4-9
+    - low: 1-3
+    - none: 0
+    """
+    if active_count >= 20:
+        return {
+            "level": "trending",
+            "label": "Trending now 🔥",
+            "is_trending": True
+        }
+    elif active_count >= 10:
+        return {
+            "level": "high",
+            "label": "High activity",
+            "is_trending": False
+        }
+    elif active_count >= 4:
+        return {
+            "level": "medium",
+            "label": "Getting busy",
+            "is_trending": False
+        }
+    elif active_count >= 1:
+        return {
+            "level": "low",
+            "label": "Low activity",
+            "is_trending": False
+        }
+    else:
+        return {
+            "level": "none",
+            "label": "Be the first one here 👀",
+            "is_trending": False
+        }
+
+
+async def cleanup_expired_checkins():
+    """
+    Mark check-ins older than 2 hours as inactive.
+    This prevents zombie check-ins from inflating activity.
+    """
+    two_hours_ago = datetime.utcnow() - timedelta(hours=2)
+    
+    result = await checkins_collection.update_many(
+        {
+            "is_active": True,
+            "checked_in_at": {"$lt": two_hours_ago},
+            "checked_out_at": None
+        },
+        {
+            "$set": {
+                "is_active": False,
+                "checked_out_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    return result.modified_count
 
 
 # ============== HELPERS ==============
@@ -198,6 +252,22 @@ def user_to_response(user: dict) -> UserResponse:
     )
 
 
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance in km between two points (simplified)"""
+    from math import radians, sin, cos, sqrt, atan2
+    
+    R = 6371  # Earth's radius in km
+    
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    
+    return R * c
+
+
 # ============== LIFESPAN ==============
 
 @asynccontextmanager
@@ -206,6 +276,12 @@ async def lifespan(app: FastAPI):
     await users_collection.create_index("email", unique=True)
     await places_collection.create_index([("latitude", 1), ("longitude", 1)])
     await checkins_collection.create_index([("user_id", 1), ("is_active", 1)])
+    await checkins_collection.create_index([("place_id", 1), ("is_active", 1)])
+    await checkins_collection.create_index("checked_in_at")
+    
+    # Cleanup expired check-ins on startup
+    expired_count = await cleanup_expired_checkins()
+    print(f"Cleaned up {expired_count} expired check-ins")
     
     # Seed sample places if empty
     if await places_collection.count_documents({}) == 0:
@@ -221,7 +297,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SEE ME API",
     description="Real-time social presence platform API",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -246,9 +322,6 @@ async def seed_sample_places():
             "latitude": 40.7128,
             "longitude": -74.0060,
             "description": "The hottest nightclub in town",
-            "activity": 92,
-            "people_count": 156,
-            "trending": True,
             "created_at": datetime.utcnow(),
         },
         {
@@ -258,9 +331,6 @@ async def seed_sample_places():
             "latitude": 40.7580,
             "longitude": -73.9855,
             "description": "Stunning views and craft cocktails",
-            "activity": 78,
-            "people_count": 89,
-            "trending": True,
             "created_at": datetime.utcnow(),
         },
         {
@@ -270,9 +340,6 @@ async def seed_sample_places():
             "latitude": 40.7489,
             "longitude": -73.9680,
             "description": "Relaxed vibes and great conversations",
-            "activity": 65,
-            "people_count": 52,
-            "trending": False,
             "created_at": datetime.utcnow(),
         },
         {
@@ -282,9 +349,6 @@ async def seed_sample_places():
             "latitude": 40.7264,
             "longitude": -73.9897,
             "description": "Exclusive club experience",
-            "activity": 45,
-            "people_count": 34,
-            "trending": False,
             "created_at": datetime.utcnow(),
         },
         {
@@ -294,9 +358,6 @@ async def seed_sample_places():
             "latitude": 40.7233,
             "longitude": -74.0030,
             "description": "Cozy cafe with live music",
-            "activity": 38,
-            "people_count": 18,
-            "trending": False,
             "created_at": datetime.utcnow(),
         },
         {
@@ -306,9 +367,6 @@ async def seed_sample_places():
             "latitude": 40.7410,
             "longitude": -74.0080,
             "description": "EDM and house music paradise",
-            "activity": 85,
-            "people_count": 203,
-            "trending": True,
             "created_at": datetime.utcnow(),
         },
     ]
@@ -320,12 +378,10 @@ async def seed_sample_places():
 @app.post("/api/auth/register", response_model=TokenResponse, tags=["Auth"])
 async def register(user_data: UserCreate):
     """Register a new user"""
-    # Check if user exists
     existing = await users_collection.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
     user_dict = {
         "name": user_data.name,
         "email": user_data.email,
@@ -343,7 +399,6 @@ async def register(user_data: UserCreate):
     result = await users_collection.insert_one(user_dict)
     user_dict["_id"] = result.inserted_id
     
-    # Create token
     token = create_access_token(data={"sub": str(result.inserted_id)})
     
     return TokenResponse(
@@ -395,46 +450,81 @@ async def set_vibe(vibe_data: UserVibe, current_user: dict = Depends(get_current
 async def get_places(
     type: Optional[str] = None,
     trending: Optional[bool] = None,
-    limit: int = 20
+    limit: int = 20,
+    user_lat: Optional[float] = None,
+    user_lon: Optional[float] = None
 ):
-    """Get list of places with activity levels"""
+    """
+    Get list of places with REAL activity levels.
+    Activity is calculated from actual check-ins.
+    """
+    # Cleanup expired check-ins first
+    await cleanup_expired_checkins()
+    
     query = {}
     if type:
         query["type"] = type
-    if trending is not None:
-        query["trending"] = trending
     
-    cursor = places_collection.find(query).limit(limit).sort("activity", -1)
+    cursor = places_collection.find(query).limit(limit)
     places = await cursor.to_list(length=limit)
     
-    return [
-        PlaceResponse(
-            id=str(p["_id"]),
+    result = []
+    for p in places:
+        place_id = str(p["_id"])
+        
+        # Get REAL activity count
+        active_count = await get_active_checkins_count(place_id)
+        activity = calculate_activity_level(active_count)
+        
+        # Filter by trending if requested
+        if trending is not None and activity["is_trending"] != trending:
+            continue
+        
+        # Calculate distance if user location provided
+        distance = None
+        if user_lat and user_lon:
+            dist_km = calculate_distance(user_lat, user_lon, p["latitude"], p["longitude"])
+            distance = f"{dist_km:.1f} km"
+        else:
+            # Mock distance for demo
+            import random
+            distance = f"{random.uniform(0.1, 2.0):.1f} km"
+        
+        result.append(PlaceResponse(
+            id=place_id,
             name=p["name"],
             type=p["type"],
             address=p["address"],
             latitude=p["latitude"],
             longitude=p["longitude"],
             description=p.get("description"),
-            activity=p.get("activity", 0),
-            people_count=p.get("people_count", 0),
-            trending=p.get("trending", False),
-            distance=f"{random.uniform(0.1, 2.0):.1f} km",  # Mock distance
-            created_at=p.get("created_at", datetime.utcnow()),
-        )
-        for p in places
-    ]
+            activity_level=activity["level"],
+            activity_label=activity["label"],
+            is_trending=activity["is_trending"],
+            activity_updated_at=datetime.utcnow(),
+            distance=distance,
+        ))
+    
+    # Sort by activity level (trending first)
+    level_order = {"trending": 0, "high": 1, "medium": 2, "low": 3, "none": 4}
+    result.sort(key=lambda x: level_order.get(x.activity_level, 5))
+    
+    return result
 
 
 @app.get("/api/places/{place_id}", response_model=PlaceResponse, tags=["Places"])
 async def get_place(place_id: str):
-    """Get single place details"""
+    """Get single place details with real activity"""
     if not ObjectId.is_valid(place_id):
         raise HTTPException(status_code=400, detail="Invalid place ID")
     
     place = await places_collection.find_one({"_id": ObjectId(place_id)})
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")
+    
+    # Get REAL activity
+    active_count = await get_active_checkins_count(place_id)
+    activity = calculate_activity_level(active_count)
     
     return PlaceResponse(
         id=str(place["_id"]),
@@ -444,10 +534,10 @@ async def get_place(place_id: str):
         latitude=place["latitude"],
         longitude=place["longitude"],
         description=place.get("description"),
-        activity=place.get("activity", 0),
-        people_count=place.get("people_count", 0),
-        trending=place.get("trending", False),
-        created_at=place.get("created_at", datetime.utcnow()),
+        activity_level=activity["level"],
+        activity_label=activity["label"],
+        is_trending=activity["is_trending"],
+        activity_updated_at=datetime.utcnow(),
     )
 
 
@@ -458,7 +548,10 @@ async def check_in(
     checkin_data: CheckInCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    """Check in to a place"""
+    """
+    Check in to a place.
+    ANTI-SPAM: If user already has active check-in, UPDATE it instead of creating new.
+    """
     # Validate place exists
     if not ObjectId.is_valid(checkin_data.place_id):
         raise HTTPException(status_code=400, detail="Invalid place ID")
@@ -467,27 +560,45 @@ async def check_in(
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")
     
-    # Check if already checked in somewhere
-    active_checkin = await checkins_collection.find_one({
-        "user_id": str(current_user["_id"]),
-        "is_active": True
+    user_id = str(current_user["_id"])
+    
+    # ANTI-SPAM: Check if user already has an active check-in
+    existing_checkin = await checkins_collection.find_one({
+        "user_id": user_id,
+        "is_active": True,
+        "checked_out_at": None
     })
     
-    if active_checkin:
-        # Auto checkout from previous location
+    if existing_checkin:
+        # UPDATE existing check-in instead of creating new
+        # This prevents users from inflating activity
         await checkins_collection.update_one(
-            {"_id": active_checkin["_id"]},
-            {"$set": {"is_active": False, "checked_out_at": datetime.utcnow()}}
+            {"_id": existing_checkin["_id"]},
+            {"$set": {
+                "place_id": checkin_data.place_id,
+                "place_name": place["name"],
+                "checked_in_at": datetime.utcnow()
+            }}
         )
-        # Decrease people count at old place
-        await places_collection.update_one(
-            {"_id": ObjectId(active_checkin["place_id"])},
-            {"$inc": {"people_count": -1}}
+        
+        # Add vibes to user
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$inc": {"vibes": 1}}
+        )
+        
+        return CheckInResponse(
+            id=str(existing_checkin["_id"]),
+            user_id=user_id,
+            place_id=checkin_data.place_id,
+            place_name=place["name"],
+            checked_in_at=datetime.utcnow(),
+            is_active=True
         )
     
     # Create new check-in
     checkin = {
-        "user_id": str(current_user["_id"]),
+        "user_id": user_id,
         "place_id": checkin_data.place_id,
         "place_name": place["name"],
         "checked_in_at": datetime.utcnow(),
@@ -497,21 +608,6 @@ async def check_in(
     
     result = await checkins_collection.insert_one(checkin)
     
-    # Increase people count and update activity
-    new_count = place.get("people_count", 0) + 1
-    new_activity = min(100, int(new_count * 0.5) + random.randint(10, 30))
-    
-    await places_collection.update_one(
-        {"_id": ObjectId(checkin_data.place_id)},
-        {
-            "$inc": {"people_count": 1},
-            "$set": {
-                "activity": new_activity,
-                "trending": new_activity >= 70
-            }
-        }
-    )
-    
     # Add vibes to user
     await users_collection.update_one(
         {"_id": current_user["_id"]},
@@ -520,7 +616,7 @@ async def check_in(
     
     return CheckInResponse(
         id=str(result.inserted_id),
-        user_id=str(current_user["_id"]),
+        user_id=user_id,
         place_id=checkin_data.place_id,
         place_name=place["name"],
         checked_in_at=checkin["checked_in_at"],
@@ -533,7 +629,8 @@ async def check_out(current_user: dict = Depends(get_current_user)):
     """Check out from current place"""
     active_checkin = await checkins_collection.find_one({
         "user_id": str(current_user["_id"]),
-        "is_active": True
+        "is_active": True,
+        "checked_out_at": None
     })
     
     if not active_checkin:
@@ -543,13 +640,10 @@ async def check_out(current_user: dict = Depends(get_current_user)):
     
     await checkins_collection.update_one(
         {"_id": active_checkin["_id"]},
-        {"$set": {"is_active": False, "checked_out_at": checkout_time}}
-    )
-    
-    # Decrease people count
-    await places_collection.update_one(
-        {"_id": ObjectId(active_checkin["place_id"])},
-        {"$inc": {"people_count": -1}}
+        {"$set": {
+            "is_active": False,
+            "checked_out_at": checkout_time
+        }}
     )
     
     return CheckInResponse(
@@ -560,6 +654,28 @@ async def check_out(current_user: dict = Depends(get_current_user)):
         checked_in_at=active_checkin["checked_in_at"],
         checked_out_at=checkout_time,
         is_active=False
+    )
+
+
+@app.get("/api/checkins/active", response_model=Optional[CheckInResponse], tags=["Check-ins"])
+async def get_active_checkin(current_user: dict = Depends(get_current_user)):
+    """Get user's current active check-in"""
+    active_checkin = await checkins_collection.find_one({
+        "user_id": str(current_user["_id"]),
+        "is_active": True,
+        "checked_out_at": None
+    })
+    
+    if not active_checkin:
+        return None
+    
+    return CheckInResponse(
+        id=str(active_checkin["_id"]),
+        user_id=active_checkin["user_id"],
+        place_id=active_checkin["place_id"],
+        place_name=active_checkin["place_name"],
+        checked_in_at=active_checkin["checked_in_at"],
+        is_active=True
     )
 
 
@@ -594,32 +710,47 @@ async def get_checkin_history(
 @app.get("/api/stats/user", tags=["Stats"])
 async def get_user_stats(current_user: dict = Depends(get_current_user)):
     """Get user statistics"""
+    user_id = str(current_user["_id"])
+    
     # Count total check-ins
     total_checkins = await checkins_collection.count_documents({
-        "user_id": str(current_user["_id"])
+        "user_id": user_id
     })
     
     # Get unique places visited
     pipeline = [
-        {"$match": {"user_id": str(current_user["_id"])}},
+        {"$match": {"user_id": user_id}},
         {"$group": {"_id": "$place_id"}},
         {"$count": "unique_places"}
     ]
     result = await checkins_collection.aggregate(pipeline).to_list(1)
     unique_places = result[0]["unique_places"] if result else 0
     
-    # Calculate best night (mock for now)
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    best_night = random.choice(["Friday", "Saturday"])
+    # Get current active check-in
+    active_checkin = await checkins_collection.find_one({
+        "user_id": user_id,
+        "is_active": True,
+        "checked_out_at": None
+    })
     
     return {
         "vibes": current_user.get("vibes", 0),
         "connection_rate": current_user.get("connection_rate", 0),
         "total_checkins": total_checkins,
         "unique_places": unique_places,
-        "best_night": best_night,
+        "best_night": "Saturday",  # TODO: Calculate from data
         "is_premium": current_user.get("is_premium", False),
+        "current_place": active_checkin["place_name"] if active_checkin else None,
     }
+
+
+# ============== ADMIN/DEBUG ENDPOINTS ==============
+
+@app.post("/api/admin/cleanup", tags=["Admin"])
+async def force_cleanup():
+    """Force cleanup of expired check-ins (for testing)"""
+    expired_count = await cleanup_expired_checkins()
+    return {"cleaned_up": expired_count}
 
 
 # ============== HEALTH CHECK ==============
@@ -630,8 +761,13 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "SEE ME API",
-        "version": "1.0.0",
-        "timestamp": datetime.utcnow().isoformat()
+        "version": "2.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "features": {
+            "real_activity": True,
+            "anti_spam": True,
+            "auto_cleanup": True
+        }
     }
 
 
