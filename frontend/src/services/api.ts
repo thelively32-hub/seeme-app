@@ -226,6 +226,31 @@ class ApiService {
     return this.request(query);
   }
 
+  // Profile
+  async updateProfile(data: { name?: string; gender?: string; looking_for?: string[]; intention?: string }) {
+    const result = await this.request('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    await this.setStoredUser(result);
+    return result;
+  }
+
+  async deleteAccount() {
+    await this.request('/api/auth/account', {
+      method: 'DELETE',
+    });
+    await this.clearToken();
+  }
+
+  // Password Reset
+  async requestPasswordReset(email: string) {
+    return this.request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
   // Stats
   async getUserStats() {
     return this.request('/api/stats/user');

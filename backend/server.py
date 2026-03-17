@@ -1,11 +1,13 @@
 import os
 import httpx
+import time
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict
 from contextlib import asynccontextmanager
+from collections import defaultdict
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
@@ -19,6 +21,27 @@ load_dotenv()
 # Google Places API Configuration
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyCPKT55qhr18vD63d91A5Ys6NoZvsq3D0s")
 GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+
+# ============== RATE LIMITING ==============
+# Simple in-memory rate limiter
+rate_limit_store: Dict[str, List[float]] = defaultdict(list)
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX_REQUESTS = 30  # max requests per window
+
+def check_rate_limit(client_ip: str) -> bool:
+    """Check if client is within rate limits"""
+    now = time.time()
+    window_start = now - RATE_LIMIT_WINDOW
+    
+    # Clean old entries
+    rate_limit_store[client_ip] = [t for t in rate_limit_store[client_ip] if t > window_start]
+    
+    # Check limit
+    if len(rate_limit_store[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
+        return False
+    
+    rate_limit_store[client_ip].append(now)
+    return True
 
 # ============== CONFIGURATION ==============
 
@@ -570,6 +593,69 @@ async def set_vibe(vibe_data: UserVibe, current_user: dict = Depends(get_current
     
     updated = await users_collection.find_one({"_id": current_user["_id"]})
     return user_to_response(updated)
+
+
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    gender: Optional[str] = None
+    looking_for: Optional[List[str]] = None
+    intention: Optional[str] = None
+
+
+@app.put("/api/auth/profile", response_model=UserResponse, tags=["Auth"])
+async def update_profile(profile_data: ProfileUpdate, current_user: dict = Depends(get_current_user)):
+    """Update user profile"""
+    update_dict = {}
+    if profile_data.name is not None:
+        update_dict["name"] = profile_data.name.strip()
+    if profile_data.gender is not None:
+        update_dict["gender"] = profile_data.gender
+    if profile_data.looking_for is not None:
+        update_dict["looking_for"] = profile_data.looking_for
+    if profile_data.intention is not None:
+        update_dict["intention"] = profile_data.intention
+    
+    if update_dict:
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": update_dict}
+        )
+    
+    updated = await users_collection.find_one({"_id": current_user["_id"]})
+    return user_to_response(updated)
+
+
+@app.delete("/api/auth/account", tags=["Auth"])
+async def delete_account(current_user: dict = Depends(get_current_user)):
+    """Delete user account and all associated data"""
+    user_id = str(current_user["_id"])
+    
+    # Delete user's check-ins
+    await checkins_collection.delete_many({"user_id": user_id})
+    
+    # Delete check-in logs
+    await checkin_logs_collection.delete_many({"user_id": user_id})
+    
+    # Delete user
+    await users_collection.delete_one({"_id": current_user["_id"]})
+    
+    return {"message": "Account deleted successfully"}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+@app.post("/api/auth/forgot-password", tags=["Auth"])
+async def forgot_password(request: ForgotPasswordRequest):
+    """Request password reset (placeholder - returns success without sending email)"""
+    # In production, you would:
+    # 1. Generate a reset token
+    # 2. Store it with expiry
+    # 3. Send email with reset link
+    
+    # For MVP, we just return success to not leak if email exists
+    return {"message": "If this email exists, you will receive reset instructions."}
 
 
 # ============== PLACES ENDPOINTS ==============

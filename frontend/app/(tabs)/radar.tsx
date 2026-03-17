@@ -1,18 +1,100 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../../src/services/api';
+import useLocation from '../../src/hooks/useLocation';
 
 const { width } = Dimensions.get('window');
 
+interface NearbyStats {
+  total: number;
+  hot: number;
+  active: number;
+  chill: number;
+}
+
 export default function RadarScreen() {
   const insets = useSafeAreaInsets();
+  const [stats, setStats] = useState<NearbyStats>({ total: 0, hot: 0, active: 0, chill: 0 });
+  const [loading, setLoading] = useState(true);
+  const { getCurrentLocation } = useLocation();
+  
+  // Animation for radar sweep
+  const sweepAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Radar sweep animation
+    Animated.loop(
+      Animated.timing(sweepAnim, {
+        toValue: 1,
+        duration: 3000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        const places = await api.getNearbyPlaces(
+          location.latitude,
+          location.longitude,
+          2000,
+          25
+        );
+        
+        const hot = places.filter((p: any) => p.activity_level === 'trending' || p.activity_level === 'high').length;
+        const active = places.filter((p: any) => p.activity_level === 'medium').length;
+        const chill = places.filter((p: any) => p.activity_level === 'low' || p.activity_level === 'none').length;
+        
+        setStats({ total: places.length, hot, active, chill });
+      }
+    } catch (e) {
+      console.log('Error loading radar stats:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [getCurrentLocation]);
+
+  useEffect(() => {
+    loadStats();
+    const interval = setInterval(loadStats, 30000);
+    return () => clearInterval(interval);
+  }, [loadStats]);
+
+  const sweepRotate = sweepAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
@@ -20,50 +102,67 @@ export default function RadarScreen() {
         <Text style={styles.title}>Social Radar</Text>
         <Text style={styles.subtitle}>Social energy around you</Text>
 
-        {/* Radar visualization placeholder */}
+        {/* Radar visualization */}
         <View style={styles.radarContainer}>
           <View style={styles.radarRing3} />
           <View style={styles.radarRing2} />
           <View style={styles.radarRing1} />
-          <View style={styles.radarCenter}>
-            <Ionicons name="radio" size={32} color="#ff7b35" />
-          </View>
           
-          {/* Sample blips */}
-          <View style={[styles.blip, { top: '25%', left: '30%' }]}>
-            <View style={[styles.blipDot, { backgroundColor: '#ff5533' }]} />
-          </View>
-          <View style={[styles.blip, { top: '35%', right: '25%' }]}>
-            <View style={[styles.blipDot, { backgroundColor: '#ffc107' }]} />
-          </View>
-          <View style={[styles.blip, { bottom: '30%', left: '40%' }]}>
-            <View style={[styles.blipDot, { backgroundColor: '#4caf50' }]} />
-          </View>
+          {/* Sweep animation */}
+          <Animated.View 
+            style={[
+              styles.radarSweep,
+              { transform: [{ rotate: sweepRotate }] }
+            ]}
+          >
+            <LinearGradient
+              colors={['rgba(255, 123, 53, 0.4)', 'transparent']}
+              style={styles.sweepGradient}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+          </Animated.View>
+
+          {/* Center with pulse */}
+          <Animated.View style={[styles.radarCenter, { transform: [{ scale: pulseAnim }] }]}>
+            <Ionicons name="radio" size={28} color="#ff7b35" />
+          </Animated.View>
         </View>
 
-        {/* Legend */}
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#ff5533' }]} />
-            <Text style={styles.legendText}>Hot Vibe</Text>
+        {/* Stats Cards */}
+        {loading ? (
+          <ActivityIndicator size="small" color="#ff7b35" style={{ marginTop: 30 }} />
+        ) : (
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <View style={[styles.statDot, { backgroundColor: '#ff5533' }]} />
+              <Text style={styles.statValue}>{stats.hot}</Text>
+              <Text style={styles.statLabel}>Hot Vibe</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statDot, { backgroundColor: '#ffc107' }]} />
+              <Text style={styles.statValue}>{stats.active}</Text>
+              <Text style={styles.statLabel}>Active</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statDot, { backgroundColor: '#4caf50' }]} />
+              <Text style={styles.statValue}>{stats.chill}</Text>
+              <Text style={styles.statLabel}>Chill</Text>
+            </View>
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#ffc107' }]} />
-            <Text style={styles.legendText}>Active</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#4caf50' }]} />
-            <Text style={styles.legendText}>Chill</Text>
-          </View>
-        </View>
+        )}
 
-        <Text style={styles.premiumHint}>
-          Upgrade to SEE ME LIVE for real-time radar updates
-        </Text>
+        {/* Total places */}
+        <View style={styles.totalContainer}>
+          <Ionicons name="business" size={16} color="rgba(255,255,255,0.5)" />
+          <Text style={styles.totalText}>{stats.total} places nearby</Text>
+        </View>
       </View>
     </LinearGradient>
   );
 }
+
+const radarSize = width - 100;
 
 const styles = StyleSheet.create({
   container: {
@@ -83,27 +182,27 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: 'rgba(255,255,255,0.6)',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   radarContainer: {
-    width: width - 80,
-    height: width - 80,
+    width: radarSize,
+    height: radarSize,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   radarRing1: {
     position: 'absolute',
-    width: '40%',
-    height: '40%',
+    width: '35%',
+    height: '35%',
     borderRadius: 1000,
     borderWidth: 1,
     borderColor: 'rgba(255, 123, 53, 0.3)',
   },
   radarRing2: {
     position: 'absolute',
-    width: '70%',
-    height: '70%',
+    width: '65%',
+    height: '65%',
     borderRadius: 1000,
     borderWidth: 1,
     borderColor: 'rgba(255, 123, 53, 0.2)',
@@ -116,52 +215,73 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 123, 53, 0.1)',
   },
+  radarSweep: {
+    position: 'absolute',
+    width: '50%',
+    height: '50%',
+    top: 0,
+    left: '25%',
+    transformOrigin: 'center bottom',
+  },
+  sweepGradient: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 1000,
+    borderTopRightRadius: 1000,
+  },
   radarCenter: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: 'rgba(255, 123, 53, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#ff7b35',
   },
-  blip: {
-    position: 'absolute',
-  },
-  blipDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  legend: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
-    marginTop: 40,
+    gap: 16,
+    marginTop: 30,
   },
-  legendItem: {
-    flexDirection: 'row',
+  statCard: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
-    gap: 6,
+    minWidth: 90,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  statDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginBottom: 8,
   },
-  legendText: {
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  statLabel: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
   },
-  premiumHint: {
+  totalContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  totalText: {
     fontSize: 14,
-    color: '#ff7b35',
-    marginTop: 40,
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.5)',
   },
 });
