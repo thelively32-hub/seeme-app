@@ -15,6 +15,13 @@ from jose import JWTError, jwt
 
 load_dotenv()
 
+# ============== CONFIGURATION ==============
+
+# Check-in radius in meters (configurable)
+CHECKIN_RADIUS_METERS = int(os.getenv("CHECKIN_RADIUS", "75"))
+# Maximum acceptable GPS accuracy in meters
+MAX_GPS_ACCURACY_METERS = int(os.getenv("MAX_GPS_ACCURACY", "50"))
+
 # JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "seeme-super-secret-key-2024-change-in-production")
 ALGORITHM = "HS256"
@@ -35,6 +42,7 @@ db = client.seeme_db
 users_collection = db.users
 places_collection = db.places
 checkins_collection = db.checkins
+checkin_logs_collection = db.checkin_logs  # GPS validation logs
 
 
 # ============== MODELS ==============
@@ -98,7 +106,11 @@ class PlaceResponse(BaseModel):
 # Check-in Models
 class CheckInCreate(BaseModel):
     place_id: str
-    qr_code: Optional[str] = None
+    # GPS validation fields
+    user_latitude: Optional[float] = None
+    user_longitude: Optional[float] = None
+    gps_accuracy: Optional[float] = None  # Accuracy in meters
+    is_mocked: Optional[bool] = False  # True if mock location detected
 
 
 class CheckInResponse(BaseModel):
@@ -111,7 +123,118 @@ class CheckInResponse(BaseModel):
     is_active: bool = True
 
 
+# Location validation models
+class LocationValidation(BaseModel):
+    place_id: str
+    user_latitude: float
+    user_longitude: float
+    gps_accuracy: float  # Accuracy in meters
+    is_mocked: bool = False
+
+
+class LocationValidationResponse(BaseModel):
+    valid: bool
+    distance_meters: float
+    accuracy_meters: float
+    within_radius: bool
+    accuracy_acceptable: bool
+    error_message: Optional[str] = None
+    can_checkin: bool
+
+
+# Check-in attempt log model
+class CheckInAttemptLog(BaseModel):
+    user_id: str
+    place_id: str
+    distance_meters: float
+    accuracy_meters: float
+    result: str  # success, failed_distance, failed_accuracy, failed_mocked
+    timestamp: datetime
+
+
 # ============== ACTIVITY SYSTEM ==============
+
+def calculate_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance in METERS between two points using Haversine formula"""
+    from math import radians, sin, cos, sqrt, atan2
+    
+    R = 6371000  # Earth's radius in METERS
+    
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    
+    return R * c
+
+
+async def validate_location_for_checkin(
+    user_lat: float,
+    user_lon: float,
+    place_lat: float,
+    place_lon: float,
+    gps_accuracy: float,
+    is_mocked: bool = False
+) -> dict:
+    """
+    Validate if user location is valid for check-in.
+    Returns validation result with details.
+    """
+    # Calculate distance
+    distance = calculate_distance_meters(user_lat, user_lon, place_lat, place_lon)
+    
+    # Check if within radius
+    within_radius = distance <= CHECKIN_RADIUS_METERS
+    
+    # Check if accuracy is acceptable
+    accuracy_acceptable = gps_accuracy <= MAX_GPS_ACCURACY_METERS
+    
+    # Determine if check-in is allowed
+    can_checkin = within_radius and accuracy_acceptable and not is_mocked
+    
+    # Generate appropriate error message
+    error_message = None
+    if is_mocked:
+        error_message = "Mock location detected. Please disable mock locations to check in."
+    elif not accuracy_acceptable:
+        error_message = f"GPS signal too weak (accuracy: {gps_accuracy:.0f}m). Move to an open area and try again."
+    elif not within_radius:
+        error_message = f"You're {distance:.0f}m away. Move closer to check in ({CHECKIN_RADIUS_METERS}m required)."
+    
+    return {
+        "valid": can_checkin,
+        "distance_meters": round(distance, 1),
+        "accuracy_meters": round(gps_accuracy, 1),
+        "within_radius": within_radius,
+        "accuracy_acceptable": accuracy_acceptable,
+        "is_mocked": is_mocked,
+        "error_message": error_message,
+        "can_checkin": can_checkin,
+        "radius_required": CHECKIN_RADIUS_METERS,
+        "accuracy_required": MAX_GPS_ACCURACY_METERS
+    }
+
+
+async def log_checkin_attempt(
+    user_id: str,
+    place_id: str,
+    distance: float,
+    accuracy: float,
+    result: str
+):
+    """Log check-in attempt for debugging and fraud detection"""
+    log_entry = {
+        "user_id": user_id,
+        "place_id": place_id,
+        "distance_meters": distance,
+        "accuracy_meters": accuracy,
+        "result": result,  # success, failed_distance, failed_accuracy, failed_mocked
+        "timestamp": datetime.utcnow()
+    }
+    await checkin_logs_collection.insert_one(log_entry)
+    print(f"Check-in attempt logged: user={user_id}, place={place_id}, distance={distance:.1f}m, result={result}")
 
 async def get_active_checkins_count(place_id: str) -> int:
     """
@@ -543,13 +666,52 @@ async def get_place(place_id: str):
 
 # ============== CHECK-IN ENDPOINTS ==============
 
+@app.post("/api/checkins/validate-location", response_model=LocationValidationResponse, tags=["Check-ins"])
+async def validate_checkin_location(
+    location_data: LocationValidation,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Validate if user's location allows check-in to a place.
+    Call this BEFORE attempting check-in.
+    """
+    # Validate place exists
+    if not ObjectId.is_valid(location_data.place_id):
+        raise HTTPException(status_code=400, detail="Invalid place ID")
+    
+    place = await places_collection.find_one({"_id": ObjectId(location_data.place_id)})
+    if not place:
+        raise HTTPException(status_code=404, detail="Place not found")
+    
+    # Validate location
+    validation = await validate_location_for_checkin(
+        user_lat=location_data.user_latitude,
+        user_lon=location_data.user_longitude,
+        place_lat=place["latitude"],
+        place_lon=place["longitude"],
+        gps_accuracy=location_data.gps_accuracy,
+        is_mocked=location_data.is_mocked
+    )
+    
+    return LocationValidationResponse(
+        valid=validation["valid"],
+        distance_meters=validation["distance_meters"],
+        accuracy_meters=validation["accuracy_meters"],
+        within_radius=validation["within_radius"],
+        accuracy_acceptable=validation["accuracy_acceptable"],
+        error_message=validation["error_message"],
+        can_checkin=validation["can_checkin"]
+    )
+
+
 @app.post("/api/checkins", response_model=CheckInResponse, tags=["Check-ins"])
 async def check_in(
     checkin_data: CheckInCreate,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Check in to a place.
+    Check in to a place with GPS validation.
+    Requires valid location data for verified check-ins.
     ANTI-SPAM: If user already has active check-in, UPDATE it instead of creating new.
     """
     # Validate place exists
@@ -562,6 +724,52 @@ async def check_in(
     
     user_id = str(current_user["_id"])
     
+    # GPS VALIDATION (if location data provided)
+    validation_result = "no_gps"
+    distance = 0.0
+    accuracy = 0.0
+    
+    if checkin_data.user_latitude is not None and checkin_data.user_longitude is not None:
+        # Validate location
+        validation = await validate_location_for_checkin(
+            user_lat=checkin_data.user_latitude,
+            user_lon=checkin_data.user_longitude,
+            place_lat=place["latitude"],
+            place_lon=place["longitude"],
+            gps_accuracy=checkin_data.gps_accuracy or 100,  # Default high if not provided
+            is_mocked=checkin_data.is_mocked or False
+        )
+        
+        distance = validation["distance_meters"]
+        accuracy = validation["accuracy_meters"]
+        
+        # Log the attempt
+        if not validation["can_checkin"]:
+            # Determine failure reason
+            if checkin_data.is_mocked:
+                validation_result = "failed_mocked"
+            elif not validation["accuracy_acceptable"]:
+                validation_result = "failed_accuracy"
+            else:
+                validation_result = "failed_distance"
+            
+            # Log the failed attempt
+            await log_checkin_attempt(user_id, checkin_data.place_id, distance, accuracy, validation_result)
+            
+            # Return user-friendly error
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "location_invalid",
+                    "message": validation["error_message"],
+                    "distance_meters": distance,
+                    "accuracy_meters": accuracy,
+                    "radius_required": CHECKIN_RADIUS_METERS
+                }
+            )
+        
+        validation_result = "success"
+    
     # ANTI-SPAM: Check if user already has an active check-in
     existing_checkin = await checkins_collection.find_one({
         "user_id": user_id,
@@ -571,13 +779,14 @@ async def check_in(
     
     if existing_checkin:
         # UPDATE existing check-in instead of creating new
-        # This prevents users from inflating activity
         await checkins_collection.update_one(
             {"_id": existing_checkin["_id"]},
             {"$set": {
                 "place_id": checkin_data.place_id,
                 "place_name": place["name"],
-                "checked_in_at": datetime.utcnow()
+                "checked_in_at": datetime.utcnow(),
+                "gps_validated": validation_result == "success",
+                "distance_meters": distance if validation_result != "no_gps" else None,
             }}
         )
         
@@ -586,6 +795,10 @@ async def check_in(
             {"_id": current_user["_id"]},
             {"$inc": {"vibes": 1}}
         )
+        
+        # Log successful check-in
+        if validation_result != "no_gps":
+            await log_checkin_attempt(user_id, checkin_data.place_id, distance, accuracy, validation_result)
         
         return CheckInResponse(
             id=str(existing_checkin["_id"]),
@@ -604,6 +817,8 @@ async def check_in(
         "checked_in_at": datetime.utcnow(),
         "checked_out_at": None,
         "is_active": True,
+        "gps_validated": validation_result == "success",
+        "distance_meters": distance if validation_result != "no_gps" else None,
     }
     
     result = await checkins_collection.insert_one(checkin)
@@ -613,6 +828,10 @@ async def check_in(
         {"_id": current_user["_id"]},
         {"$inc": {"vibes": 1}}
     )
+    
+    # Log successful check-in
+    if validation_result != "no_gps":
+        await log_checkin_attempt(user_id, checkin_data.place_id, distance, accuracy, validation_result)
     
     return CheckInResponse(
         id=str(result.inserted_id),

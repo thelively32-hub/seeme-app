@@ -10,11 +10,13 @@ import {
   RefreshControl,
   Alert,
   Animated,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
+import useLocation from '../../src/hooks/useLocation';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +29,8 @@ interface Place {
   type: string;
   address: string;
   distance: string;
+  latitude: number;
+  longitude: number;
   activity_level: string;
   activity_label: string;
   is_trending: boolean;
@@ -110,7 +114,15 @@ const TrendingBadge = () => {
   );
 };
 
-const PlaceCard = ({ place, onCheckIn }: { place: Place; onCheckIn: (place: Place) => void }) => {
+const PlaceCard = ({ 
+  place, 
+  onCheckIn,
+  isCheckingIn,
+}: { 
+  place: Place; 
+  onCheckIn: (place: Place) => void;
+  isCheckingIn: boolean;
+}) => {
   const colors = getActivityColors(place.activity_level);
   const barWidth = getActivityBarWidth(place.activity_level);
 
@@ -149,17 +161,63 @@ const PlaceCard = ({ place, onCheckIn }: { place: Place; onCheckIn: (place: Plac
         {/* Actions */}
         <View style={styles.placeActions}>
           <TouchableOpacity 
-            style={styles.checkInButton}
+            style={[styles.checkInButton, isCheckingIn && styles.checkInButtonDisabled]}
             onPress={() => onCheckIn(place)}
+            disabled={isCheckingIn}
           >
-            <Ionicons name="location" size={18} color="#ff7b35" />
-            <Text style={styles.checkInText}>Check In</Text>
+            {isCheckingIn ? (
+              <ActivityIndicator size="small" color="#ff7b35" />
+            ) : (
+              <>
+                <Ionicons name="location" size={18} color="#ff7b35" />
+                <Text style={styles.checkInText}>Check In</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </LinearGradient>
     </TouchableOpacity>
   );
 };
+
+// Check-in error modal component
+const CheckInErrorModal = ({
+  visible,
+  message,
+  onRetry,
+  onClose,
+}: {
+  visible: boolean;
+  message: string;
+  onRetry: () => void;
+  onClose: () => void;
+}) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="fade"
+    onRequestClose={onClose}
+  >
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <View style={styles.modalIcon}>
+          <Ionicons name="location-outline" size={48} color="#ff7b35" />
+        </View>
+        <Text style={styles.modalTitle}>Can't check in yet</Text>
+        <Text style={styles.modalMessage}>{message}</Text>
+        <View style={styles.modalButtons}>
+          <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+            <Ionicons name="refresh" size={20} color="#fff" />
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+);
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -168,7 +226,15 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [checkingInPlaceId, setCheckingInPlaceId] = useState<string | null>(null);
+  const [errorModal, setErrorModal] = useState<{ visible: boolean; message: string; placeId: string | null }>({
+    visible: false,
+    message: '',
+    placeId: null,
+  });
+  
   const refreshTimer = useRef<NodeJS.Timeout | null>(null);
+  const { getCurrentLocation, permissionGranted, requestPermission, loading: locationLoading } = useLocation();
 
   const filters = [
     { id: 'all', label: 'All', icon: 'apps' },
@@ -224,16 +290,97 @@ export default function ExploreScreen() {
   };
 
   const handleCheckIn = async (place: Place) => {
+    setCheckingInPlaceId(place.id);
+    
     try {
-      await api.checkIn(place.id);
+      // Step 1: Get current location
+      const location = await getCurrentLocation();
+      
+      if (!location) {
+        // Location failed - show friendly error
+        setErrorModal({
+          visible: true,
+          message: "We need your location to verify check-in. Please enable GPS and try again.",
+          placeId: place.id,
+        });
+        setCheckingInPlaceId(null);
+        return;
+      }
+
+      // Step 2: Check for mocked location
+      if (location.isMocked) {
+        setErrorModal({
+          visible: true,
+          message: "Mock location detected. Please disable mock locations to check in.",
+          placeId: place.id,
+        });
+        setCheckingInPlaceId(null);
+        return;
+      }
+
+      // Step 3: Attempt check-in with location data
+      await api.checkIn(place.id, {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy,
+        isMocked: location.isMocked,
+      });
+
+      // Success!
       Alert.alert(
         '✓ Checked In!',
         `You're now at ${place.name}`,
         [{ text: 'OK' }]
       );
+      
       loadPlaces(false); // Refresh to update activity
+      
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Could not check in. Please try again.');
+      // Handle location validation errors from backend
+      let errorMessage = "Could not check in. Please try again.";
+      
+      if (e.message) {
+        try {
+          const parsed = JSON.parse(e.message);
+          if (parsed.message) {
+            errorMessage = parsed.message;
+          }
+        } catch {
+          errorMessage = e.message;
+        }
+      }
+      
+      // Check if it's a location error
+      if (errorMessage.includes("away") || errorMessage.includes("close") || errorMessage.includes("distance")) {
+        setErrorModal({
+          visible: true,
+          message: `You're not close enough to check in 📍\n\nMove closer to ${place.name} to activate check-in.`,
+          placeId: place.id,
+        });
+      } else if (errorMessage.includes("accuracy") || errorMessage.includes("GPS") || errorMessage.includes("signal")) {
+        setErrorModal({
+          visible: true,
+          message: "GPS signal too weak 📡\n\nMove to an open area for better GPS accuracy and try again.",
+          placeId: place.id,
+        });
+      } else {
+        Alert.alert('Check-in Failed', errorMessage);
+      }
+    } finally {
+      setCheckingInPlaceId(null);
+    }
+  };
+
+  const handleRetryCheckIn = async () => {
+    const placeId = errorModal.placeId;
+    setErrorModal({ visible: false, message: '', placeId: null });
+    
+    if (placeId) {
+      const place = places.find(p => p.id === placeId);
+      if (place) {
+        // Small delay before retry
+        setTimeout(() => handleCheckIn(place), 500);
+      }
     }
   };
 
@@ -332,6 +479,7 @@ export default function ExploreScreen() {
               key={place.id} 
               place={place}
               onCheckIn={handleCheckIn}
+              isCheckingIn={checkingInPlaceId === place.id}
             />
           ))}
           
@@ -343,6 +491,14 @@ export default function ExploreScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* Check-in Error Modal */}
+      <CheckInErrorModal
+        visible={errorModal.visible}
+        message={errorModal.message}
+        onRetry={handleRetryCheckIn}
+        onClose={() => setErrorModal({ visible: false, message: '', placeId: null })}
+      />
     </LinearGradient>
   );
 }
@@ -549,6 +705,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
+    minWidth: 100,
+    justifyContent: 'center',
+  },
+  checkInButtonDisabled: {
+    opacity: 0.7,
   },
   checkInText: {
     fontSize: 14,
@@ -562,5 +723,71 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.3)',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#1a0a2e',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 123, 53, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    width: '100%',
+    gap: 12,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ff7b35',
+    paddingVertical: 14,
+    borderRadius: 25,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  closeButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  closeButtonText: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.5)',
   },
 });

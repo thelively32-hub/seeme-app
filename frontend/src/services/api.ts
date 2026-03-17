@@ -158,11 +158,47 @@ class ApiService {
     return this.request(`/api/places/${placeId}`);
   }
 
-  // Check-ins
-  async checkIn(placeId: string, qrCode?: string) {
+  // Check-ins with GPS validation
+  async checkIn(
+    placeId: string,
+    location?: {
+      latitude: number;
+      longitude: number;
+      accuracy: number;
+      isMocked: boolean;
+    }
+  ) {
+    const body: any = { place_id: placeId };
+    
+    if (location) {
+      body.user_latitude = location.latitude;
+      body.user_longitude = location.longitude;
+      body.gps_accuracy = location.accuracy;
+      body.is_mocked = location.isMocked;
+    }
+    
     return this.request('/api/checkins', {
       method: 'POST',
-      body: JSON.stringify({ place_id: placeId, qr_code: qrCode }),
+      body: JSON.stringify(body),
+    });
+  }
+
+  async validateLocation(
+    placeId: string,
+    latitude: number,
+    longitude: number,
+    accuracy: number,
+    isMocked: boolean = false
+  ) {
+    return this.request('/api/checkins/validate-location', {
+      method: 'POST',
+      body: JSON.stringify({
+        place_id: placeId,
+        user_latitude: latitude,
+        user_longitude: longitude,
+        gps_accuracy: accuracy,
+        is_mocked: isMocked,
+      }),
     });
   }
 
