@@ -21,24 +21,7 @@ import useLocation from '../../src/hooks/useLocation';
 
 const { width, height } = Dimensions.get('window');
 
-// Check if we're on native platform for maps
-const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
-
-// Conditionally import native map components
-let MapView: any = null;
-let Marker: any = null;
-let PROVIDER_GOOGLE: any = null;
-
-if (isNative) {
-  try {
-    const RNMaps = require('react-native-maps');
-    MapView = RNMaps.default;
-    Marker = RNMaps.Marker;
-    PROVIDER_GOOGLE = RNMaps.PROVIDER_GOOGLE;
-  } catch (e) {
-    console.log('react-native-maps not available');
-  }
-}
+// Web doesn't support react-native-maps, so we use list view only
 
 interface NearbyPlace {
   id: string;
