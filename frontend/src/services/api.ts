@@ -227,7 +227,16 @@ class ApiService {
   }
 
   // Profile
-  async updateProfile(data: { name?: string; gender?: string; looking_for?: string[]; intention?: string }) {
+  async updateProfile(data: { 
+    name?: string; 
+    gender?: string; 
+    looking_for?: string[]; 
+    intention?: string;
+    bio?: string;
+    photo_url?: string;
+    age?: number;
+    status_message?: string;
+  }) {
     const result = await this.request('/api/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -494,6 +503,56 @@ class ApiService {
   // Get verification status
   async getVerificationStatus() {
     return this.request('/api/safety/verification-status');
+  }
+
+  // ============== PRESENCE & STATUS ==============
+
+  // Get suggested status messages
+  async getSuggestedStatusMessages() {
+    return this.request('/api/presence/status-messages');
+  }
+
+  // Update status message
+  async updateStatusMessage(message?: string, suggestedId?: string) {
+    return this.request('/api/presence/status', {
+      method: 'PUT',
+      body: JSON.stringify({
+        message,
+        suggested_id: suggestedId,
+      }),
+    });
+  }
+
+  // Clear status message
+  async clearStatusMessage() {
+    return this.request('/api/presence/status', {
+      method: 'DELETE',
+    });
+  }
+
+  // Toggle ghost mode (Premium only)
+  async toggleGhostMode(enabled: boolean) {
+    return this.request('/api/presence/ghost-mode', {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
+  // Update presence (GPS check)
+  async updatePresence(latitude: number, longitude: number, accuracy?: number) {
+    return this.request('/api/presence/update', {
+      method: 'POST',
+      body: JSON.stringify({
+        latitude,
+        longitude,
+        accuracy,
+      }),
+    });
+  }
+
+  // Get my presence status
+  async getMyPresence() {
+    return this.request('/api/presence/me');
   }
 
   // Health

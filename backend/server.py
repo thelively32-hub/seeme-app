@@ -47,7 +47,7 @@ def check_rate_limit(client_ip: str) -> bool:
 # ============== CONFIGURATION ==============
 
 # Check-in radius in meters (configurable)
-CHECKIN_RADIUS_METERS = int(os.getenv("CHECKIN_RADIUS", "75"))
+CHECKIN_RADIUS_METERS = int(os.getenv("CHECKIN_RADIUS", "30"))
 # Maximum acceptable GPS accuracy in meters
 MAX_GPS_ACCURACY_METERS = int(os.getenv("MAX_GPS_ACCURACY", "50"))
 
@@ -115,6 +115,13 @@ class UserResponse(BaseModel):
     vibes: int = 0
     connection_rate: float = 0.0
     is_premium: bool = False
+    is_verified: bool = False
+    # Presence system
+    is_present: bool = False  # True if actively at a checked-in location
+    status_message: Optional[str] = None  # "On my way to...", custom message
+    ghost_mode: bool = False  # Premium: hide from radar/map
+    current_place_id: Optional[str] = None
+    current_place_name: Optional[str] = None
     created_at: datetime
 
 
@@ -360,6 +367,39 @@ class ShareLocation(BaseModel):
 class PhotoVerification(BaseModel):
     """Submit photo for verification"""
     selfie_base64: str  # Base64 encoded selfie
+
+
+# ============== PRESENCE & STATUS MODELS ==============
+
+# Suggested status messages
+SUGGESTED_STATUS_MESSAGES = [
+    {"id": "on_my_way", "text": "On my way 🚗", "textEs": "En camino 🚗"},
+    {"id": "arriving_soon", "text": "Arriving soon ⏰", "textEs": "Llegando pronto ⏰"},
+    {"id": "just_arrived", "text": "Just arrived! 📍", "textEs": "Acabo de llegar! 📍"},
+    {"id": "looking_around", "text": "Looking around 👀", "textEs": "Mirando por aquí 👀"},
+    {"id": "at_the_bar", "text": "At the bar 🍸", "textEs": "En la barra 🍸"},
+    {"id": "on_the_dance_floor", "text": "On the dance floor 💃", "textEs": "En la pista 💃"},
+    {"id": "chilling", "text": "Just chilling 😎", "textEs": "Relajándome 😎"},
+    {"id": "ready_to_meet", "text": "Ready to meet people ✨", "textEs": "Listo para conocer gente ✨"},
+]
+
+
+class UpdateStatusMessage(BaseModel):
+    """Update user's status message"""
+    message: Optional[str] = Field(None, max_length=100)
+    suggested_id: Optional[str] = None  # Use a suggested message by ID
+
+
+class UpdateGhostMode(BaseModel):
+    """Toggle ghost mode (Premium only)"""
+    enabled: bool
+
+
+class PresenceUpdate(BaseModel):
+    """Update presence status based on GPS"""
+    latitude: float
+    longitude: float
+    accuracy: Optional[float] = None
 
 
 # Pre-defined vibe messages
@@ -792,6 +832,10 @@ class ProfileUpdate(BaseModel):
     gender: Optional[str] = None
     looking_for: Optional[List[str]] = None
     intention: Optional[str] = None
+    bio: Optional[str] = Field(None, max_length=500)
+    photo_url: Optional[str] = None
+    age: Optional[int] = Field(None, ge=18, le=100)
+    status_message: Optional[str] = Field(None, max_length=100)
 
 
 @app.put("/api/auth/profile", response_model=UserResponse, tags=["Auth"])
@@ -806,6 +850,14 @@ async def update_profile(profile_data: ProfileUpdate, current_user: dict = Depen
         update_dict["looking_for"] = profile_data.looking_for
     if profile_data.intention is not None:
         update_dict["intention"] = profile_data.intention
+    if profile_data.bio is not None:
+        update_dict["bio"] = profile_data.bio.strip()
+    if profile_data.photo_url is not None:
+        update_dict["photo_url"] = profile_data.photo_url
+    if profile_data.age is not None:
+        update_dict["age"] = profile_data.age
+    if profile_data.status_message is not None:
+        update_dict["status_message"] = profile_data.status_message.strip() if profile_data.status_message else None
     
     if update_dict:
         await users_collection.update_one(
@@ -1381,10 +1433,18 @@ async def check_in(
     
     result = await checkins_collection.insert_one(checkin)
     
-    # Add vibes to user
+    # Add vibes to user and UPDATE PRESENCE
     await users_collection.update_one(
         {"_id": current_user["_id"]},
-        {"$inc": {"vibes": 1}}
+        {
+            "$inc": {"vibes": 1},
+            "$set": {
+                "is_present": True,
+                "current_place_id": checkin_data.place_id,
+                "current_place_name": place["name"],
+                "last_checkin_at": datetime.utcnow()
+            }
+        }
     )
     
     # Log successful check-in
@@ -1420,6 +1480,16 @@ async def check_out(current_user: dict = Depends(get_current_user)):
         {"$set": {
             "is_active": False,
             "checked_out_at": checkout_time
+        }}
+    )
+    
+    # Clear presence status
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {
+            "is_present": False,
+            "current_place_id": None,
+            "current_place_name": None
         }}
     )
     
@@ -2421,6 +2491,201 @@ async def is_user_blocked(user_id: str, other_user_id: str) -> bool:
         ]
     })
     return block is not None
+
+
+# ============== PRESENCE & STATUS ENDPOINTS ==============
+
+@app.get("/api/presence/status-messages", tags=["Presence"])
+async def get_suggested_status_messages():
+    """Get list of suggested status messages"""
+    return SUGGESTED_STATUS_MESSAGES
+
+
+@app.put("/api/presence/status", tags=["Presence"])
+async def update_status_message(
+    status: UpdateStatusMessage,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user's status message (On my way, etc.)"""
+    user_id = str(current_user["_id"])
+    
+    message = status.message
+    if status.suggested_id:
+        # Find the suggested message
+        for msg in SUGGESTED_STATUS_MESSAGES:
+            if msg["id"] == status.suggested_id:
+                message = msg["textEs"]  # Use Spanish version
+                break
+    
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {
+            "status_message": message,
+            "status_updated_at": datetime.utcnow()
+        }}
+    )
+    
+    return {
+        "message": "Status updated",
+        "status_message": message
+    }
+
+
+@app.delete("/api/presence/status", tags=["Presence"])
+async def clear_status_message(
+    current_user: dict = Depends(get_current_user)
+):
+    """Clear user's status message"""
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"status_message": None}}
+    )
+    return {"message": "Status cleared"}
+
+
+@app.put("/api/presence/ghost-mode", tags=["Presence"])
+async def toggle_ghost_mode(
+    ghost: UpdateGhostMode,
+    current_user: dict = Depends(get_current_user)
+):
+    """Toggle ghost mode (Premium only)"""
+    if not current_user.get("is_premium", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Ghost mode is a Premium feature. Upgrade to enable it."
+        )
+    
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"ghost_mode": ghost.enabled}}
+    )
+    
+    return {
+        "message": f"Ghost mode {'enabled' if ghost.enabled else 'disabled'}",
+        "ghost_mode": ghost.enabled
+    }
+
+
+@app.post("/api/presence/update", tags=["Presence"])
+async def update_presence(
+    presence: PresenceUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update user's presence based on GPS location.
+    Checks if user is still within the check-in radius.
+    If not, auto-checkout happens.
+    """
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    # Get current active check-in
+    active_checkin = await checkins_collection.find_one({
+        "user_id": user_id,
+        "is_active": True
+    })
+    
+    if not active_checkin:
+        # No active check-in, user is not present anywhere
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {
+                "is_present": False,
+                "current_place_id": None,
+                "current_place_name": None,
+                "last_location_update": now
+            }}
+        )
+        return {
+            "is_present": False,
+            "checked_out": False,
+            "message": "No active check-in"
+        }
+    
+    # Get the place location
+    place = await places_collection.find_one({"_id": ObjectId(active_checkin["place_id"])})
+    if not place:
+        return {"is_present": False, "message": "Place not found"}
+    
+    # Calculate distance from place
+    distance = calculate_distance_meters(
+        presence.latitude, presence.longitude,
+        place["latitude"], place["longitude"]
+    )
+    
+    # Check if still within radius
+    is_within_radius = distance <= CHECKIN_RADIUS_METERS
+    
+    if is_within_radius:
+        # User is still at the place - update presence
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {
+                "is_present": True,
+                "current_place_id": str(place["_id"]),
+                "current_place_name": place["name"],
+                "last_location_update": now
+            }}
+        )
+        return {
+            "is_present": True,
+            "checked_out": False,
+            "place_name": place["name"],
+            "distance": round(distance, 1)
+        }
+    else:
+        # User has left the place - auto-checkout
+        await checkins_collection.update_one(
+            {"_id": active_checkin["_id"]},
+            {"$set": {
+                "is_active": False,
+                "checked_out_at": now,
+                "auto_checkout": True,
+                "checkout_reason": "left_radius"
+            }}
+        )
+        
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {
+                "is_present": False,
+                "current_place_id": None,
+                "current_place_name": None,
+                "last_location_update": now
+            }}
+        )
+        
+        return {
+            "is_present": False,
+            "checked_out": True,
+            "message": f"Auto-checkout: You left {place['name']}",
+            "distance": round(distance, 1)
+        }
+
+
+@app.get("/api/presence/me", tags=["Presence"])
+async def get_my_presence(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current user's presence status"""
+    user_id = str(current_user["_id"])
+    
+    # Get active check-in
+    active_checkin = await checkins_collection.find_one({
+        "user_id": user_id,
+        "is_active": True
+    })
+    
+    return {
+        "is_present": current_user.get("is_present", False),
+        "status_message": current_user.get("status_message"),
+        "ghost_mode": current_user.get("ghost_mode", False),
+        "current_place_id": current_user.get("current_place_id"),
+        "current_place_name": current_user.get("current_place_name"),
+        "has_active_checkin": active_checkin is not None,
+        "checkin_place": active_checkin.get("place_name") if active_checkin else None,
+        "is_premium": current_user.get("is_premium", False)
+    }
 
 
 # ============== USER PROFILE ENDPOINTS ==============

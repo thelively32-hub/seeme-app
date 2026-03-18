@@ -60,10 +60,18 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      await api.updateProfile({ 
+      const updateData: any = { 
         name: name.trim(),
-        bio: bio.trim(),
-      });
+        bio: bio.trim() || undefined,
+      };
+      
+      // If photo was changed (local URI), we'd upload it here
+      // For MVP, we just store the URI (in production you'd upload to cloud storage)
+      if (photo && photo !== user?.photo_url) {
+        updateData.photo_url = photo;
+      }
+      
+      await api.updateProfile(updateData);
       await refreshUser();
       Alert.alert('¡Listo!', 'Perfil actualizado');
       router.back();

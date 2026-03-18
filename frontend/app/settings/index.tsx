@@ -165,6 +165,13 @@ export default function SettingsScreen() {
             label="Mi Vibe Predeterminado"
             onPress={() => router.push('/settings/select-vibe')}
           />
+          <SettingRow
+            icon="chatbubble-ellipses-outline"
+            iconColor="#2196F3"
+            label="Mi Estado"
+            value="On my way, etc."
+            onPress={() => router.push('/settings/status')}
+          />
         </View>
 
         {/* Business Mode */}
