@@ -387,7 +387,7 @@ export default function ExploreScreen() {
               style={styles.checkoutButton}
               onPress={async () => {
                 try {
-                  await api.checkout();
+                  await api.checkOut();
                   loadPresence();
                   loadPlaces(false);
                   Alert.alert('Checkout', 'Has salido del lugar');
