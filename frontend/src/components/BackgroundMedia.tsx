@@ -39,47 +39,50 @@ export default function BackgroundMedia({
     setVideoError(true);
   };
 
-  // Always try to show video first
   const showVideo = videoSource && !videoError;
-  // Show image only if video hasn't loaded yet or errored
   const showFallbackImage = imageSource && (!videoLoaded || videoError);
 
   return (
     <View style={styles.container}>
-      {/* Fallback Image - NO BLUR */}
+      {/* Fallback Image - centered, cover, no distortion */}
       {showFallbackImage && (
-        <Image
-          source={typeof imageSource === 'number' ? imageSource : { uri: imageSource as string }}
-          style={styles.media}
-          resizeMode="cover"
-        />
+        <View style={styles.mediaWrapper}>
+          <Image
+            source={typeof imageSource === 'number' ? imageSource : { uri: imageSource as string }}
+            style={styles.media}
+            resizeMode="cover"
+          />
+        </View>
       )}
 
-      {/* Video - Full quality, vertical video */}
+      {/* Video - centered, cover, no distortion */}
       {showVideo && (
-        <Video
-          ref={videoRef}
-          source={typeof videoSource === 'string' ? { uri: videoSource } : videoSource}
-          style={styles.media}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay={true}
-          isLooping={true}
-          isMuted={true}
-          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onError={handleVideoError}
-          useNativeControls={false}
-        />
+        <View style={styles.mediaWrapper}>
+          <Video
+            ref={videoRef}
+            source={typeof videoSource === 'string' ? { uri: videoSource } : videoSource}
+            style={styles.video}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay={true}
+            isLooping={true}
+            isMuted={true}
+            onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+            onError={handleVideoError}
+            useNativeControls={false}
+            videoStyle={styles.videoContent}
+          />
+        </View>
       )}
 
       {/* Dark Overlay for text readability */}
       {overlayGradient ? (
         <LinearGradient
           colors={[
-            `rgba(0, 0, 0, ${overlayOpacity * 0.15})`,
-            `rgba(0, 0, 0, ${overlayOpacity * 0.4})`,
+            `rgba(0, 0, 0, ${overlayOpacity * 0.1})`,
+            `rgba(0, 0, 0, ${overlayOpacity * 0.3})`,
             `rgba(0, 0, 0, ${overlayOpacity * 0.7})`,
           ]}
-          locations={[0, 0.5, 1]}
+          locations={[0, 0.4, 1]}
           style={styles.overlay}
         />
       ) : (
@@ -95,12 +98,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     overflow: 'hidden',
   },
-  media: {
+  mediaWrapper: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  media: {
+    width: '100%',
+    height: '100%',
+  },
+  video: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  videoContent: {
+    // Ensure video content is centered and covers without distortion
     width: '100%',
     height: '100%',
   },
