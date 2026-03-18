@@ -19,38 +19,40 @@ const { width } = Dimensions.get('window');
 const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.mp4';
 const FALLBACK_IMAGE = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.jpg';
 
+// Colors - Gold/Cream theme
+const GOLD = '#D4B896';
+const GOLD_LIGHT = '#E8DCC8';
+const GOLD_DARK = '#B89B6A';
+
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useAuth();
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
-        delay: 300,
+        duration: 1200,
+        delay: 400,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 800,
-        delay: 300,
+        duration: 1000,
+        delay: 400,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
-  // NO automatic redirect - always show intro screen first
-
   const handleCreateAccount = () => {
     if (isAuthenticated) {
-      // User already logged in, go to app
       router.replace('/(tabs)/explore');
     } else {
       router.push('/(auth)/signup');
@@ -59,7 +61,6 @@ export default function WelcomeScreen() {
 
   const handleSignIn = () => {
     if (isAuthenticated) {
-      // User already logged in, go to app
       router.replace('/(tabs)/explore');
     } else {
       router.push('/(auth)/login');
@@ -80,7 +81,7 @@ export default function WelcomeScreen() {
         <BackgroundMedia
           videoSource={VIDEO_URL}
           imageSource={FALLBACK_IMAGE}
-          overlayOpacity={0.4}
+          overlayOpacity={0.5}
         />
       </View>
     );
@@ -88,11 +89,11 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background Video/Image */}
+      {/* Background Video */}
       <BackgroundMedia
         videoSource={VIDEO_URL}
         imageSource={FALLBACK_IMAGE}
-        overlayOpacity={0.35}
+        overlayOpacity={0.45}
         overlayGradient={true}
       />
 
@@ -101,51 +102,60 @@ export default function WelcomeScreen() {
         style={[
           styles.content,
           {
-            paddingTop: insets.top,
+            paddingTop: insets.top + 20,
             paddingBottom: insets.bottom + 16,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        {/* Brand Section - Centered */}
-        <View style={styles.brandSection}>
-          <Text style={styles.brandName}>See Me</Text>
-          <Text style={styles.tagline}>Know the vibe before you arrive.</Text>
+        {/* Top Badge */}
+        <View style={styles.topBadge}>
+          <View style={styles.badgeDot} />
+          <Text style={styles.badgeText}>REAL PLACES · REAL PEOPLE</Text>
+        </View>
+
+        {/* Logo Section - Centered */}
+        <View style={styles.logoSection}>
+          <Text style={styles.logoSee}>See</Text>
+          <View style={styles.logoUnderline} />
+          <Text style={styles.logoMe}>M E</Text>
+          
+          {/* Tagline */}
+          <Text style={styles.tagline}>Know the vibe before arrive</Text>
         </View>
 
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
-          {/* Legal Text */}
-          <Text style={styles.legalText}>
-            By tapping 'Sign in' / 'Create account', you agree to our{' '}
-            <Text style={styles.legalLink} onPress={handleTerms}>
-              Terms of Service
-            </Text>
-            . Learn how we process your data in our{' '}
-            <Text style={styles.legalLink} onPress={handlePrivacy}>
-              Privacy Policy
-            </Text>
-            .
-          </Text>
-
-          {/* Primary Button */}
+          {/* Primary Button - Gold */}
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleCreateAccount}
             activeOpacity={0.9}
           >
-            <Text style={styles.primaryButtonText}>Create account</Text>
+            <Text style={styles.primaryButtonText}>CREATE ACCOUNT</Text>
           </TouchableOpacity>
 
-          {/* Secondary Button */}
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleSignIn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.secondaryButtonText}>Sign in</Text>
-          </TouchableOpacity>
+          {/* Sign In Link */}
+          <View style={styles.signInRow}>
+            <Text style={styles.signInText}>Already have one? </Text>
+            <TouchableOpacity onPress={handleSignIn}>
+              <Text style={styles.signInLink}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Legal Text */}
+          <Text style={styles.legalText}>
+            By continuing you agree to our{' '}
+            <Text style={styles.legalLink} onPress={handleTerms}>
+              Terms of Service
+            </Text>
+            .{'\n'}See our{' '}
+            <Text style={styles.legalLink} onPress={handlePrivacy}>
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </View>
       </Animated.View>
     </View>
@@ -155,82 +165,115 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0a0a0a',
   },
   content: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
-  brandSection: {
-    flex: 1,
-    justifyContent: 'center',
+  // Top Badge
+  topBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 60,
+    justifyContent: 'center',
+    gap: 8,
   },
-  brandName: {
-    fontSize: 72,
-    fontWeight: '400',
-    color: '#ffffff',
+  badgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: GOLD,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: GOLD,
+    letterSpacing: 2,
+  },
+  // Logo Section
+  logoSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingBottom: 40,
+  },
+  logoSee: {
+    fontSize: 90,
+    fontWeight: '300',
+    color: GOLD_LIGHT,
+    fontStyle: 'italic',
+    letterSpacing: -2,
+    // Elegant serif appearance
     fontFamily: 'System',
-    letterSpacing: -1,
-    marginBottom: 12,
-    // Elegant serif-like appearance
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  },
+  logoUnderline: {
+    width: 60,
+    height: 1,
+    backgroundColor: GOLD,
+    marginTop: -8,
+    marginBottom: 8,
+  },
+  logoMe: {
+    fontSize: 28,
+    fontWeight: '400',
+    color: GOLD,
+    letterSpacing: 12,
+    marginTop: 4,
   },
   tagline: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '400',
-    color: '#ffffff',
-    textAlign: 'center',
-    opacity: 0.95,
-    letterSpacing: 0.3,
+    color: GOLD,
+    letterSpacing: 3,
+    marginTop: 40,
+    textTransform: 'uppercase',
+    opacity: 0.8,
   },
+  // Bottom Section
   bottomSection: {
     width: '100%',
-    paddingBottom: 8,
-  },
-  legalText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-    paddingHorizontal: 8,
-  },
-  legalLink: {
-    color: '#ffffff',
-    textDecorationLine: 'underline',
-    fontWeight: '500',
+    alignItems: 'center',
   },
   primaryButton: {
-    backgroundColor: '#8B5CF6', // Purple like Hinge
+    backgroundColor: GOLD_LIGHT,
     borderRadius: 30,
     paddingVertical: 18,
+    paddingHorizontal: 60,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    // Subtle shadow
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    marginBottom: 20,
   },
   primaryButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#1a1a1a',
+    letterSpacing: 2,
   },
-  secondaryButton: {
+  signInRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    marginBottom: 28,
   },
-  secondaryButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
+  signInText: {
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  signInLink: {
+    fontSize: 15,
     color: '#ffffff',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  legalText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  legalLink: {
+    color: GOLD,
+    textDecorationLine: 'underline',
   },
 });
