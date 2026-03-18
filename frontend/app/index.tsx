@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,93 +21,240 @@ const { width } = Dimensions.get('window');
 const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.mp4';
 const FALLBACK_IMAGE = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.jpg';
 
-// Colors - Brighter Gold theme for better contrast
-const GOLD = '#E8D5B5';
-const GOLD_LIGHT = '#F5EBD9';
-const GOLD_BRIGHT = '#FFF8E7';
-const GOLD_DARK = '#D4B896';
+// Premium Gold Color Palette - More vibrant & luxurious
+const COLORS = {
+  // Primary Golds
+  goldBright: '#FFD700',      // Vivid gold - highlights
+  goldPrimary: '#F4C542',     // Rich gold - main elements
+  goldLight: '#FFE566',       // Soft gold - accents
+  goldPremium: '#E8B923',     // Deep gold - shadows
+  
+  // Neutrals
+  cream: '#FFF8E7',           // Warm white
+  champagne: '#F5E6C8',       // Elegant cream
+  
+  // Live indicator
+  liveRed: '#FF3B30',         // Apple red for live
+  liveGlow: '#FF6B6B',        // Softer glow
+  
+  // Text
+  textDark: '#1A1A1A',
+  textLight: '#FFFFFF',
+};
 
-// Custom Location Pin Component
-const LocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
+// Animated Live Pulse Component - Like Instagram Live
+const LivePulse = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
   return (
-    <View style={styles.pinWrapper}>
-      {/* Glow effect underneath */}
-      <Animated.View 
+    <View style={styles.livePulseContainer}>
+      {/* Outer pulse ring */}
+      <Animated.View
         style={[
-          styles.pinGlow,
-          { 
+          styles.livePulseOuter,
+          {
             transform: [{ scale: pulseAnim }],
             opacity: pulseAnim.interpolate({
-              inputRange: [1, 1.1],
-              outputRange: [0.5, 0.8],
+              inputRange: [1, 1.8],
+              outputRange: [0.6, 0],
             }),
-          }
-        ]} 
+          },
+        ]}
       />
-      
-      {/* Main pin shape */}
-      <View style={styles.pinShape}>
+      {/* Middle pulse ring */}
+      <Animated.View
+        style={[
+          styles.livePulseMiddle,
+          {
+            transform: [
+              {
+                scale: pulseAnim.interpolate({
+                  inputRange: [1, 1.8],
+                  outputRange: [1, 1.4],
+                }),
+              },
+            ],
+            opacity: pulseAnim.interpolate({
+              inputRange: [1, 1.8],
+              outputRange: [0.8, 0.2],
+            }),
+          },
+        ]}
+      />
+      {/* Core dot */}
+      <View style={styles.liveDotCore} />
+    </View>
+  );
+};
+
+// Premium Location Pin with Gradient & Glow
+const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
+  return (
+    <View style={styles.pinContainer}>
+      {/* Shadow/Glow underneath */}
+      <Animated.View
+        style={[
+          styles.pinShadow,
+          {
+            transform: [
+              {
+                scale: pulseAnim.interpolate({
+                  inputRange: [1, 1.8],
+                  outputRange: [0.9, 1.1],
+                }),
+              },
+            ],
+            opacity: pulseAnim.interpolate({
+              inputRange: [1, 1.8],
+              outputRange: [0.4, 0.7],
+            }),
+          },
+        ]}
+      />
+
+      {/* Main Pin Body */}
+      <View style={styles.pinBody}>
         <LinearGradient
-          colors={[GOLD_BRIGHT, GOLD_LIGHT, GOLD]}
+          colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldPremium]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.pinGradient}
         >
-          {/* Dark circle in center (eye effect) */}
-          <View style={styles.pinEye} />
+          {/* Inner circle (eye) with gradient */}
+          <View style={styles.pinInnerCircle}>
+            <View style={styles.pinInnerDot} />
+          </View>
         </LinearGradient>
       </View>
-      
-      {/* Pin point/tail */}
-      <View style={styles.pinTail} />
-      
-      {/* Small dot below */}
-      <View style={styles.pinDot} />
+
+      {/* Pin Point */}
+      <View style={styles.pinPointContainer}>
+        <LinearGradient
+          colors={[COLORS.goldPrimary, COLORS.goldPremium]}
+          style={styles.pinPoint}
+        />
+      </View>
+
+      {/* Ground reflection dot */}
+      <View style={styles.pinReflection} />
     </View>
+  );
+};
+
+// Premium Button with Shine Effect
+const PremiumButton = ({
+  onPress,
+  title,
+  shineAnim,
+}: {
+  onPress: () => void;
+  title: string;
+  shineAnim: Animated.Value;
+}) => {
+  return (
+    <TouchableOpacity
+      style={styles.premiumButton}
+      onPress={onPress}
+      activeOpacity={0.9}
+    >
+      <LinearGradient
+        colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldPremium]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.premiumButtonGradient}
+      >
+        {/* Shine overlay animation */}
+        <Animated.View
+          style={[
+            styles.buttonShine,
+            {
+              transform: [
+                {
+                  translateX: shineAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-100, width + 100],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Text style={styles.premiumButtonText}>{title}</Text>
+      </LinearGradient>
+    </TouchableOpacity>
   );
 };
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shineAnim = useRef(new Animated.Value(0)).current;
+  const logoScaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
+    // Main entrance animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1200,
-        delay: 400,
+        duration: 1000,
+        delay: 300,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 1000,
+        duration: 800,
+        delay: 300,
+        easing: Easing.out(Easing.back(1.2)),
+        useNativeDriver: true,
+      }),
+      Animated.spring(logoScaleAnim, {
+        toValue: 1,
         delay: 400,
-        easing: Easing.out(Easing.cubic),
+        friction: 6,
+        tension: 40,
         useNativeDriver: true,
       }),
     ]).start();
 
+    // Live pulse animation - continuous
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
+          toValue: 1.8,
+          duration: 1500,
+          easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.ease),
+          duration: 0,
           useNativeDriver: true,
         }),
       ])
     ).start();
+
+    // Button shine animation - periodic
+    const shineLoop = () => {
+      Animated.sequence([
+        Animated.delay(3000),
+        Animated.timing(shineAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(shineAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]).start(() => shineLoop());
+    };
+    shineLoop();
   }, []);
 
   const handleCreateAccount = () => {
@@ -139,7 +287,7 @@ export default function WelcomeScreen() {
         <BackgroundMedia
           videoSource={VIDEO_URL}
           imageSource={FALLBACK_IMAGE}
-          overlayOpacity={0.6}
+          overlayOpacity={0.55}
         />
       </View>
     );
@@ -147,11 +295,11 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background Video - Darker overlay for better contrast */}
+      {/* Background Video */}
       <BackgroundMedia
         videoSource={VIDEO_URL}
         imageSource={FALLBACK_IMAGE}
-        overlayOpacity={0.58}
+        overlayOpacity={0.52}
         overlayGradient={true}
       />
 
@@ -160,52 +308,71 @@ export default function WelcomeScreen() {
         style={[
           styles.content,
           {
-            paddingTop: insets.top + 24,
+            paddingTop: insets.top + 20,
             paddingBottom: insets.bottom + 16,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        {/* Top Badge - Fixed */}
+        {/* Top Badge - LIVE indicator */}
         <View style={styles.topBadge}>
-          <View style={styles.badgeDot} />
-          <Text style={styles.badgeText}>LIVE SOCIAL RADAR</Text>
+          <View style={styles.liveBadge}>
+            <LivePulse pulseAnim={pulseAnim} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+          <Text style={styles.badgeText}>SOCIAL RADAR</Text>
         </View>
 
         {/* Logo Section */}
-        <View style={styles.logoSection}>
-          {/* Custom Location Pin */}
-          <LocationPin pulseAnim={pulseAnim} />
+        <Animated.View
+          style={[
+            styles.logoSection,
+            {
+              transform: [{ scale: logoScaleAnim }],
+            },
+          ]}
+        >
+          {/* Premium Location Pin */}
+          <PremiumLocationPin pulseAnim={pulseAnim} />
 
-          {/* Main Logo Text - Bigger & Bolder */}
+          {/* Main Logo Text */}
           <View style={styles.logoTextContainer}>
+            {/* "See" with custom styling */}
             <Text style={styles.logoSee}>See</Text>
-            <View style={styles.logoUnderline} />
-            <Text style={styles.logoMe}>ME</Text>
+
+            {/* Decorative line */}
+            <LinearGradient
+              colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldBright]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.logoLine}
+            />
+
+            {/* "ME" with letter spacing */}
+            <View style={styles.logoMeContainer}>
+              <Text style={styles.logoMeLetter}>M</Text>
+              <Text style={styles.logoMeSpace}> </Text>
+              <Text style={styles.logoMeLetter}>E</Text>
+            </View>
           </View>
-          
-          {/* Tagline - More visible */}
-          <Text style={styles.tagline}>Know the vibe first</Text>
-        </View>
+
+          {/* Premium Tagline */}
+          <View style={styles.taglineContainer}>
+            <View style={styles.taglineLine} />
+            <Text style={styles.tagline}>KNOW THE VIBE FIRST</Text>
+            <View style={styles.taglineLine} />
+          </View>
+        </Animated.View>
 
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
-          {/* Primary Button */}
-          <TouchableOpacity
-            style={styles.primaryButton}
+          {/* Premium CTA Button */}
+          <PremiumButton
             onPress={handleCreateAccount}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={[GOLD_BRIGHT, GOLD_LIGHT, GOLD]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.primaryButtonGradient}
-            >
-              <Text style={styles.primaryButtonText}>CREATE ACCOUNT</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            title="CREATE ACCOUNT"
+            shineAnim={shineAnim}
+          />
 
           {/* Sign In Link */}
           <View style={styles.signInRow}>
@@ -243,198 +410,311 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 28,
   },
-  // Top Badge - Fixed visibility
+
+  // ========== TOP BADGE / LIVE INDICATOR ==========
   topBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingTop: 4,
+    gap: 8,
   },
-  badgeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: GOLD_LIGHT,
-    // Glow
-    shadowColor: GOLD_LIGHT,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  livePulseContainer: {
+    width: 12,
+    height: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  livePulseOuter: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.liveRed,
+  },
+  livePulseMiddle: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.liveGlow,
+  },
+  liveDotCore: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.liveRed,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.liveRed,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.liveRed,
+    letterSpacing: 1,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: GOLD_LIGHT,
+    color: COLORS.cream,
     letterSpacing: 3,
-    // Text shadow for better readability
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  // Logo Section
+
+  // ========== LOGO SECTION ==========
   logoSection: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
-  // Location Pin Styles
-  pinWrapper: {
+
+  // Premium Pin Styles
+  pinContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  pinGlow: {
+  pinShadow: {
     position: 'absolute',
-    bottom: -8,
-    width: 90,
-    height: 35,
-    backgroundColor: GOLD_LIGHT,
-    borderRadius: 45,
+    bottom: -5,
+    width: 80,
+    height: 30,
+    backgroundColor: COLORS.goldPrimary,
+    borderRadius: 40,
+    opacity: 0.3,
   },
-  pinShape: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    overflow: 'hidden',
-    shadowColor: GOLD_LIGHT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 12,
+  pinBody: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.goldBright,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 20,
+      },
+    }),
   },
   pinGradient: {
     flex: 1,
+    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  pinEye: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  pinInnerCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#1a1a2e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  pinTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 14,
-    borderRightWidth: 14,
-    borderTopWidth: 20,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: GOLD,
-    marginTop: -2,
-  },
-  pinDot: {
+  pinInnerDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: GOLD_LIGHT,
-    marginTop: 10,
-    opacity: 0.8,
+    backgroundColor: COLORS.goldBright,
   },
-  // Logo Text - Bigger & More visible
+  pinPointContainer: {
+    marginTop: -3,
+    overflow: 'hidden',
+  },
+  pinPoint: {
+    width: 20,
+    height: 28,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    transform: [{ scaleX: 0.7 }],
+  },
+  pinReflection: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.goldPrimary,
+    marginTop: 12,
+    opacity: 0.6,
+  },
+
+  // Logo Text Styles
   logoTextContainer: {
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
   logoSee: {
-    fontSize: 96,
+    fontSize: 100,
     fontWeight: '300',
-    color: GOLD_BRIGHT,
+    color: COLORS.cream,
     fontStyle: 'italic',
-    letterSpacing: 0,
-    // Strong shadow for contrast
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    letterSpacing: -2,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
     textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 12,
+    textShadowRadius: 15,
+    ...Platform.select({
+      ios: {
+        fontFamily: 'Georgia',
+      },
+    }),
   },
-  logoUnderline: {
-    width: 60,
-    height: 2,
-    backgroundColor: GOLD_LIGHT,
-    marginTop: -2,
-    marginBottom: 12,
-    // Glow effect
-    shadowColor: GOLD_LIGHT,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+  logoLine: {
+    width: 70,
+    height: 3,
+    borderRadius: 2,
+    marginTop: -8,
+    marginBottom: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.goldBright,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 8,
+      },
+    }),
   },
-  logoMe: {
-    fontSize: 28,
+  logoMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoMeLetter: {
+    fontSize: 32,
     fontWeight: '600',
-    color: GOLD_LIGHT,
-    letterSpacing: 18,
-    marginLeft: 18,
-    // Shadow for readability
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    color: COLORS.goldPrimary,
+    letterSpacing: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
   },
+  logoMeSpace: {
+    width: 16,
+  },
+
+  // Tagline Styles
+  taglineContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 32,
+    gap: 12,
+  },
+  taglineLine: {
+    width: 24,
+    height: 1,
+    backgroundColor: COLORS.goldPrimary,
+    opacity: 0.5,
+  },
   tagline: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: GOLD_LIGHT,
+    color: COLORS.champagne,
     letterSpacing: 4,
-    marginTop: 36,
-    textTransform: 'uppercase',
-    // Shadow for contrast
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  // Bottom Section
+
+  // ========== BOTTOM SECTION ==========
   bottomSection: {
     width: '100%',
     alignItems: 'center',
   },
-  primaryButton: {
+
+  // Premium Button Styles
+  premiumButton: {
     width: '100%',
     borderRadius: 30,
     overflow: 'hidden',
     marginBottom: 20,
-    shadowColor: GOLD_LIGHT,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.goldBright,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 15,
+      },
+    }),
   },
-  primaryButtonGradient: {
+  premiumButtonGradient: {
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 30,
+    overflow: 'hidden',
   },
-  primaryButtonText: {
+  buttonShine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 60,
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    transform: [{ skewX: '-20deg' }],
+  },
+  premiumButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    letterSpacing: 2,
+    fontWeight: '800',
+    color: COLORS.textDark,
+    letterSpacing: 2.5,
   },
+
+  // Sign In Styles
   signInRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   signInText: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.75)',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   signInLink: {
     fontSize: 15,
-    color: '#ffffff',
+    color: COLORS.textLight,
     fontWeight: '700',
     textDecorationLine: 'underline',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+
+  // Legal Text Styles
   legalText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: 'rgba(255, 255, 255, 0.55)',
     textAlign: 'center',
     lineHeight: 20,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -442,7 +722,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   legalLink: {
-    color: GOLD_LIGHT,
+    color: COLORS.champagne,
     textDecorationLine: 'underline',
   },
 });
