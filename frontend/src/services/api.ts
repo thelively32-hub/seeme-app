@@ -256,6 +256,81 @@ class ApiService {
     return this.request('/api/stats/user');
   }
 
+  // Profile alias
+  async getProfile() {
+    return this.getMe();
+  }
+
+  // ============== VIBE SYSTEM ==============
+  
+  // Get users at a specific place
+  async getUsersAtPlace(placeId: string) {
+    return this.request(`/api/places/${placeId}/users`);
+  }
+
+  // Send a vibe to another user
+  async sendVibe(toUserId: string, message: string = "Hey! 👋", vibeType: string = "wave", placeId?: string) {
+    return this.request('/api/vibes/send', {
+      method: 'POST',
+      body: JSON.stringify({
+        to_user_id: toUserId,
+        message,
+        vibe_type: vibeType,
+        place_id: placeId,
+      }),
+    });
+  }
+
+  // Get received vibes
+  async getReceivedVibes() {
+    return this.request('/api/vibes/received');
+  }
+
+  // Get sent vibes
+  async getSentVibes() {
+    return this.request('/api/vibes/sent');
+  }
+
+  // Respond to a vibe (accept/decline)
+  async respondToVibe(vibeId: string, action: 'accept' | 'decline') {
+    return this.request(`/api/vibes/${vibeId}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    });
+  }
+
+  // Get vibe stats and limits
+  async getVibeStats() {
+    return this.request('/api/vibes/stats');
+  }
+
+  // ============== USER PROFILES ==============
+
+  // Get another user's profile
+  async getUserProfile(userId: string) {
+    return this.request(`/api/users/${userId}/profile`);
+  }
+
+  // Get who viewed my profile
+  async getProfileViews() {
+    return this.request('/api/users/me/views');
+  }
+
+  // ============== REVIEWS ==============
+
+  // Create a review for a user
+  async createReview(userId: string, rating: number, tags: string[] = [], comment?: string) {
+    return this.request('/api/reviews', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        rating,
+        tags,
+        comment,
+      }),
+    });
+  }
+
   // Health
   async healthCheck() {
     return this.request('/api/health');

@@ -73,19 +73,25 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="radar"
+        name="vibes"
         options={{
-          title: 'Radar',
+          title: 'Vibes',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
               <Ionicons 
-                name={focused ? 'radio' : 'radio-outline'} 
+                name={focused ? 'heart' : 'heart-outline'} 
                 size={24} 
                 color={color} 
               />
               {focused && <View style={[styles.activeIndicator, { backgroundColor: color }]} />}
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="radar"
+        options={{
+          href: null, // Hide radar, replaced by vibes
         }}
       />
       <Tabs.Screen

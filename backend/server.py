@@ -71,6 +71,9 @@ users_collection = db.users
 places_collection = db.places
 checkins_collection = db.checkins
 checkin_logs_collection = db.checkin_logs  # GPS validation logs
+vibes_collection = db.vibes  # Vibes sent between users
+reviews_collection = db.reviews  # User reviews/ratings
+subscriptions_collection = db.subscriptions  # Premium subscriptions
 
 
 # ============== MODELS ==============
@@ -178,6 +181,101 @@ class CheckInAttemptLog(BaseModel):
     accuracy_meters: float
     result: str  # success, failed_distance, failed_accuracy, failed_mocked
     timestamp: datetime
+
+
+# ============== VIBE SYSTEM MODELS ==============
+
+class VibeSend(BaseModel):
+    """Model for sending a vibe to another user"""
+    to_user_id: str
+    message: str = Field(default="Hey! 👋", max_length=100)
+    vibe_type: str = Field(default="wave", pattern="^(wave|wink|coffee|drink|dance|custom)$")
+    place_id: Optional[str] = None  # Where they saw them
+
+
+class VibeResponse(BaseModel):
+    """Response model for a vibe"""
+    id: str
+    from_user: dict  # Basic user info
+    to_user_id: str
+    message: str
+    vibe_type: str
+    place_id: Optional[str] = None
+    place_name: Optional[str] = None
+    status: str  # pending, seen, accepted, declined
+    created_at: datetime
+    expires_at: datetime  # Vibes expire in 24h
+
+
+class VibeAction(BaseModel):
+    """Accept or decline a vibe"""
+    action: str = Field(..., pattern="^(accept|decline)$")
+
+
+# ============== USER AT PLACE MODELS ==============
+
+class UserAtPlace(BaseModel):
+    """User visible at a place"""
+    id: str
+    name: str
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    intention: Optional[str] = None
+    looking_for: Optional[List[str]] = None
+    bio: Optional[str] = None
+    photo_url: Optional[str] = None
+    is_premium: bool = False
+    checked_in_at: datetime
+    vibe_sent: bool = False  # If current user already sent vibe
+
+
+class PlaceUsersResponse(BaseModel):
+    """Users at a specific place"""
+    place_id: str
+    place_name: str
+    total_users: int
+    users: List[UserAtPlace]
+    can_see_all: bool  # Premium can see all
+
+
+# ============== SUBSCRIPTION MODELS ==============
+
+class SubscriptionStatus(BaseModel):
+    """User subscription status"""
+    is_premium: bool
+    plan: str  # free, premium
+    vibes_remaining: int
+    vibes_reset_at: Optional[datetime] = None
+    features: dict
+
+
+# ============== REVIEW MODELS ==============
+
+class ReviewCreate(BaseModel):
+    """Create a review for a user"""
+    user_id: str
+    rating: int = Field(..., ge=1, le=5)
+    tags: List[str] = []  # "friendly", "respectful", "fun", etc.
+    comment: Optional[str] = Field(None, max_length=200)
+
+
+class ReviewResponse(BaseModel):
+    id: str
+    from_user_name: str
+    rating: int
+    tags: List[str]
+    comment: Optional[str]
+    created_at: datetime
+
+
+# Pre-defined vibe messages
+VIBE_MESSAGES = {
+    "wave": ["Hey! 👋", "Hi there! 👋", "What's up! 👋"],
+    "wink": ["😉", "Caught my eye 😉", "Looking good 😉"],
+    "coffee": ["Coffee? ☕", "Let's grab a coffee ☕", "☕ sometime?"],
+    "drink": ["Drink? 🍸", "Can I buy you a drink? 🍹", "Cheers! 🥂"],
+    "dance": ["Dance? 💃", "Wanna dance? 🕺", "Let's dance! 💃🕺"],
+}
 
 
 # ============== ACTIVITY SYSTEM ==============
@@ -1336,6 +1434,470 @@ async def force_cleanup():
     """Force cleanup of expired check-ins (for testing)"""
     expired_count = await cleanup_expired_checkins()
     return {"cleaned_up": expired_count}
+
+
+# ============== VIBE SYSTEM ENDPOINTS ==============
+
+@app.get("/api/places/{place_id}/users", tags=["Vibes"])
+async def get_users_at_place(
+    place_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get users currently checked-in at a place"""
+    user_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    
+    # Get active check-ins at this place
+    now = datetime.utcnow()
+    checkins = await checkins_collection.find({
+        "place_id": place_id,
+        "is_active": True,
+        "checked_out_at": None,
+        "user_id": {"$ne": user_id}  # Exclude current user
+    }).sort("checked_in_at", -1).to_list(100)
+    
+    # Get place info
+    place = await places_collection.find_one({"_id": ObjectId(place_id)})
+    place_name = place["name"] if place else "Unknown Place"
+    
+    # Get user details for each check-in
+    users = []
+    for checkin in checkins:
+        user = await users_collection.find_one({"_id": ObjectId(checkin["user_id"])})
+        if user and user.get("is_visible", True):
+            # Check if current user already sent a vibe
+            vibe_sent = await vibes_collection.find_one({
+                "from_user_id": user_id,
+                "to_user_id": str(user["_id"]),
+                "expires_at": {"$gt": now}
+            }) is not None
+            
+            users.append({
+                "id": str(user["_id"]),
+                "name": user.get("name", "Anonymous"),
+                "age": user.get("age"),
+                "gender": user.get("gender"),
+                "intention": user.get("intention"),
+                "looking_for": user.get("looking_for", []),
+                "bio": user.get("bio", ""),
+                "photo_url": user.get("photo_url"),
+                "is_premium": user.get("is_premium", False),
+                "checked_in_at": checkin["checked_in_at"],
+                "vibe_sent": vibe_sent
+            })
+    
+    # Basic users can only see 5 profiles
+    total_users = len(users)
+    if not is_premium and len(users) > 5:
+        users = users[:5]
+    
+    return {
+        "place_id": place_id,
+        "place_name": place_name,
+        "total_users": total_users,
+        "users": users,
+        "can_see_all": is_premium
+    }
+
+
+@app.post("/api/vibes/send", tags=["Vibes"])
+async def send_vibe(
+    vibe: VibeSend,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send a vibe to another user"""
+    user_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    now = datetime.utcnow()
+    
+    # Check if target user exists
+    target_user = await users_collection.find_one({"_id": ObjectId(vibe.to_user_id)})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check rate limits for basic users
+    if not is_premium:
+        # Count vibes sent in last 24 hours
+        day_ago = now - timedelta(hours=24)
+        vibes_today = await vibes_collection.count_documents({
+            "from_user_id": user_id,
+            "created_at": {"$gt": day_ago}
+        })
+        
+        if vibes_today >= 5:
+            raise HTTPException(
+                status_code=429, 
+                detail="Daily vibe limit reached (5). Upgrade to Premium for unlimited vibes!"
+            )
+        
+        # Check 2-hour cooldown
+        two_hours_ago = now - timedelta(hours=2)
+        recent_vibe = await vibes_collection.find_one({
+            "from_user_id": user_id,
+            "created_at": {"$gt": two_hours_ago}
+        })
+        
+        if recent_vibe:
+            raise HTTPException(
+                status_code=429, 
+                detail="Please wait 2 hours between vibes. Upgrade to Premium for no limits!"
+            )
+    
+    # Check if already sent vibe to this user (not expired)
+    existing_vibe = await vibes_collection.find_one({
+        "from_user_id": user_id,
+        "to_user_id": vibe.to_user_id,
+        "expires_at": {"$gt": now}
+    })
+    
+    if existing_vibe:
+        raise HTTPException(status_code=400, detail="You already sent a vibe to this person")
+    
+    # Get place name if place_id provided
+    place_name = None
+    if vibe.place_id:
+        place = await places_collection.find_one({"_id": ObjectId(vibe.place_id)})
+        place_name = place["name"] if place else None
+    
+    # Create the vibe
+    vibe_doc = {
+        "from_user_id": user_id,
+        "from_user_name": current_user.get("name", "Someone"),
+        "to_user_id": vibe.to_user_id,
+        "message": vibe.message,
+        "vibe_type": vibe.vibe_type,
+        "place_id": vibe.place_id,
+        "place_name": place_name,
+        "status": "pending",
+        "created_at": now,
+        "expires_at": now + timedelta(hours=24)  # Vibes expire in 24h
+    }
+    
+    result = await vibes_collection.insert_one(vibe_doc)
+    
+    # Update user's vibe count
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$inc": {"vibes_sent": 1}}
+    )
+    
+    return {
+        "id": str(result.inserted_id),
+        "from_user": {
+            "id": user_id,
+            "name": current_user.get("name", "Someone")
+        },
+        "to_user_id": vibe.to_user_id,
+        "message": vibe.message,
+        "vibe_type": vibe.vibe_type,
+        "place_id": vibe.place_id,
+        "place_name": place_name,
+        "status": "pending",
+        "created_at": now,
+        "expires_at": now + timedelta(hours=24)
+    }
+
+
+@app.get("/api/vibes/received", tags=["Vibes"])
+async def get_received_vibes(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get vibes received by current user"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    # Get non-expired vibes
+    vibes = await vibes_collection.find({
+        "to_user_id": user_id,
+        "expires_at": {"$gt": now}
+    }).sort("created_at", -1).to_list(50)
+    
+    result = []
+    for v in vibes:
+        # Get sender info
+        sender = await users_collection.find_one({"_id": ObjectId(v["from_user_id"])})
+        result.append({
+            "id": str(v["_id"]),
+            "from_user": {
+                "id": v["from_user_id"],
+                "name": v.get("from_user_name", "Someone"),
+                "photo_url": sender.get("photo_url") if sender else None,
+                "age": sender.get("age") if sender else None
+            },
+            "message": v["message"],
+            "vibe_type": v["vibe_type"],
+            "place_name": v.get("place_name"),
+            "status": v["status"],
+            "created_at": v["created_at"],
+            "expires_at": v["expires_at"]
+        })
+    
+    return result
+
+
+@app.get("/api/vibes/sent", tags=["Vibes"])
+async def get_sent_vibes(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get vibes sent by current user"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    vibes = await vibes_collection.find({
+        "from_user_id": user_id,
+        "expires_at": {"$gt": now}
+    }).sort("created_at", -1).to_list(50)
+    
+    result = []
+    for v in vibes:
+        target = await users_collection.find_one({"_id": ObjectId(v["to_user_id"])})
+        result.append({
+            "id": str(v["_id"]),
+            "to_user": {
+                "id": v["to_user_id"],
+                "name": target.get("name", "Someone") if target else "Someone",
+            },
+            "message": v["message"],
+            "vibe_type": v["vibe_type"],
+            "place_name": v.get("place_name"),
+            "status": v["status"],
+            "created_at": v["created_at"],
+            "expires_at": v["expires_at"]
+        })
+    
+    return result
+
+
+@app.post("/api/vibes/{vibe_id}/respond", tags=["Vibes"])
+async def respond_to_vibe(
+    vibe_id: str,
+    action: VibeAction,
+    current_user: dict = Depends(get_current_user)
+):
+    """Accept or decline a vibe"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    # Find the vibe
+    vibe = await vibes_collection.find_one({
+        "_id": ObjectId(vibe_id),
+        "to_user_id": user_id,
+        "expires_at": {"$gt": now}
+    })
+    
+    if not vibe:
+        raise HTTPException(status_code=404, detail="Vibe not found or expired")
+    
+    if vibe["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Vibe already responded to")
+    
+    # Update vibe status
+    new_status = "accepted" if action.action == "accept" else "declined"
+    await vibes_collection.update_one(
+        {"_id": ObjectId(vibe_id)},
+        {"$set": {"status": new_status, "responded_at": now}}
+    )
+    
+    # If accepted, update connection rates for both users
+    if action.action == "accept":
+        await users_collection.update_one(
+            {"_id": ObjectId(vibe["from_user_id"])},
+            {"$inc": {"connections": 1, "vibes_accepted": 1}}
+        )
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$inc": {"connections": 1}}
+        )
+    
+    return {"status": new_status, "vibe_id": vibe_id}
+
+
+@app.get("/api/vibes/stats", tags=["Vibes"])
+async def get_vibe_stats(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's vibe statistics and limits"""
+    user_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    now = datetime.utcnow()
+    day_ago = now - timedelta(hours=24)
+    
+    # Count vibes sent today
+    vibes_today = await vibes_collection.count_documents({
+        "from_user_id": user_id,
+        "created_at": {"$gt": day_ago}
+    })
+    
+    # Get last vibe time for cooldown
+    last_vibe = await vibes_collection.find_one(
+        {"from_user_id": user_id},
+        sort=[("created_at", -1)]
+    )
+    
+    # Calculate next available vibe time for basic users
+    next_vibe_at = None
+    if not is_premium and last_vibe:
+        cooldown_end = last_vibe["created_at"] + timedelta(hours=2)
+        if cooldown_end > now:
+            next_vibe_at = cooldown_end
+    
+    return {
+        "is_premium": is_premium,
+        "vibes_sent_today": vibes_today,
+        "vibes_remaining": "unlimited" if is_premium else max(0, 5 - vibes_today),
+        "daily_limit": "unlimited" if is_premium else 5,
+        "next_vibe_at": next_vibe_at,
+        "cooldown_hours": 0 if is_premium else 2
+    }
+
+
+# ============== USER PROFILE ENDPOINTS ==============
+
+@app.get("/api/users/{user_id}/profile", tags=["Users"])
+async def get_user_profile(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get another user's public profile"""
+    viewer_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    
+    # Get target user
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log profile view (unless viewer is premium with ghost mode)
+    if not is_premium:
+        await users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$push": {
+                "profile_views": {
+                    "viewer_id": viewer_id,
+                    "viewer_name": current_user.get("name", "Someone"),
+                    "viewed_at": datetime.utcnow()
+                }
+            }}
+        )
+    
+    # Get user's reviews
+    reviews = await reviews_collection.find({
+        "user_id": user_id
+    }).sort("created_at", -1).limit(10).to_list(10)
+    
+    # Calculate average rating
+    total_rating = sum(r.get("rating", 0) for r in reviews)
+    avg_rating = total_rating / len(reviews) if reviews else 0
+    
+    # Get recent places visited
+    recent_checkins = await checkins_collection.find({
+        "user_id": user_id
+    }).sort("checked_in_at", -1).limit(5).to_list(5)
+    
+    return {
+        "id": str(user["_id"]),
+        "name": user.get("name", "Anonymous"),
+        "age": user.get("age"),
+        "gender": user.get("gender"),
+        "bio": user.get("bio", ""),
+        "photo_url": user.get("photo_url"),
+        "intention": user.get("intention"),
+        "looking_for": user.get("looking_for", []),
+        "is_premium": user.get("is_premium", False),
+        "stats": {
+            "total_checkins": await checkins_collection.count_documents({"user_id": user_id}),
+            "connections": user.get("connections", 0),
+            "avg_rating": round(avg_rating, 1),
+            "review_count": len(reviews)
+        },
+        "recent_places": [
+            {"name": c["place_name"], "date": c["checked_in_at"]}
+            for c in recent_checkins
+        ],
+        "reviews": [
+            {
+                "id": str(r["_id"]),
+                "from_user_name": r.get("from_user_name", "Anonymous"),
+                "rating": r["rating"],
+                "tags": r.get("tags", []),
+                "comment": r.get("comment"),
+                "created_at": r["created_at"]
+            }
+            for r in reviews
+        ]
+    }
+
+
+@app.get("/api/users/me/views", tags=["Users"])
+async def get_profile_views(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get who viewed my profile (basic users see this, premium don't leave traces)"""
+    views = current_user.get("profile_views", [])
+    
+    # Only show views from last 7 days
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    recent_views = [
+        v for v in views 
+        if v.get("viewed_at", datetime.min) > week_ago
+    ][-20:]  # Last 20 views
+    
+    return {
+        "views": recent_views,
+        "total_views_week": len(recent_views)
+    }
+
+
+# ============== REVIEW ENDPOINTS ==============
+
+@app.post("/api/reviews", tags=["Reviews"])
+async def create_review(
+    review: ReviewCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Leave a review for a user you've connected with"""
+    reviewer_id = str(current_user["_id"])
+    
+    # Can only review users you've had mutual vibes with
+    # For MVP, we'll allow reviewing anyone you've sent/received vibes from
+    vibe = await vibes_collection.find_one({
+        "$or": [
+            {"from_user_id": reviewer_id, "to_user_id": review.user_id, "status": "accepted"},
+            {"from_user_id": review.user_id, "to_user_id": reviewer_id, "status": "accepted"}
+        ]
+    })
+    
+    if not vibe:
+        raise HTTPException(
+            status_code=403, 
+            detail="You can only review people you've connected with"
+        )
+    
+    # Check if already reviewed
+    existing = await reviews_collection.find_one({
+        "from_user_id": reviewer_id,
+        "user_id": review.user_id
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="You already reviewed this person")
+    
+    review_doc = {
+        "user_id": review.user_id,
+        "from_user_id": reviewer_id,
+        "from_user_name": current_user.get("name", "Anonymous"),
+        "rating": review.rating,
+        "tags": review.tags,
+        "comment": review.comment,
+        "created_at": datetime.utcnow()
+    }
+    
+    result = await reviews_collection.insert_one(review_doc)
+    
+    return {
+        "id": str(result.inserted_id),
+        "message": "Review submitted successfully"
+    }
 
 
 # ============== HEALTH CHECK ==============
