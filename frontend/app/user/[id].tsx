@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,6 @@ import {
   Image,
   Alert,
   Dimensions,
-  Modal,
-  TextInput,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
+import VibeSelector from '../../src/components/VibeSelector';
+import { getVibeById } from '../../src/constants/vibes';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +31,11 @@ interface UserProfile {
   intention?: string;
   looking_for?: string[];
   is_premium: boolean;
+  current_vibe?: {
+    vibe_id: string;
+    message: string;
+    set_at: string;
+  };
   stats: {
     total_checkins: number;
     connections: number;
@@ -49,15 +53,6 @@ interface UserProfile {
   }>;
 }
 
-// Vibe types with emojis
-const VIBE_TYPES = [
-  { id: 'wave', emoji: '👋', label: 'Hey!', message: 'Hey! 👋' },
-  { id: 'wink', emoji: '😉', label: 'Wink', message: 'Caught my eye 😉' },
-  { id: 'coffee', emoji: '☕', label: 'Coffee', message: 'Coffee sometime? ☕' },
-  { id: 'drink', emoji: '🍸', label: 'Drink', message: 'Can I buy you a drink? 🍸' },
-  { id: 'dance', emoji: '💃', label: 'Dance', message: 'Wanna dance? 💃' },
-];
-
 // Star Rating Component
 const StarRating = ({ rating, size = 16 }: { rating: number; size?: number }) => (
   <View style={styles.starContainer}>
@@ -72,111 +67,16 @@ const StarRating = ({ rating, size = 16 }: { rating: number; size?: number }) =>
   </View>
 );
 
-// Vibe Selector Modal
-const VibeSelectorModal = ({
-  visible,
-  onClose,
-  onSend,
-  userName,
-  sending,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSend: (type: string, message: string) => void;
-  userName: string;
-  sending: boolean;
-}) => {
-  const [selectedVibe, setSelectedVibe] = useState(VIBE_TYPES[0]);
-  const [customMessage, setCustomMessage] = useState('');
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 6,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Animated.View style={[styles.vibeModal, { transform: [{ scale: scaleAnim }] }]}>
-          <Text style={styles.vibeModalTitle}>Send a Vibe to {userName}</Text>
-          <Text style={styles.vibeModalSubtitle}>Choose how you want to say hi</Text>
-
-          {/* Vibe Types */}
-          <View style={styles.vibeTypesGrid}>
-            {VIBE_TYPES.map((vibe) => (
-              <TouchableOpacity
-                key={vibe.id}
-                style={[
-                  styles.vibeTypeButton,
-                  selectedVibe.id === vibe.id && styles.vibeTypeButtonActive,
-                ]}
-                onPress={() => setSelectedVibe(vibe)}
-              >
-                <Text style={styles.vibeTypeEmoji}>{vibe.emoji}</Text>
-                <Text style={[
-                  styles.vibeTypeLabel,
-                  selectedVibe.id === vibe.id && styles.vibeTypeLabelActive,
-                ]}>
-                  {vibe.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Preview */}
-          <View style={styles.messagePreview}>
-            <Text style={styles.messagePreviewLabel}>Your message:</Text>
-            <Text style={styles.messagePreviewText}>"{selectedVibe.message}"</Text>
-          </View>
-
-          {/* Actions */}
-          <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.sendVibeButton}
-              onPress={() => onSend(selectedVibe.id, selectedVibe.message)}
-              disabled={sending}
-            >
-              <LinearGradient
-                colors={COLORS.gradients.goldButton as [string, string, string]}
-                style={styles.sendVibeButtonGradient}
-              >
-                {sending ? (
-                  <ActivityIndicator size="small" color={COLORS.text.dark} />
-                ) : (
-                  <>
-                    <Text style={styles.sendVibeButtonText}>Send Vibe</Text>
-                    <Text style={styles.sendVibeEmoji}>{selectedVibe.emoji}</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-};
-
 // Review Card
 const ReviewCard = ({ review }: { review: UserProfile['reviews'][0] }) => {
   const timeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 1) return 'Today';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    return `${Math.floor(diffDays / 30)}mo ago`;
+    if (diffDays < 1) return 'Hoy';
+    if (diffDays < 7) return `${diffDays}d`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}sem`;
+    return `${Math.floor(diffDays / 30)}mes`;
   };
 
   return (
@@ -216,7 +116,7 @@ export default function UserProfileScreen() {
       setProfile(data);
     } catch (e) {
       console.error('Error loading profile:', e);
-      Alert.alert('Error', 'Could not load profile');
+      Alert.alert('Error', 'No se pudo cargar el perfil');
     } finally {
       setLoading(false);
     }
@@ -226,27 +126,32 @@ export default function UserProfileScreen() {
     loadProfile();
   }, [loadProfile]);
 
-  const handleSendVibe = async (vibeType: string, message: string) => {
+  const handleSendVibe = async (vibeId: string, message: string) => {
     if (!id) return;
     setSendingVibe(true);
     try {
-      await api.sendVibe(id, message, vibeType);
+      await api.sendVibe(id, message, vibeId);
       setShowVibeModal(false);
-      Alert.alert('Vibe Sent! ✨', `${profile?.name} will see your vibe`);
+      
+      const vibe = getVibeById(vibeId);
+      Alert.alert(
+        `${vibe?.icon || '✨'} ¡Vibe Enviado!`,
+        `${profile?.name} recibirá tu vibe "${vibe?.labelEs || vibeId}"`
+      );
     } catch (e: any) {
-      Alert.alert('Oops!', e.message || 'Could not send vibe');
+      Alert.alert('Oops!', e.message || 'No se pudo enviar el vibe');
     } finally {
       setSendingVibe(false);
     }
   };
 
-  const getIntentionLabel = (intention?: string) => {
+  const getIntentionDisplay = (intention?: string) => {
     switch (intention) {
-      case 'friendship': return '👋 Looking for friendship';
-      case 'dating': return '💕 Open to dating';
-      case 'networking': return '💼 Networking';
-      case 'casual': return '🎉 Just here for the vibe';
-      default: return '✨ Open to anything';
+      case 'relationship': return { icon: '💕', text: 'Buscando relación' };
+      case 'friendship': return { icon: '🤝', text: 'Buscando amistad' };
+      case 'networking': return { icon: '💼', text: 'Networking' };
+      case 'casual': return { icon: '😎', text: 'Solo vibras' };
+      default: return { icon: '✨', text: 'Abierto a todo' };
     }
   };
 
@@ -269,13 +174,16 @@ export default function UserProfileScreen() {
           colors={[COLORS.background.primary, COLORS.background.secondary]}
           style={StyleSheet.absoluteFill}
         />
-        <Text style={styles.errorText}>Profile not found</Text>
+        <Text style={styles.errorText}>Perfil no encontrado</Text>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.goBackText}>Go Back</Text>
+          <Text style={styles.goBackText}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
+  const intention = getIntentionDisplay(profile.intention);
+  const currentVibe = profile.current_vibe ? getVibeById(profile.current_vibe.vibe_id) : null;
 
   return (
     <View style={styles.container}>
@@ -317,7 +225,7 @@ export default function UserProfileScreen() {
             )}
             {profile.is_premium && (
               <View style={styles.premiumBadgeLarge}>
-                <Ionicons name="star" size={14} color={COLORS.text.dark} />
+                <Ionicons name="star" size={12} color={COLORS.text.dark} />
                 <Text style={styles.premiumBadgeText}>PRO</Text>
               </View>
             )}
@@ -328,10 +236,29 @@ export default function UserProfileScreen() {
             {profile.name}{profile.age ? `, ${profile.age}` : ''}
           </Text>
 
-          {/* Intention */}
-          <Text style={styles.profileIntention}>
-            {getIntentionLabel(profile.intention)}
-          </Text>
+          {/* Intention Badge */}
+          <View style={styles.intentionBadge}>
+            <Text style={styles.intentionIcon}>{intention.icon}</Text>
+            <Text style={styles.intentionText}>{intention.text}</Text>
+          </View>
+
+          {/* Current Vibe (if set) */}
+          {currentVibe && (
+            <View style={[styles.currentVibe, { backgroundColor: `${currentVibe.color}20` }]}>
+              <Text style={styles.currentVibeLabel}>Mi vibe de hoy</Text>
+              <View style={styles.currentVibeContent}>
+                <Text style={styles.currentVibeEmoji}>{currentVibe.icon}</Text>
+                <View>
+                  <Text style={[styles.currentVibeTitle, { color: currentVibe.color }]}>
+                    {currentVibe.labelEs}
+                  </Text>
+                  <Text style={styles.currentVibeMessage}>
+                    "{profile.current_vibe?.message || currentVibe.defaultMessageEs}"
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Bio */}
           {profile.bio && (
@@ -347,7 +274,7 @@ export default function UserProfileScreen() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{profile.stats.connections}</Text>
-              <Text style={styles.statLabel}>Connections</Text>
+              <Text style={styles.statLabel}>Conexiones</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -369,18 +296,21 @@ export default function UserProfileScreen() {
             colors={COLORS.gradients.goldButton as [string, string, string]}
             style={styles.sendVibeMainButtonGradient}
           >
-            <Ionicons name="hand-right" size={22} color={COLORS.text.dark} />
-            <Text style={styles.sendVibeMainButtonText}>Send a Vibe</Text>
+            <Text style={styles.sendVibeEmoji}>👋</Text>
+            <Text style={styles.sendVibeMainButtonText}>Enviar un Vibe</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         {/* Recent Places */}
         {profile.recent_places.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Places</Text>
+            <Text style={styles.sectionTitle}>Lugares Recientes</Text>
             <View style={styles.placesCard}>
               {profile.recent_places.map((place, i) => (
-                <View key={i} style={styles.placeItem}>
+                <View key={i} style={[
+                  styles.placeItem,
+                  i === profile.recent_places.length - 1 && { borderBottomWidth: 0 }
+                ]}>
                   <Ionicons name="location" size={18} color={COLORS.gold.primary} />
                   <Text style={styles.placeName}>{place.name}</Text>
                 </View>
@@ -396,7 +326,8 @@ export default function UserProfileScreen() {
           </Text>
           {profile.reviews.length === 0 ? (
             <View style={styles.noReviews}>
-              <Text style={styles.noReviewsText}>No reviews yet</Text>
+              <Text style={styles.noReviewsEmoji}>📝</Text>
+              <Text style={styles.noReviewsText}>Aún no hay reviews</Text>
             </View>
           ) : (
             profile.reviews.map((review) => (
@@ -407,11 +338,11 @@ export default function UserProfileScreen() {
       </ScrollView>
 
       {/* Vibe Selector Modal */}
-      <VibeSelectorModal
+      <VibeSelector
         visible={showVibeModal}
         onClose={() => setShowVibeModal(false)}
         onSend={handleSendVibe}
-        userName={profile.name}
+        recipientName={profile.name}
         sending={sendingVibe}
       />
     </View>
@@ -508,20 +439,63 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: COLORS.text.primary,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  profileIntention: {
-    fontSize: 16,
+  intentionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background.card,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+    marginBottom: 16,
+  },
+  intentionIcon: {
+    fontSize: 18,
+  },
+  intentionText: {
+    fontSize: 15,
     color: COLORS.text.secondary,
-    marginBottom: 12,
+  },
+  currentVibe: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  currentVibeLabel: {
+    fontSize: 12,
+    color: COLORS.text.muted,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  currentVibeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  currentVibeEmoji: {
+    fontSize: 40,
+  },
+  currentVibeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  currentVibeMessage: {
+    fontSize: 14,
+    color: COLORS.text.tertiary,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   profileBio: {
     fontSize: 15,
     color: COLORS.text.tertiary,
     textAlign: 'center',
-    marginBottom: 20,
     paddingHorizontal: 20,
     lineHeight: 22,
+    marginBottom: 20,
   },
   statsRow: {
     flexDirection: 'row',
@@ -531,6 +505,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border.light,
+    width: '100%',
   },
   statItem: {
     flex: 1,
@@ -569,6 +544,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 10,
   },
+  sendVibeEmoji: {
+    fontSize: 24,
+  },
   sendVibeMainButtonText: {
     fontSize: 18,
     fontWeight: '700',
@@ -587,14 +565,15 @@ const styles = StyleSheet.create({
   placesCard: {
     backgroundColor: COLORS.background.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 4,
     borderWidth: 1,
     borderColor: COLORS.border.light,
   },
   placeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     gap: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.light,
@@ -602,14 +581,19 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 15,
     color: COLORS.text.secondary,
+    flex: 1,
   },
   noReviews: {
     backgroundColor: COLORS.background.card,
     borderRadius: 16,
-    padding: 24,
+    padding: 32,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border.light,
+  },
+  noReviewsEmoji: {
+    fontSize: 40,
+    marginBottom: 12,
   },
   noReviewsText: {
     fontSize: 15,
@@ -663,116 +647,5 @@ const styles = StyleSheet.create({
   reviewTime: {
     fontSize: 12,
     color: COLORS.text.muted,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  vibeModal: {
-    backgroundColor: COLORS.background.secondary,
-    borderRadius: 24,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-  },
-  vibeModalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  vibeModalSubtitle: {
-    fontSize: 14,
-    color: COLORS.text.tertiary,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  vibeTypesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 20,
-  },
-  vibeTypeButton: {
-    width: 70,
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: COLORS.background.card,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  vibeTypeButtonActive: {
-    borderColor: COLORS.gold.primary,
-    backgroundColor: 'rgba(244, 197, 66, 0.15)',
-  },
-  vibeTypeEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  vibeTypeLabel: {
-    fontSize: 12,
-    color: COLORS.text.tertiary,
-  },
-  vibeTypeLabelActive: {
-    color: COLORS.gold.primary,
-    fontWeight: '600',
-  },
-  messagePreview: {
-    backgroundColor: COLORS.background.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-  },
-  messagePreviewLabel: {
-    fontSize: 12,
-    color: COLORS.text.muted,
-    marginBottom: 6,
-  },
-  messagePreviewText: {
-    fontSize: 16,
-    color: COLORS.text.primary,
-    fontStyle: 'italic',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: COLORS.text.tertiary,
-  },
-  sendVibeButton: {
-    flex: 2,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  sendVibeButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 8,
-  },
-  sendVibeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.dark,
-  },
-  sendVibeEmoji: {
-    fontSize: 18,
   },
 });
