@@ -85,56 +85,78 @@ const LivePulse = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
   );
 };
 
-// Premium Location Pin with Gradient & Glow
+// Classic Location Pin - Teardrop shape with concentric rings
 const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
   return (
     <View style={styles.pinContainer}>
-      {/* Shadow/Glow underneath */}
-      <Animated.View
-        style={[
-          styles.pinShadow,
-          {
-            transform: [
-              {
-                scale: pulseAnim.interpolate({
-                  inputRange: [1, 1.8],
-                  outputRange: [0.9, 1.1],
-                }),
-              },
-            ],
-            opacity: pulseAnim.interpolate({
-              inputRange: [1, 1.8],
-              outputRange: [0.4, 0.7],
-            }),
-          },
-        ]}
-      />
-
-      {/* Main Pin Body */}
-      <View style={styles.pinBody}>
-        <LinearGradient
-          colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldPremium]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.pinGradient}
-        >
-          {/* Inner circle (eye) with gradient */}
-          <View style={styles.pinInnerCircle}>
-            <View style={styles.pinInnerDot} />
-          </View>
-        </LinearGradient>
-      </View>
-
-      {/* Pin Point */}
-      <View style={styles.pinPointContainer}>
-        <LinearGradient
-          colors={[COLORS.goldPrimary, COLORS.goldPremium]}
-          style={styles.pinPoint}
+      {/* Concentric rings underneath - radar effect */}
+      <View style={styles.ringsContainer}>
+        <Animated.View
+          style={[
+            styles.ringOuter,
+            {
+              transform: [
+                {
+                  scale: pulseAnim.interpolate({
+                    inputRange: [1, 1.8],
+                    outputRange: [1, 1.3],
+                  }),
+                },
+              ],
+              opacity: pulseAnim.interpolate({
+                inputRange: [1, 1.8],
+                outputRange: [0.6, 0],
+              }),
+            },
+          ]}
         />
+        <Animated.View
+          style={[
+            styles.ringMiddle,
+            {
+              transform: [
+                {
+                  scale: pulseAnim.interpolate({
+                    inputRange: [1, 1.8],
+                    outputRange: [1, 1.2],
+                  }),
+                },
+              ],
+              opacity: pulseAnim.interpolate({
+                inputRange: [1, 1.8],
+                outputRange: [0.8, 0.2],
+              }),
+            },
+          ]}
+        />
+        <View style={styles.ringInner} />
       </View>
 
-      {/* Ground reflection dot */}
-      <View style={styles.pinReflection} />
+      {/* Main Pin - Teardrop shape */}
+      <View style={styles.teardropContainer}>
+        {/* Pin head (circle part) */}
+        <View style={styles.pinHead}>
+          <LinearGradient
+            colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldPremium]}
+            start={{ x: 0.3, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
+            style={styles.pinHeadGradient}
+          >
+            {/* White/light circle in center */}
+            <View style={styles.pinCenterCircle} />
+          </LinearGradient>
+        </View>
+
+        {/* Pin tail (pointed part) */}
+        <View style={styles.pinTailWrapper}>
+          <LinearGradient
+            colors={[COLORS.goldPrimary, COLORS.goldPremium]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.pinTailGradient}
+          />
+        </View>
+      </View>
     </View>
   );
 };
@@ -490,78 +512,101 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
 
-  // Premium Pin Styles
+  // Classic Location Pin Styles - Teardrop with rings
   pinContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
+    height: 160,
+    justifyContent: 'flex-end',
   },
-  pinShadow: {
+  
+  // Concentric rings (radar effect)
+  ringsContainer: {
     position: 'absolute',
-    bottom: -5,
-    width: 80,
-    height: 30,
-    backgroundColor: COLORS.goldPrimary,
-    borderRadius: 40,
-    opacity: 0.3,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 100,
+    height: 40,
   },
-  pinBody: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+  ringOuter: {
+    position: 'absolute',
+    width: 90,
+    height: 35,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: COLORS.goldPrimary,
+    backgroundColor: 'transparent',
+  },
+  ringMiddle: {
+    position: 'absolute',
+    width: 60,
+    height: 24,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: COLORS.goldPrimary,
+    backgroundColor: 'transparent',
+  },
+  ringInner: {
+    width: 30,
+    height: 12,
+    borderRadius: 15,
+    backgroundColor: COLORS.goldPrimary,
+    opacity: 0.7,
+  },
+  
+  // Teardrop pin
+  teardropContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
     ...Platform.select({
       ios: {
         shadowColor: COLORS.goldBright,
-        shadowOffset: { width: 0, height: 8 },
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.5,
-        shadowRadius: 20,
+        shadowRadius: 15,
       },
       android: {
-        elevation: 20,
+        elevation: 15,
       },
     }),
   },
-  pinGradient: {
+  pinHead: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    overflow: 'hidden',
+  },
+  pinHeadGradient: {
     flex: 1,
-    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  pinInnerCircle: {
+  pinCenterCircle: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1a1a2e',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.cream,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+    }),
   },
-  pinInnerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.goldBright,
-  },
-  pinPointContainer: {
-    marginTop: -3,
+  pinTailWrapper: {
+    marginTop: -8,
+    width: 36,
+    height: 40,
     overflow: 'hidden',
   },
-  pinPoint: {
-    width: 20,
-    height: 28,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    transform: [{ scaleX: 0.7 }],
-  },
-  pinReflection: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.goldPrimary,
-    marginTop: 12,
-    opacity: 0.6,
+  pinTailGradient: {
+    width: 36,
+    height: 36,
+    transform: [{ rotate: '45deg' }, { translateY: -18 }],
+    borderRadius: 6,
   },
 
   // Logo Text Styles
