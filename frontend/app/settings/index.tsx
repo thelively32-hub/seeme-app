@@ -7,15 +7,14 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
-import { useLanguage } from '../../src/i18n';
 import api from '../../src/services/api';
+import COLORS from '../../src/theme/colors';
 
 const SettingRow = ({
   icon,
@@ -25,6 +24,7 @@ const SettingRow = ({
   onPress,
   showArrow = true,
   rightComponent,
+  danger = false,
 }: {
   icon: string;
   iconColor?: string;
@@ -33,6 +33,7 @@ const SettingRow = ({
   onPress?: () => void;
   showArrow?: boolean;
   rightComponent?: React.ReactNode;
+  danger?: boolean;
 }) => (
   <TouchableOpacity 
     style={styles.settingRow} 
@@ -40,16 +41,16 @@ const SettingRow = ({
     activeOpacity={onPress ? 0.7 : 1}
     disabled={!onPress}
   >
-    <View style={[styles.settingIcon, { backgroundColor: `${iconColor || '#ff7b35'}20` }]}>
-      <Ionicons name={icon as any} size={20} color={iconColor || '#ff7b35'} />
+    <View style={[styles.settingIcon, { backgroundColor: `${iconColor || COLORS.gold.primary}20` }]}>
+      <Ionicons name={icon as any} size={20} color={iconColor || COLORS.gold.primary} />
     </View>
-    <Text style={styles.settingLabel}>{label}</Text>
+    <Text style={[styles.settingLabel, danger && styles.settingLabelDanger]}>{label}</Text>
     {rightComponent ? (
       rightComponent
     ) : (
       <View style={styles.settingRight}>
         {value && <Text style={styles.settingValue}>{value}</Text>}
-        {showArrow && <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />}
+        {showArrow && <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />}
       </View>
     )}
   </TouchableOpacity>
@@ -62,19 +63,19 @@ const SectionHeader = ({ title }: { title: string }) => (
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
   const [notifications, setNotifications] = useState(true);
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [ghostMode, setGhostMode] = useState(false);
+  const [language, setLanguage] = useState('es');
   const [deleting, setDeleting] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
-      t.settings.logout,
-      t.settings.logoutConfirm,
+      'Cerrar Sesión',
+      '¿Estás seguro que quieres salir?',
       [
-        { text: t.common.cancel, style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: t.settings.logout,
+          text: 'Salir',
           style: 'destructive',
           onPress: async () => {
             await logout();
@@ -87,12 +88,12 @@ export default function SettingsScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      t.settings.deleteAccount,
-      t.settings.deleteAccountConfirm,
+      'Eliminar Cuenta',
+      '¿Estás seguro? Esta acción no se puede deshacer. Todos tus datos serán eliminados permanentemente.',
       [
-        { text: t.common.cancel, style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: t.common.delete,
+          text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
@@ -101,7 +102,7 @@ export default function SettingsScreen() {
               await logout();
               router.replace('/');
             } catch (e) {
-              Alert.alert(t.common.error, t.errors.generic);
+              Alert.alert('Error', 'No se pudo eliminar la cuenta');
             } finally {
               setDeleting(false);
             }
@@ -113,29 +114,35 @@ export default function SettingsScreen() {
 
   const handleLanguageChange = () => {
     Alert.alert(
-      t.settings.language,
-      '',
+      'Idioma',
+      'Selecciona tu idioma',
       [
         {
-          text: t.settings.english,
+          text: 'English',
           onPress: () => setLanguage('en'),
         },
         {
-          text: t.settings.spanish,
+          text: 'Español',
           onPress: () => setLanguage('es'),
         },
-        { text: t.common.cancel, style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
       ]
     );
   };
 
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+      
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t.settings.title}</Text>
+        <Text style={styles.headerTitle}>Configuración</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -145,107 +152,121 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Account */}
-        <SectionHeader title={t.settings.account} />
+        <SectionHeader title="CUENTA" />
         <View style={styles.section}>
           <SettingRow
             icon="person-outline"
-            label={t.settings.editProfile}
+            label="Editar Perfil"
             onPress={() => router.push('/settings/edit-profile')}
           />
         </View>
 
+        {/* Premium */}
+        <SectionHeader title="PREMIUM" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="star"
+            iconColor={COLORS.gold.primary}
+            label="Actualizar a PRO"
+            value="Vibes ilimitados"
+            onPress={() => Alert.alert('Próximamente', 'La suscripción premium estará disponible pronto')}
+          />
+        </View>
+
         {/* Privacy */}
-        <SectionHeader title={t.settings.privacy} />
+        <SectionHeader title="PRIVACIDAD" />
         <View style={styles.section}>
           <SettingRow
             icon="eye-off-outline"
             iconColor="#9c27b0"
-            label={t.profile.anonymous}
+            label="Modo Fantasma"
             showArrow={false}
             rightComponent={
               <Switch
-                value={isAnonymous}
-                onValueChange={setIsAnonymous}
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(255, 123, 53, 0.5)' }}
-                thumbColor={isAnonymous ? '#ff7b35' : '#f4f3f4'}
+                value={ghostMode}
+                onValueChange={setGhostMode}
+                trackColor={{ false: COLORS.background.card, true: `${COLORS.gold.primary}50` }}
+                thumbColor={ghostMode ? COLORS.gold.primary : '#f4f3f4'}
               />
             }
           />
         </View>
 
         {/* Notifications */}
-        <SectionHeader title={t.settings.notifications} />
+        <SectionHeader title="NOTIFICACIONES" />
         <View style={styles.section}>
           <SettingRow
             icon="notifications-outline"
             iconColor="#2196f3"
-            label={t.settings.notifications}
+            label="Notificaciones Push"
             showArrow={false}
             rightComponent={
               <Switch
                 value={notifications}
                 onValueChange={setNotifications}
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(255, 123, 53, 0.5)' }}
-                thumbColor={notifications ? '#ff7b35' : '#f4f3f4'}
+                trackColor={{ false: COLORS.background.card, true: `${COLORS.gold.primary}50` }}
+                thumbColor={notifications ? COLORS.gold.primary : '#f4f3f4'}
               />
             }
           />
         </View>
 
         {/* Preferences */}
-        <SectionHeader title={t.settings.preferences} />
+        <SectionHeader title="PREFERENCIAS" />
         <View style={styles.section}>
           <SettingRow
             icon="language-outline"
             iconColor="#4caf50"
-            label={t.settings.language}
-            value={language === 'en' ? t.settings.english : t.settings.spanish}
+            label="Idioma"
+            value={language === 'en' ? 'English' : 'Español'}
             onPress={handleLanguageChange}
           />
         </View>
 
         {/* Legal */}
-        <SectionHeader title={t.settings.legal} />
+        <SectionHeader title="LEGAL" />
         <View style={styles.section}>
           <SettingRow
             icon="document-text-outline"
             iconColor="#ffc107"
-            label={t.settings.termsOfService}
+            label="Términos de Servicio"
             onPress={() => router.push('/legal/terms')}
           />
           <SettingRow
             icon="shield-checkmark-outline"
             iconColor="#4caf50"
-            label={t.settings.privacyPolicy}
+            label="Política de Privacidad"
             onPress={() => router.push('/legal/privacy')}
           />
         </View>
 
         {/* Danger Zone */}
-        <SectionHeader title={t.settings.dangerZone} />
+        <SectionHeader title="ZONA DE PELIGRO" />
         <View style={styles.section}>
           <SettingRow
             icon="log-out-outline"
             iconColor="#ff9800"
-            label={t.settings.logout}
+            label="Cerrar Sesión"
             showArrow={false}
             onPress={handleLogout}
           />
           <SettingRow
             icon="trash-outline"
-            iconColor="#f44336"
-            label={t.settings.deleteAccount}
+            iconColor={COLORS.accent.error}
+            label="Eliminar Cuenta"
             showArrow={false}
             onPress={handleDeleteAccount}
+            danger
           />
         </View>
 
         {/* Version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>{t.settings.version} 1.0.0</Text>
+          <Text style={styles.versionText}>See Me v1.0.0</Text>
+          <Text style={styles.madeWithText}>Made with 💛 for connecting people</Text>
         </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -259,6 +280,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
   },
   backButton: {
     width: 44,
@@ -267,9 +290,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
   placeholder: {
     width: 44,
@@ -279,24 +302,23 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   sectionHeader: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.4)',
-    textTransform: 'uppercase',
+    color: COLORS.text.muted,
     letterSpacing: 1,
-    marginTop: 24,
+    marginTop: 28,
     marginBottom: 12,
     marginLeft: 4,
   },
   section: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: COLORS.background.card,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: COLORS.border.light,
   },
   settingRow: {
     flexDirection: 'row',
@@ -304,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: COLORS.border.light,
   },
   settingIcon: {
     width: 36,
@@ -317,7 +339,10 @@ const styles = StyleSheet.create({
   settingLabel: {
     flex: 1,
     fontSize: 16,
-    color: '#fff',
+    color: COLORS.text.primary,
+  },
+  settingLabelDanger: {
+    color: COLORS.accent.error,
   },
   settingRight: {
     flexDirection: 'row',
@@ -326,14 +351,20 @@ const styles = StyleSheet.create({
   },
   settingValue: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.tertiary,
   },
   versionContainer: {
     alignItems: 'center',
     marginTop: 40,
+    marginBottom: 20,
   },
   versionText: {
+    fontSize: 13,
+    color: COLORS.text.muted,
+  },
+  madeWithText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.3)',
+    color: COLORS.text.muted,
+    marginTop: 4,
   },
 });

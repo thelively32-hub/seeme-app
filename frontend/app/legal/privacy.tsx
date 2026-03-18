@@ -10,95 +10,119 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useLanguage } from '../../src/i18n';
+import COLORS from '../../src/theme/colors';
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
-  const { t } = useLanguage();
 
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t.legal.privacyPolicyTitle}</Text>
+        <Text style={styles.headerTitle}>Política de Privacidad</Text>
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.lastUpdated}>{t.legal.lastUpdated}: January 2025</Text>
+        <Text style={styles.lastUpdated}>Última actualización: Junio 2025</Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Information We Collect</Text>
-          <Text style={styles.paragraph}>
-            We collect information you provide directly:{"\n"}
-            • Account information (name, email){"\n"}
-            • Profile preferences{"\n"}
-            • Check-in data{"\n"}
-            • Location data (only when using the app)
+          <Text style={styles.sectionTitle}>Tu Privacidad es Importante</Text>
+          <Text style={styles.sectionText}>
+            En See Me, nos tomamos muy en serio la protección de tus datos personales. Esta política explica qué información recopilamos y cómo la usamos.
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. How We Use Your Information</Text>
-          <Text style={styles.paragraph}>
-            We use your information to:{"\n"}
-            • Provide and improve our services{"\n"}
-            • Show relevant social activity{"\n"}
-            • Verify check-ins{"\n"}
-            • Ensure platform integrity
+          <Text style={styles.sectionTitle}>Información que Recopilamos</Text>
+          <Text style={styles.sectionText}>
+            <Text style={styles.bold}>Información de cuenta:</Text>{"\n"}
+            • Nombre, email, número de teléfono{"\n"}
+            • Fecha de nacimiento (para verificar edad){"\n"}
+            • Foto de perfil (opcional){"\n"}
+            {"\n"}
+            <Text style={styles.bold}>Información de uso:</Text>{"\n"}
+            • Ubicación (solo durante check-ins){"\n"}
+            • Historial de check-ins{"\n"}
+            • Vibes enviados y recibidos
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Location Data</Text>
-          <Text style={styles.paragraph}>
-            We only access your location when you actively use the app. Location is used to:{"\n"}
-            • Show nearby places{"\n"}
-            • Validate check-ins{"\n"}
-            • Calculate distances{"\n"}{"\n"}
-            We do not track your location in the background or sell location data.
+          <Text style={styles.sectionTitle}>Cómo Usamos tu Información</Text>
+          <Text style={styles.sectionText}>
+            • Mostrar tu perfil a otros usuarios{"\n"}
+            • Verificar tu ubicación durante check-ins{"\n"}
+            • Mostrarte personas cerca de ti{"\n"}
+            • Enviar notificaciones sobre vibes{"\n"}
+            • Mejorar la experiencia de la app
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Data Sharing</Text>
-          <Text style={styles.paragraph}>
-            We do not sell your personal information. We may share anonymized, aggregated data for analytics purposes.
+          <Text style={styles.sectionTitle}>Tu Ubicación</Text>
+          <Text style={styles.sectionText}>
+            • Solo accedemos a tu ubicación cuando haces check-in{"\n"}
+            • No rastreamos tu ubicación en segundo plano{"\n"}
+            • Puedes desactivar los permisos en cualquier momento{"\n"}
+            • La ubicación se usa para verificar que estás en el lugar
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Data Security</Text>
-          <Text style={styles.paragraph}>
-            We implement industry-standard security measures to protect your data. However, no method of transmission over the Internet is 100% secure.
+          <Text style={styles.sectionTitle}>Control de tu Información</Text>
+          <Text style={styles.sectionText}>
+            <Text style={styles.bold}>Modo Fantasma (Premium):</Text>{"\n"}
+            Navega perfiles sin que otros sepan que los viste.{"\n"}
+            {"\n"}
+            <Text style={styles.bold}>Eliminar cuenta:</Text>{"\n"}
+            Puedes eliminar tu cuenta y todos tus datos desde Configuración.
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>6. Your Rights</Text>
-          <Text style={styles.paragraph}>
-            You have the right to:{"\n"}
-            • Access your data{"\n"}
-            • Delete your account{"\n"}
-            • Opt out of communications{"\n"}
-            • Request data export
+          <Text style={styles.sectionTitle}>Compartimos tu Información</Text>
+          <Text style={styles.sectionText}>
+            <Text style={styles.bold}>NO vendemos</Text> tu información personal.{"\n"}
+            {"\n"}
+            Solo compartimos datos con:{"\n"}
+            • Otros usuarios (según tu configuración){"\n"}
+            • Proveedores de servicios (hosting, pagos){"\n"}
+            • Autoridades (si es requerido por ley)
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>7. Contact Us</Text>
-          <Text style={styles.paragraph}>
-            For privacy concerns, contact us at privacy@seeme.app
+          <Text style={styles.sectionTitle}>Seguridad</Text>
+          <Text style={styles.sectionText}>
+            • Encriptación de datos en tránsito{"\n"}
+            • Contraseñas hasheadas de forma segura{"\n"}
+            • Acceso restringido a datos personales{"\n"}
+            • Monitoreo de actividad sospechosa
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contacto</Text>
+          <Text style={styles.sectionText}>
+            Para consultas sobre privacidad:{"\n"}
+            privacy@seeme.app
           </Text>
         </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -112,6 +136,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
   },
   backButton: {
     width: 44,
@@ -120,9 +146,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
   placeholder: {
     width: 44,
@@ -131,26 +157,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    padding: 20,
+    paddingBottom: 100,
   },
   lastUpdated: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+    fontSize: 13,
+    color: COLORS.text.muted,
     marginBottom: 24,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 8,
+    color: COLORS.gold.primary,
+    marginBottom: 10,
   },
-  paragraph: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 22,
+  sectionText: {
+    fontSize: 15,
+    color: COLORS.text.secondary,
+    lineHeight: 24,
+  },
+  bold: {
+    fontWeight: '600',
+    color: COLORS.text.primary,
   },
 });

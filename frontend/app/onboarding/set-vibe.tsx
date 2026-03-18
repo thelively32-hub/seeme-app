@@ -13,21 +13,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
+import COLORS from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
 
 type Gender = 'man' | 'woman' | 'nonbinary';
 type LookingFor = 'men' | 'women' | 'everyone';
-type Intention = 'friends' | 'date' | 'casual';
+type Intention = 'friendship' | 'dating' | 'casual';
 
 const GenderOption = ({
   label,
-  icon,
+  emoji,
   selected,
   onPress,
 }: {
   label: string;
-  icon: string;
+  emoji: string;
   selected: boolean;
   onPress: () => void;
 }) => (
@@ -36,9 +37,7 @@ const GenderOption = ({
     onPress={onPress}
     activeOpacity={0.8}
   >
-    <View style={[styles.genderIconContainer, selected && styles.genderIconSelected]}>
-      <Ionicons name={icon as any} size={32} color={selected ? '#fff' : 'rgba(255,255,255,0.6)'} />
-    </View>
+    <Text style={styles.genderEmoji}>{emoji}</Text>
     <Text style={[styles.genderLabel, selected && styles.genderLabelSelected]}>{label}</Text>
   </TouchableOpacity>
 );
@@ -47,18 +46,13 @@ const ChipOption = ({
   label,
   selected,
   onPress,
-  color,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
-  color?: string;
 }) => (
   <TouchableOpacity
-    style={[
-      styles.chip,
-      selected && { backgroundColor: color || '#ff7b35', borderColor: color || '#ff7b35' },
-    ]}
+    style={[styles.chip, selected && styles.chipSelected]}
     onPress={onPress}
     activeOpacity={0.8}
   >
@@ -68,12 +62,14 @@ const ChipOption = ({
 
 const IntentionOption = ({
   label,
-  icon,
+  emoji,
+  description,
   selected,
   onPress,
 }: {
   label: string;
-  icon: string;
+  emoji: string;
+  description: string;
   selected: boolean;
   onPress: () => void;
 }) => (
@@ -82,10 +78,14 @@ const IntentionOption = ({
     onPress={onPress}
     activeOpacity={0.8}
   >
-    <View style={[styles.intentionIconContainer, selected && styles.intentionIconSelected]}>
-      <Ionicons name={icon as any} size={28} color={selected ? '#fff' : 'rgba(255,255,255,0.6)'} />
+    <Text style={styles.intentionEmoji}>{emoji}</Text>
+    <View style={styles.intentionInfo}>
+      <Text style={[styles.intentionLabel, selected && styles.intentionLabelSelected]}>{label}</Text>
+      <Text style={styles.intentionDescription}>{description}</Text>
     </View>
-    <Text style={[styles.intentionLabel, selected && styles.intentionLabelSelected]}>{label}</Text>
+    {selected && (
+      <Ionicons name="checkmark-circle" size={24} color={COLORS.gold.primary} />
+    )}
   </TouchableOpacity>
 );
 
@@ -114,7 +114,7 @@ export default function SetVibeScreen() {
 
   const handleContinue = async () => {
     if (!gender || lookingFor.length === 0 || !intention) {
-      setError('Please complete all selections');
+      setError('Por favor completa todas las opciones');
       return;
     }
 
@@ -125,7 +125,7 @@ export default function SetVibeScreen() {
       await setVibe(gender, lookingFor, intention);
       router.replace('/(tabs)/explore');
     } catch (e: any) {
-      setError(e.message || 'Failed to save preferences');
+      setError(e.message || 'Error al guardar preferencias');
     } finally {
       setLoading(false);
     }
@@ -134,42 +134,47 @@ export default function SetVibeScreen() {
   const isComplete = gender && lookingFor.length > 0 && intention;
 
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+      
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
         </TouchableOpacity>
 
-        <Text style={styles.title}>Set Your Vibe</Text>
+        <Text style={styles.title}>Configura tu Vibe</Text>
         <Text style={styles.subtitle}>
-          SEE ME helps you discover social spaces where people are open to connect — no pressure, just real moments.
+          Ayúdanos a mostrarte personas afines a ti en los lugares que visites.
         </Text>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Your Gender */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your gender</Text>
+          <Text style={styles.sectionTitle}>Soy</Text>
           <View style={styles.genderContainer}>
             <GenderOption
-              label="Man"
-              icon="man"
+              label="Hombre"
+              emoji="👨"
               selected={gender === 'man'}
               onPress={() => setGender('man')}
             />
             <GenderOption
-              label="Woman"
-              icon="woman"
+              label="Mujer"
+              emoji="👩"
               selected={gender === 'woman'}
               onPress={() => setGender('woman')}
             />
             <GenderOption
-              label="Other"
-              icon="transgender"
+              label="Otro"
+              emoji="🧑"
               selected={gender === 'nonbinary'}
               onPress={() => setGender('nonbinary')}
             />
@@ -178,47 +183,48 @@ export default function SetVibeScreen() {
 
         {/* Looking For */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Open to meet</Text>
+          <Text style={styles.sectionTitle}>Me interesa conocer</Text>
           <View style={styles.chipsContainer}>
             <ChipOption
-              label="Men"
+              label="Hombres"
               selected={lookingFor.includes('men')}
               onPress={() => toggleLookingFor('men')}
-              color="#ffc107"
             />
             <ChipOption
-              label="Women"
+              label="Mujeres"
               selected={lookingFor.includes('women')}
               onPress={() => toggleLookingFor('women')}
-              color="#e040fb"
             />
             <ChipOption
-              label="Everyone"
+              label="Todos"
               selected={lookingFor.includes('everyone')}
               onPress={() => toggleLookingFor('everyone')}
             />
           </View>
         </View>
 
-        {/* What are you looking for */}
+        {/* Intention */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your social vibe</Text>
-          <View style={styles.intentionContainer}>
+          <Text style={styles.sectionTitle}>Busco principalmente</Text>
+          <View style={styles.intentionsContainer}>
             <IntentionOption
-              label="New Friends"
-              icon="people"
-              selected={intention === 'friends'}
-              onPress={() => setIntention('friends')}
+              label="Amistad"
+              emoji="🤝"
+              description="Conocer gente nueva, sin compromisos"
+              selected={intention === 'friendship'}
+              onPress={() => setIntention('friendship')}
             />
             <IntentionOption
-              label="Open"
-              icon="heart"
-              selected={intention === 'date'}
-              onPress={() => setIntention('date')}
+              label="Relación"
+              emoji="💕"
+              description="Abierto/a a algo más serio"
+              selected={intention === 'dating'}
+              onPress={() => setIntention('dating')}
             />
             <IntentionOption
               label="Casual"
-              icon="cafe"
+              emoji="😎"
+              description="Solo pasarla bien, sin etiquetas"
               selected={intention === 'casual'}
               onPress={() => setIntention('casual')}
             />
@@ -234,21 +240,21 @@ export default function SetVibeScreen() {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={isComplete ? ['#ffaa40', '#ff7b35', '#ff5533'] : ['#555', '#444']}
+              colors={isComplete ? COLORS.gradients.goldButton as [string, string, string] : ['#3A3A3A', '#2A2A2A', '#1A1A1A']}
               style={styles.continueButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={isComplete ? COLORS.text.dark : COLORS.text.muted} />
               ) : (
-                <Text style={styles.continueButtonText}>Continue</Text>
+                <Text style={[styles.continueButtonText, !isComplete && styles.continueButtonTextDisabled]}>
+                  Continuar
+                </Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -267,61 +273,61 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.text.primary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.text.secondary,
     marginBottom: 32,
+    lineHeight: 24,
   },
   errorText: {
-    color: '#ff5555',
+    color: COLORS.accent.error,
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.primary,
     marginBottom: 16,
   },
   genderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
   genderOption: {
+    flex: 1,
     alignItems: 'center',
-    width: (width - 80) / 3,
-  },
-  genderOptionSelected: {},
-  genderIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 20,
+    borderRadius: 16,
+    backgroundColor: COLORS.background.card,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    borderColor: COLORS.border.light,
   },
-  genderIconSelected: {
-    backgroundColor: 'rgba(255, 123, 53, 0.3)',
-    borderColor: '#ff7b35',
+  genderOptionSelected: {
+    borderColor: COLORS.gold.primary,
+    backgroundColor: 'rgba(244, 197, 66, 0.1)',
+  },
+  genderEmoji: {
+    fontSize: 36,
+    marginBottom: 8,
   },
   genderLabel: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.text.tertiary,
+    fontWeight: '500',
   },
   genderLabelSelected: {
-    color: '#fff',
+    color: COLORS.gold.primary,
     fontWeight: '600',
   },
   chipsContainer: {
@@ -329,52 +335,62 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   chip: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    flex: 1,
+    paddingVertical: 14,
     borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: COLORS.background.card,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: COLORS.border.light,
+    alignItems: 'center',
+  },
+  chipSelected: {
+    backgroundColor: COLORS.gold.primary,
+    borderColor: COLORS.gold.primary,
   },
   chipText: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.text.tertiary,
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: '#fff',
+    color: COLORS.text.dark,
+    fontWeight: '600',
   },
-  intentionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  intentionsContainer: {
+    gap: 12,
   },
   intentionOption: {
+    flexDirection: 'row',
     alignItems: 'center',
-    width: (width - 80) / 3,
-  },
-  intentionOptionSelected: {},
-  intentionIconContainer: {
-    width: 65,
-    height: 65,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: COLORS.background.card,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    borderColor: COLORS.border.light,
+    gap: 14,
   },
-  intentionIconSelected: {
-    backgroundColor: 'rgba(236, 64, 122, 0.3)',
-    borderColor: '#ec407a',
+  intentionOptionSelected: {
+    borderColor: COLORS.gold.primary,
+    backgroundColor: 'rgba(244, 197, 66, 0.1)',
+  },
+  intentionEmoji: {
+    fontSize: 32,
+  },
+  intentionInfo: {
+    flex: 1,
   },
   intentionLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 17,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginBottom: 2,
   },
   intentionLabelSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: COLORS.gold.primary,
+  },
+  intentionDescription: {
+    fontSize: 13,
+    color: COLORS.text.tertiary,
   },
   buttonContainer: {
     flex: 1,
@@ -386,17 +402,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   continueButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
   continueButton: {
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 30,
   },
   continueButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.text.dark,
+  },
+  continueButtonTextDisabled: {
+    color: COLORS.text.muted,
   },
 });

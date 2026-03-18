@@ -10,61 +10,104 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../src/context/AuthContext';
-import { useLanguage } from '../../src/i18n';
 import api from '../../src/services/api';
+import COLORS from '../../src/theme/colors';
+import VibeSelector from '../../src/components/VibeSelector';
+import { VIBES, getVibeById } from '../../src/constants/vibes';
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuth();
-  const { t } = useLanguage();
   const [name, setName] = useState(user?.name || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [photo, setPhoto] = useState<string | null>(user?.photo_url || null);
   const [loading, setSaving] = useState(false);
+  const [showVibeSelector, setShowVibeSelector] = useState(false);
+  const [currentVibe, setCurrentVibe] = useState(user?.current_vibe?.vibe_id || null);
+
+  const handlePickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert(t.common.error, 'Name is required');
+      Alert.alert('Error', 'El nombre es requerido');
       return;
     }
 
     setSaving(true);
     try {
-      await api.updateProfile({ name: name.trim() });
+      await api.updateProfile({ 
+        name: name.trim(),
+        bio: bio.trim(),
+      });
       await refreshUser();
-      Alert.alert(t.common.success, 'Profile updated');
+      Alert.alert('¡Listo!', 'Perfil actualizado');
       router.back();
     } catch (e) {
-      Alert.alert(t.common.error, t.errors.generic);
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSetVibe = (vibeId: string, message: string) => {
+    setCurrentVibe(vibeId);
+    setShowVibeSelector(false);
+    // TODO: Save vibe to backend
+  };
+
+  const selectedVibe = currentVibe ? getVibeById(currentVibe) : null;
+
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+      
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
+        {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={28} color="#fff" />
+            <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t.settings.editProfile}</Text>
+          <Text style={styles.headerTitle}>Editar Perfil</Text>
           <TouchableOpacity 
             style={styles.saveButton} 
             onPress={handleSave}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#ff7b35" />
+              <ActivityIndicator size="small" color={COLORS.gold.primary} />
             ) : (
-              <Text style={styles.saveText}>{t.common.save}</Text>
+              <Text style={styles.saveText}>Guardar</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -76,43 +119,108 @@ export default function EditProfileScreen() {
         >
           {/* Avatar */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              <LinearGradient
-                colors={['#ff7b35', '#ec407a']}
-                style={styles.avatar}
-              >
-                <Ionicons name="person" size={48} color="#fff" />
-              </LinearGradient>
-              <TouchableOpacity style={styles.editAvatarButton}>
-                <Ionicons name="camera" size={16} color="#fff" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.avatarContainer} onPress={handlePickImage}>
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.avatar} />
+              ) : (
+                <LinearGradient
+                  colors={COLORS.gradients.goldButton as [string, string, string]}
+                  style={styles.avatarGradient}
+                >
+                  <Text style={styles.avatarText}>
+                    {name.charAt(0).toUpperCase() || '?'}
+                  </Text>
+                </LinearGradient>
+              )}
+              <View style={styles.editAvatarButton}>
+                <Ionicons name="camera" size={16} color={COLORS.text.dark} />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.changePhotoText}>Toca para cambiar foto</Text>
+          </View>
+
+          {/* Current Vibe */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Mi Vibe de Hoy</Text>
+            <TouchableOpacity 
+              style={[
+                styles.vibeCard,
+                selectedVibe && { backgroundColor: `${selectedVibe.color}15`, borderColor: `${selectedVibe.color}50` }
+              ]}
+              onPress={() => setShowVibeSelector(true)}
+            >
+              {selectedVibe ? (
+                <View style={styles.vibeContent}>
+                  <Text style={styles.vibeEmoji}>{selectedVibe.icon}</Text>
+                  <View>
+                    <Text style={[styles.vibeLabel, { color: selectedVibe.color }]}>
+                      {selectedVibe.labelEs}
+                    </Text>
+                    <Text style={styles.vibeMessage}>
+                      "{selectedVibe.defaultMessageEs}"
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.vibeContent}>
+                  <View style={styles.addVibeIcon}>
+                    <Ionicons name="add" size={24} color={COLORS.gold.primary} />
+                  </View>
+                  <Text style={styles.addVibeText}>Establecer mi vibe</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+            </TouchableOpacity>
           </View>
 
           {/* Name Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t.auth.name}</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Nombre</Text>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholder="Tu nombre"
+              placeholderTextColor={COLORS.text.muted}
               autoCapitalize="words"
             />
           </View>
 
+          {/* Bio Input */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Bio</Text>
+            <TextInput
+              style={[styles.input, styles.bioInput]}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Cuéntanos algo sobre ti..."
+              placeholderTextColor={COLORS.text.muted}
+              multiline
+              maxLength={150}
+              numberOfLines={3}
+            />
+            <Text style={styles.charCount}>{bio.length}/150</Text>
+          </View>
+
           {/* Email (read-only) */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>{t.auth.email}</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Email</Text>
             <View style={styles.readOnlyInput}>
               <Text style={styles.readOnlyText}>{user?.email}</Text>
-              <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.3)" />
+              <Ionicons name="lock-closed" size={16} color={COLORS.text.muted} />
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+
+      {/* Vibe Selector */}
+      <VibeSelector
+        visible={showVibeSelector}
+        onClose={() => setShowVibeSelector(false)}
+        onSend={handleSetVibe}
+        recipientName="tu perfil"
+      />
+    </View>
   );
 }
 
@@ -126,6 +234,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
   },
   backButton: {
     width: 44,
@@ -134,9 +244,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
   saveButton: {
     paddingHorizontal: 16,
@@ -145,74 +255,144 @@ const styles = StyleSheet.create({
   saveText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ff7b35',
+    color: COLORS.gold.primary,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    padding: 20,
+    paddingBottom: 100,
   },
   avatarSection: {
     alignItems: 'center',
-    marginVertical: 24,
+    marginBottom: 32,
   },
   avatarContainer: {
     position: 'relative',
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 3,
+    borderColor: COLORS.gold.primary,
+  },
+  avatarGradient: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 44,
+    fontWeight: '700',
+    color: COLORS.text.dark,
   },
   editAvatarButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#ff7b35',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.gold.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#0d0415',
+    borderColor: COLORS.background.primary,
   },
-  inputGroup: {
-    marginBottom: 20,
+  changePhotoText: {
+    fontSize: 13,
+    color: COLORS.text.tertiary,
+    marginTop: 12,
   },
-  inputLabel: {
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
     fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.6)',
-    marginBottom: 8,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     fontSize: 16,
-    color: '#fff',
+    color: COLORS.text.primary,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: COLORS.border.light,
+  },
+  bioInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  charCount: {
+    fontSize: 12,
+    color: COLORS.text.muted,
+    textAlign: 'right',
+    marginTop: 6,
   },
   readOnlyInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: COLORS.border.light,
+    opacity: 0.6,
   },
   readOnlyText: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.tertiary,
+  },
+  vibeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  vibeContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  vibeEmoji: {
+    fontSize: 40,
+  },
+  vibeLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  vibeMessage: {
+    fontSize: 13,
+    color: COLORS.text.tertiary,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  addVibeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addVibeText: {
+    fontSize: 16,
+    color: COLORS.text.secondary,
   },
 });
