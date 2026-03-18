@@ -16,6 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import api from '../../src/services/api';
 import useLocation from '../../src/hooks/useLocation';
 import COLORS from '../../src/theme/colors';
@@ -175,26 +176,39 @@ const PlaceBottomSheet = ({
           </View>
           
           {/* Check-in Button */}
-          <TouchableOpacity
-            style={styles.checkInButton}
-            onPress={onCheckIn}
-            disabled={checkingIn}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={COLORS.gradients.goldButton as [string, string, string]}
-              style={styles.checkInButtonGradient}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.seePeopleButton}
+              onPress={() => {
+                onClose();
+                router.push(`/place/${place.id}?name=${encodeURIComponent(place.name)}`);
+              }}
             >
-              {checkingIn ? (
-                <ActivityIndicator color={COLORS.text.dark} />
-              ) : (
-                <>
-                  <Ionicons name="location" size={20} color={COLORS.text.dark} />
-                  <Text style={styles.checkInButtonText}>Check In Here</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+              <Ionicons name="people" size={20} color={COLORS.gold.primary} />
+              <Text style={styles.seePeopleText}>See People</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.checkInButton}
+              onPress={onCheckIn}
+              disabled={checkingIn}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={COLORS.gradients.goldButton as [string, string, string]}
+                style={styles.checkInButtonGradient}
+              >
+                {checkingIn ? (
+                  <ActivityIndicator color={COLORS.text.dark} />
+                ) : (
+                  <>
+                    <Ionicons name="location" size={20} color={COLORS.text.dark} />
+                    <Text style={styles.checkInButtonText}>Check In</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     </Modal>
@@ -634,19 +648,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   checkInButton: {
-    borderRadius: 30,
+    flex: 1,
+    borderRadius: 25,
     overflow: 'hidden',
   },
   checkInButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     gap: 8,
   },
   checkInButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.text.dark,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  seePeopleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 25,
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
+    gap: 8,
+  },
+  seePeopleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.gold.primary,
   },
 });
