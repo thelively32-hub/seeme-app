@@ -1900,6 +1900,292 @@ async def create_review(
     }
 
 
+# ============== BUSINESS PARTNER MODELS ==============
+
+class BusinessRegister(BaseModel):
+    """Register a business/venue"""
+    name: str = Field(..., min_length=2, max_length=100)
+    type: str = Field(default="Bar")  # Bar, Club, Restaurant, Cafe, etc.
+    address: str = Field(..., min_length=5, max_length=200)
+    latitude: float
+    longitude: float
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    description: Optional[str] = Field(None, max_length=500)
+
+
+class BusinessResponse(BaseModel):
+    """Business response with QR data"""
+    id: str
+    name: str
+    type: str
+    address: str
+    latitude: float
+    longitude: float
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    description: Optional[str] = None
+    qr_code_data: str  # Data to encode in QR: seeme://place/{id}
+    created_at: datetime
+    is_active: bool
+
+
+class QRCheckIn(BaseModel):
+    """Check-in via QR code scan"""
+    qr_data: str  # The scanned QR data: seeme://place/{place_id}
+    vibe_id: Optional[str] = None  # User's chosen vibe for this check-in
+
+
+class DefaultVibeUpdate(BaseModel):
+    """Update user's default vibe"""
+    vibe_id: str  # The vibe type ID from constants
+
+
+# ============== BUSINESS PARTNER ENDPOINTS ==============
+
+# Collection for businesses
+businesses_collection = db.businesses
+
+
+@app.post("/api/business/register", response_model=BusinessResponse, tags=["Business"])
+async def register_business(
+    business_data: BusinessRegister,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Register a new business venue.
+    Any user can register a business (for MVP).
+    """
+    # Check if business name already exists at similar location
+    existing = await businesses_collection.find_one({
+        "name": {"$regex": f"^{business_data.name}$", "$options": "i"},
+        "latitude": {"$gte": business_data.latitude - 0.001, "$lte": business_data.latitude + 0.001},
+        "longitude": {"$gte": business_data.longitude - 0.001, "$lte": business_data.longitude + 0.001},
+    })
+    
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail="A business with this name already exists at this location"
+        )
+    
+    business_doc = {
+        "name": business_data.name,
+        "type": business_data.type,
+        "address": business_data.address,
+        "latitude": business_data.latitude,
+        "longitude": business_data.longitude,
+        "phone": business_data.phone,
+        "email": business_data.email,
+        "description": business_data.description,
+        "owner_user_id": str(current_user["_id"]),
+        "is_active": True,
+        "created_at": datetime.utcnow(),
+    }
+    
+    result = await businesses_collection.insert_one(business_doc)
+    business_id = str(result.inserted_id)
+    
+    # Also create a place entry for this business
+    place_doc = {
+        "name": business_data.name,
+        "type": business_data.type,
+        "address": business_data.address,
+        "latitude": business_data.latitude,
+        "longitude": business_data.longitude,
+        "description": business_data.description,
+        "business_id": business_id,
+        "is_partner": True,
+        "created_at": datetime.utcnow(),
+    }
+    
+    place_result = await places_collection.insert_one(place_doc)
+    place_id = str(place_result.inserted_id)
+    
+    # Update business with place_id
+    await businesses_collection.update_one(
+        {"_id": result.inserted_id},
+        {"$set": {"place_id": place_id}}
+    )
+    
+    return BusinessResponse(
+        id=business_id,
+        name=business_data.name,
+        type=business_data.type,
+        address=business_data.address,
+        latitude=business_data.latitude,
+        longitude=business_data.longitude,
+        phone=business_data.phone,
+        email=business_data.email,
+        description=business_data.description,
+        qr_code_data=f"seeme://place/{place_id}",
+        created_at=business_doc["created_at"],
+        is_active=True,
+    )
+
+
+@app.get("/api/business/my-businesses", tags=["Business"])
+async def get_my_businesses(current_user: dict = Depends(get_current_user)):
+    """Get businesses registered by current user"""
+    user_id = str(current_user["_id"])
+    
+    cursor = businesses_collection.find({"owner_user_id": user_id})
+    businesses = await cursor.to_list(length=50)
+    
+    result = []
+    for b in businesses:
+        place_id = b.get("place_id", str(b["_id"]))
+        result.append({
+            "id": str(b["_id"]),
+            "name": b["name"],
+            "type": b["type"],
+            "address": b["address"],
+            "latitude": b["latitude"],
+            "longitude": b["longitude"],
+            "phone": b.get("phone"),
+            "email": b.get("email"),
+            "description": b.get("description"),
+            "qr_code_data": f"seeme://place/{place_id}",
+            "place_id": place_id,
+            "created_at": b["created_at"],
+            "is_active": b.get("is_active", True),
+        })
+    
+    return result
+
+
+@app.get("/api/business/{business_id}/qr", tags=["Business"])
+async def get_business_qr(
+    business_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get QR code data for a business"""
+    try:
+        business = await businesses_collection.find_one({"_id": ObjectId(business_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Business not found")
+    
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+    
+    place_id = business.get("place_id", business_id)
+    
+    return {
+        "qr_data": f"seeme://place/{place_id}",
+        "business_name": business["name"],
+        "place_id": place_id,
+    }
+
+
+# ============== QR CHECK-IN ENDPOINT ==============
+
+@app.post("/api/checkin/qr", tags=["Check-in"])
+async def qr_checkin(
+    qr_data: QRCheckIn,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Check-in via QR code scan.
+    QR data format: seeme://place/{place_id}
+    """
+    # Parse QR data
+    if not qr_data.qr_data.startswith("seeme://place/"):
+        raise HTTPException(
+            status_code=400, 
+            detail="Invalid QR code. This doesn't look like a SEE ME QR code."
+        )
+    
+    place_id = qr_data.qr_data.replace("seeme://place/", "")
+    
+    try:
+        place = await places_collection.find_one({"_id": ObjectId(place_id)})
+    except:
+        raise HTTPException(status_code=404, detail="Place not found")
+    
+    if not place:
+        raise HTTPException(status_code=404, detail="Place not found")
+    
+    user_id = str(current_user["_id"])
+    
+    # Check for active check-in at same place
+    existing = await checkins_collection.find_one({
+        "user_id": user_id,
+        "place_id": place_id,
+        "is_active": True
+    })
+    
+    if existing:
+        return {
+            "message": "Already checked in here",
+            "checkin_id": str(existing["_id"]),
+            "place_name": place["name"],
+            "is_new": False,
+        }
+    
+    # Checkout from any other place
+    await checkins_collection.update_many(
+        {"user_id": user_id, "is_active": True},
+        {"$set": {"is_active": False, "checked_out_at": datetime.utcnow()}}
+    )
+    
+    # Create new check-in
+    checkin_doc = {
+        "user_id": user_id,
+        "place_id": place_id,
+        "place_name": place["name"],
+        "vibe_id": qr_data.vibe_id,  # The vibe user chose
+        "checked_in_at": datetime.utcnow(),
+        "is_active": True,
+        "method": "qr_scan",  # Track that this was a QR check-in
+    }
+    
+    result = await checkins_collection.insert_one(checkin_doc)
+    
+    # Update user's current vibe if provided
+    if qr_data.vibe_id:
+        await users_collection.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {"current_vibe_id": qr_data.vibe_id}}
+        )
+    
+    return {
+        "message": "Checked in successfully!",
+        "checkin_id": str(result.inserted_id),
+        "place_name": place["name"],
+        "place_id": place_id,
+        "is_new": True,
+        "is_partner": place.get("is_partner", False),
+    }
+
+
+# ============== DEFAULT VIBE ENDPOINTS ==============
+
+@app.put("/api/user/default-vibe", tags=["User"])
+async def update_default_vibe(
+    vibe_data: DefaultVibeUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user's default vibe for check-ins"""
+    await users_collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"default_vibe_id": vibe_data.vibe_id}}
+    )
+    
+    return {
+        "message": "Default vibe updated",
+        "vibe_id": vibe_data.vibe_id,
+    }
+
+
+@app.get("/api/user/default-vibe", tags=["User"])
+async def get_default_vibe(current_user: dict = Depends(get_current_user)):
+    """Get user's default vibe"""
+    return {
+        "vibe_id": current_user.get("default_vibe_id"),
+        "current_vibe_id": current_user.get("current_vibe_id"),
+    }
+
+
 # ============== HEALTH CHECK ==============
 
 @app.get("/api/health", tags=["Health"])
@@ -1908,12 +2194,14 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "SEE ME API",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "timestamp": datetime.utcnow().isoformat(),
         "features": {
             "real_activity": True,
             "anti_spam": True,
-            "auto_cleanup": True
+            "auto_cleanup": True,
+            "qr_checkin": True,
+            "business_partners": True,
         }
     }
 

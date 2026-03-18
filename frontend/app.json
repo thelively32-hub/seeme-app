@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SEE ME needs your location to verify check-ins at places",
-        "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places"
+        "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places",
+        "NSCameraUsageDescription": "Scan QR codes to check-in at venues"
       }
     },
     "android": {
@@ -23,7 +24,8 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
       ]
     },
     "web": {
@@ -46,6 +48,12 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "SEE ME uses your location to verify check-ins and show nearby activity."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan QR codes to check-in at partner venues"
         }
       ]
     ],

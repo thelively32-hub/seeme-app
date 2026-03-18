@@ -331,6 +331,68 @@ class ApiService {
     });
   }
 
+  // ============== QR CHECK-IN ==============
+
+  // Check-in via QR code scan
+  async qrCheckin(qrData: string, vibeId?: string | null) {
+    return this.request('/api/checkin/qr', {
+      method: 'POST',
+      body: JSON.stringify({
+        qr_data: qrData,
+        vibe_id: vibeId,
+      }),
+    });
+  }
+
+  // Get place by ID (for QR scanning)
+  async getPlaceById(placeId: string) {
+    return this.request(`/api/places/${placeId}`);
+  }
+
+  // ============== DEFAULT VIBE ==============
+
+  // Update user's default vibe
+  async updateDefaultVibe(vibeId: string) {
+    return this.request('/api/user/default-vibe', {
+      method: 'PUT',
+      body: JSON.stringify({ vibe_id: vibeId }),
+    });
+  }
+
+  // Get user's default vibe
+  async getDefaultVibe() {
+    return this.request('/api/user/default-vibe');
+  }
+
+  // ============== BUSINESS PARTNER ==============
+
+  // Register a new business
+  async registerBusiness(data: {
+    name: string;
+    type: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    phone?: string;
+    email?: string;
+    description?: string;
+  }) {
+    return this.request('/api/business/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get my registered businesses
+  async getMyBusinesses() {
+    return this.request('/api/business/my-businesses');
+  }
+
+  // Get QR code data for a business
+  async getBusinessQR(businessId: string) {
+    return this.request(`/api/business/${businessId}/qr`);
+  }
+
   // Health
   async healthCheck() {
     return this.request('/api/health');

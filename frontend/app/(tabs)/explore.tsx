@@ -436,6 +436,20 @@ export default function ExploreScreen() {
         onRetry={handleRetryCheckIn}
         onClose={() => setErrorModal({ visible: false, message: '', placeId: null })}
       />
+
+      {/* QR Scanner FAB */}
+      <TouchableOpacity
+        style={[styles.qrFab, { bottom: insets.bottom + 100 }]}
+        onPress={() => require('expo-router').router.push('/scanner')}
+        activeOpacity={0.9}
+      >
+        <LinearGradient
+          colors={COLORS.gradients.goldButton as [string, string, string]}
+          style={styles.qrFabGradient}
+        >
+          <Ionicons name="qr-code" size={24} color={COLORS.text.dark} />
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -732,5 +746,23 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 15,
     color: COLORS.text.tertiary,
+  },
+  qrFab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    shadowColor: COLORS.gold.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  qrFabGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
   },
 });

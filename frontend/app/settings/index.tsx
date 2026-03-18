@@ -159,6 +159,24 @@ export default function SettingsScreen() {
             label="Editar Perfil"
             onPress={() => router.push('/settings/edit-profile')}
           />
+          <SettingRow
+            icon="heart-outline"
+            iconColor="#E91E63"
+            label="Mi Vibe Predeterminado"
+            onPress={() => router.push('/settings/select-vibe')}
+          />
+        </View>
+
+        {/* Business Mode */}
+        <SectionHeader title="PARA LOCALES" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="storefront-outline"
+            iconColor={COLORS.gold.primary}
+            label="Modo Business"
+            value="Genera tu QR"
+            onPress={() => router.push('/business')}
+          />
         </View>
 
         {/* Premium */}
