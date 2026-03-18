@@ -55,13 +55,13 @@ export default function BackgroundMedia({
         />
       )}
 
-      {/* Video - Full quality, no blur */}
+      {/* Video - Full quality, adjusted for better fit */}
       {showVideo && (
         <Video
           ref={videoRef}
           source={typeof videoSource === 'string' ? { uri: videoSource } : videoSource}
           style={styles.media}
-          resizeMode={ResizeMode.COVER}
+          resizeMode={ResizeMode.CONTAIN}
           shouldPlay={true}
           isLooping={true}
           isMuted={true}
