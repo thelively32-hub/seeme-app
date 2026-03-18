@@ -10,7 +10,6 @@ import {
   Image,
   Modal,
   TextInput,
-  Platform,
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -54,15 +53,149 @@ const PaymentBadge = ({ type }: { type: 'full' | 'half' }) => (
   </View>
 );
 
+// Simple Calendar Component
+const SimpleCalendar = ({
+  selectedDate,
+  onSelectDate,
+}: {
+  selectedDate: Date;
+  onSelectDate: (date: Date) => void;
+}) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+
+    const days: (number | null)[] = [];
+    for (let i = 0; i < startingDay; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+    return days;
+  };
+
+  const days = getDaysInMonth(currentMonth);
+
+  const goToPreviousMonth = () => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() - 1);
+    setCurrentMonth(newMonth);
+  };
+
+  const goToNextMonth = () => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() + 1);
+    setCurrentMonth(newMonth);
+  };
+
+  const isDateDisabled = (day: number) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    date.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
+  const isDateSelected = (day: number) => {
+    return selectedDate.getDate() === day && 
+           selectedDate.getMonth() === currentMonth.getMonth() &&
+           selectedDate.getFullYear() === currentMonth.getFullYear();
+  };
+
+  const isToday = (day: number) => {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    return date.toDateString() === today.toDateString();
+  };
+
+  const handleSelectDay = (day: number) => {
+    if (isDateDisabled(day)) return;
+    const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    onSelectDate(newDate);
+  };
+
+  const canGoPrevious = () => {
+    const prevMonth = new Date(currentMonth);
+    prevMonth.setMonth(prevMonth.getMonth());
+    return prevMonth.getMonth() >= today.getMonth() || prevMonth.getFullYear() > today.getFullYear();
+  };
+
+  return (
+    <View style={styles.calendarContainer}>
+      <View style={styles.calendarHeader}>
+        <TouchableOpacity onPress={goToPreviousMonth} style={styles.calendarNavButton}>
+          <Ionicons name="chevron-back" size={20} color={COLORS.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.calendarTitle}>
+          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </Text>
+        <TouchableOpacity onPress={goToNextMonth} style={styles.calendarNavButton}>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.text.primary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.calendarDayNames}>
+        {dayNames.map((name, index) => (
+          <Text key={index} style={styles.calendarDayName}>{name}</Text>
+        ))}
+      </View>
+
+      <View style={styles.calendarGrid}>
+        {days.map((day, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.calendarDay,
+              day === null && styles.calendarDayEmpty,
+              day !== null && isDateDisabled(day) && styles.calendarDayDisabled,
+              day !== null && isDateSelected(day) && styles.calendarDaySelected,
+              day !== null && isToday(day) && !isDateSelected(day) && styles.calendarDayToday,
+            ]}
+            onPress={() => day !== null && handleSelectDay(day)}
+            disabled={day === null || isDateDisabled(day)}
+          >
+            {day !== null && (
+              <Text style={[
+                styles.calendarDayText,
+                isDateDisabled(day) && styles.calendarDayTextDisabled,
+                isDateSelected(day) && styles.calendarDayTextSelected,
+              ]}>
+                {day}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// Invitation Card Component
 const InvitationCard = ({ 
   invitation, 
   onPress,
   onRespond,
+  onEdit,
+  onDelete,
+  isOwner,
   isPremium,
 }: { 
   invitation: Invitation;
   onPress: () => void;
   onRespond: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  isOwner: boolean;
   isPremium: boolean;
 }) => {
   const eventDate = new Date(invitation.event_date);
@@ -75,7 +208,6 @@ const InvitationCard = ({
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.cardHeader}>
-        {/* User Photo */}
         <View style={styles.userPhotoContainer}>
           {invitation.user_photo ? (
             <Image source={{ uri: invitation.user_photo }} style={styles.userPhoto} />
@@ -86,10 +218,8 @@ const InvitationCard = ({
           )}
         </View>
 
-        {/* User Info */}
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{invitation.user_name}</Text>
-          {/* Only show stats if premium or can_see_profile */}
           {invitation.can_see_profile && (
             <View style={styles.userStats}>
               {invitation.user_rating && (
@@ -107,18 +237,15 @@ const InvitationCard = ({
             </View>
           )}
           {!invitation.can_see_profile && !isPremium && (
-            <Text style={styles.lockedText}>Perfil bloqueado hasta aceptación</Text>
+            <Text style={styles.lockedText}>Perfil bloqueado</Text>
           )}
         </View>
 
-        {/* Payment Badge */}
         <PaymentBadge type={invitation.payment_type} />
       </View>
 
-      {/* Invitation Text */}
       <Text style={styles.invitationText}>{invitation.text}</Text>
 
-      {/* Event Details */}
       <View style={styles.eventDetails}>
         <View style={styles.eventItem}>
           <Ionicons name="calendar" size={16} color={COLORS.gold.primary} />
@@ -138,68 +265,75 @@ const InvitationCard = ({
         )}
       </View>
 
-      {/* Actions */}
       <View style={styles.cardActions}>
         <View style={styles.responsesCount}>
           <Ionicons name="people" size={14} color={COLORS.text.muted} />
           <Text style={styles.responsesText}>{invitation.responses_count} interesados</Text>
         </View>
-        <TouchableOpacity style={styles.respondButton} onPress={onRespond}>
-          <Text style={styles.respondButtonText}>Me interesa</Text>
-          <Ionicons name="arrow-forward" size={16} color={COLORS.text.dark} />
-        </TouchableOpacity>
+        
+        {isOwner ? (
+          <View style={styles.ownerActions}>
+            <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+              <Ionicons name="pencil" size={18} color={COLORS.gold.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+              <Ionicons name="trash" size={18} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.respondButton} onPress={onRespond}>
+            <Text style={styles.respondButtonText}>Me interesa</Text>
+            <Ionicons name="arrow-forward" size={16} color={COLORS.text.dark} />
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
 };
 
-// Create Invitation Modal
+// Create/Edit Invitation Modal
 const CreateInvitationModal = ({
   visible,
   onClose,
   onCreate,
+  editingInvitation,
 }: {
   visible: boolean;
   onClose: () => void;
   onCreate: (data: any) => Promise<void>;
+  editingInvitation?: Invitation | null;
 }) => {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [paymentType, setPaymentType] = useState<'full' | 'half'>('half');
-  const [selectedDay, setSelectedDay] = useState(0); // 0 = hoy, 1 = mañana, etc.
+  const [eventDate, setEventDate] = useState(new Date());
   const [eventTime, setEventTime] = useState('');
   const [placeName, setPlaceName] = useState('');
-  const [showDateOptions, setShowDateOptions] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Generate next 7 days
-  const getDateOptions = () => {
-    const options = [];
-    const today = new Date();
-    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    
-    for (let i = 0; i < 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      
-      let label = '';
-      if (i === 0) label = 'Hoy';
-      else if (i === 1) label = 'Mañana';
-      else label = `${dayNames[date.getDay()]} ${date.getDate()} ${monthNames[date.getMonth()]}`;
-      
-      options.push({
-        index: i,
-        label,
-        date: date.toISOString().split('T')[0],
-        fullLabel: `${dayNames[date.getDay()]} ${date.getDate()} de ${monthNames[date.getMonth()]}`,
-      });
+  useEffect(() => {
+    if (editingInvitation) {
+      setText(editingInvitation.text);
+      setPaymentType(editingInvitation.payment_type);
+      setEventDate(new Date(editingInvitation.event_date));
+      setEventTime(editingInvitation.event_time || '');
+      setPlaceName(editingInvitation.place_name || '');
+    } else {
+      setText('');
+      setPaymentType('half');
+      setEventDate(new Date());
+      setEventTime('');
+      setPlaceName('');
     }
-    return options;
-  };
+  }, [editingInvitation, visible]);
 
-  const dateOptions = getDateOptions();
-  const selectedDate = dateOptions[selectedDay];
+  const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+  const formatDate = (date: Date) => {
+    return `${dayNames[date.getDay()]} ${date.getDate()} de ${monthNames[date.getMonth()]}`;
+  };
 
   const handleCreate = async () => {
     if (!text.trim()) {
@@ -212,16 +346,16 @@ const CreateInvitationModal = ({
       await onCreate({
         text: text.trim(),
         payment_type: paymentType,
-        event_date: selectedDate.date,
+        event_date: eventDate.toISOString().split('T')[0],
         event_time: eventTime || undefined,
         place_name: placeName || undefined,
       });
-      // Reset form
       setText('');
       setPaymentType('half');
-      setSelectedDay(0);
+      setEventDate(new Date());
       setEventTime('');
       setPlaceName('');
+      setShowCalendar(false);
       onClose();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo crear la invitación');
@@ -235,14 +369,15 @@ const CreateInvitationModal = ({
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Nueva Invitación</Text>
+            <Text style={styles.modalTitle}>
+              {editingInvitation ? 'Editar Invitación' : 'Nueva Invitación'}
+            </Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={COLORS.text.primary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Text Input */}
             <Text style={styles.inputLabel}>¿Cuál es el plan?</Text>
             <TextInput
               style={styles.textArea}
@@ -254,7 +389,6 @@ const CreateInvitationModal = ({
               maxLength={200}
             />
 
-            {/* Payment Type */}
             <Text style={styles.inputLabel}>¿Quién paga?</Text>
             <View style={styles.paymentOptions}>
               <TouchableOpacity
@@ -284,54 +418,30 @@ const CreateInvitationModal = ({
               </TouchableOpacity>
             </View>
 
-            {/* Date - Custom Selector */}
             <Text style={styles.inputLabel}>Fecha del evento</Text>
             <TouchableOpacity 
               style={styles.dateButton} 
-              onPress={() => setShowDateOptions(!showDateOptions)}
+              onPress={() => setShowCalendar(!showCalendar)}
             >
               <Ionicons name="calendar" size={20} color={COLORS.gold.primary} />
-              <Text style={styles.dateButtonText}>{selectedDate.fullLabel}</Text>
+              <Text style={styles.dateButtonText}>{formatDate(eventDate)}</Text>
               <Ionicons 
-                name={showDateOptions ? "chevron-up" : "chevron-down"} 
+                name={showCalendar ? "chevron-up" : "chevron-down"} 
                 size={20} 
                 color={COLORS.text.muted} 
               />
             </TouchableOpacity>
 
-            {/* Date Options Grid */}
-            {showDateOptions && (
-              <View style={styles.dateOptionsContainer}>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.dateOptionsScroll}
-                >
-                  {dateOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.index}
-                      style={[
-                        styles.dateOptionButton,
-                        selectedDay === option.index && styles.dateOptionButtonActive
-                      ]}
-                      onPress={() => {
-                        setSelectedDay(option.index);
-                        setShowDateOptions(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.dateOptionText,
-                        selectedDay === option.index && styles.dateOptionTextActive
-                      ]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+            {showCalendar && (
+              <SimpleCalendar
+                selectedDate={eventDate}
+                onSelectDate={(date) => {
+                  setEventDate(date);
+                  setShowCalendar(false);
+                }}
+              />
             )}
 
-            {/* Time (Optional) */}
             <Text style={styles.inputLabel}>Hora (opcional)</Text>
             <TextInput
               style={styles.input}
@@ -341,7 +451,6 @@ const CreateInvitationModal = ({
               onChangeText={setEventTime}
             />
 
-            {/* Place (Optional) */}
             <Text style={styles.inputLabel}>Lugar (opcional)</Text>
             <TextInput
               style={styles.input}
@@ -352,7 +461,6 @@ const CreateInvitationModal = ({
             />
           </ScrollView>
 
-          {/* Create Button */}
           <TouchableOpacity
             style={[styles.createButton, loading && styles.createButtonDisabled]}
             onPress={handleCreate}
@@ -363,7 +471,9 @@ const CreateInvitationModal = ({
             ) : (
               <>
                 <Ionicons name="send" size={20} color={COLORS.text.dark} />
-                <Text style={styles.createButtonText}>Publicar Invitación</Text>
+                <Text style={styles.createButtonText}>
+                  {editingInvitation ? 'Guardar Cambios' : 'Publicar Invitación'}
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -381,8 +491,10 @@ export default function InvitationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'full' | 'half'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingInvitation, setEditingInvitation] = useState<Invitation | null>(null);
 
   const isPremium = user?.is_premium || false;
+  const userId = user?.id;
 
   const loadInvitations = useCallback(async () => {
     try {
@@ -421,9 +533,41 @@ export default function InvitationsScreen() {
   };
 
   const handleCreateInvitation = async (data: any) => {
+    if (editingInvitation) {
+      // For now, delete and recreate (backend doesn't have update endpoint yet)
+      await api.deleteInvitation(editingInvitation.id);
+    }
     await api.createInvitation(data);
     Alert.alert('¡Publicado!', 'Tu invitación fue enviada a todos los usuarios');
+    setEditingInvitation(null);
     loadInvitations();
+  };
+
+  const handleEdit = (invitation: Invitation) => {
+    setEditingInvitation(invitation);
+    setShowCreateModal(true);
+  };
+
+  const handleDelete = async (invitation: Invitation) => {
+    Alert.alert(
+      'Eliminar Invitación',
+      '¿Estás seguro de eliminar esta invitación?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteInvitation(invitation.id);
+              loadInvitations();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'No se pudo eliminar');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleViewInvitation = (invitation: Invitation) => {
@@ -452,7 +596,6 @@ export default function InvitationsScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View>
           <Text style={styles.headerTitle}>Invitaciones</Text>
@@ -466,7 +609,6 @@ export default function InvitationsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filters */}
       <View style={styles.filters}>
         {(['all', 'full', 'half'] as const).map((f) => (
           <TouchableOpacity
@@ -481,7 +623,6 @@ export default function InvitationsScreen() {
         ))}
       </View>
 
-      {/* Invitations List */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -509,16 +650,21 @@ export default function InvitationsScreen() {
               invitation={invitation}
               onPress={() => handleViewInvitation(invitation)}
               onRespond={() => handleRespond(invitation)}
+              onEdit={() => handleEdit(invitation)}
+              onDelete={() => handleDelete(invitation)}
+              isOwner={invitation.user_id === userId}
               isPremium={isPremium}
             />
           ))
         )}
       </ScrollView>
 
-      {/* FAB - Create Invitation */}
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 20 }]}
-        onPress={() => setShowCreateModal(true)}
+        onPress={() => {
+          setEditingInvitation(null);
+          setShowCreateModal(true);
+        }}
       >
         <LinearGradient
           colors={COLORS.gradients.goldButton as [string, string, string]}
@@ -528,11 +674,14 @@ export default function InvitationsScreen() {
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* Create Modal */}
       <CreateInvitationModal
         visible={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditingInvitation(null);
+        }}
         onCreate={handleCreateInvitation}
+        editingInvitation={editingInvitation}
       />
     </View>
   );
@@ -721,6 +870,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.text.muted,
   },
+  ownerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editButton: {
+    padding: 8,
+  },
+  deleteButton: {
+    padding: 8,
+  },
   respondButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -871,34 +1030,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text.primary,
   },
-  dateOptionsContainer: {
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  dateOptionsScroll: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  dateOptionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: COLORS.background.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-  },
-  dateOptionButtonActive: {
-    backgroundColor: COLORS.gold.primary,
-    borderColor: COLORS.gold.primary,
-  },
-  dateOptionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.text.secondary,
-  },
-  dateOptionTextActive: {
-    color: COLORS.text.dark,
-  },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -916,5 +1047,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text.dark,
+  },
+  // Calendar styles
+  calendarContainer: {
+    backgroundColor: COLORS.background.card,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  calendarTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  calendarNavButton: {
+    padding: 8,
+  },
+  calendarDayNames: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  calendarDayName: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDay: {
+    width: '14.28%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDayEmpty: {
+    backgroundColor: 'transparent',
+  },
+  calendarDayDisabled: {
+    opacity: 0.3,
+  },
+  calendarDaySelected: {
+    backgroundColor: COLORS.gold.primary,
+    borderRadius: 20,
+  },
+  calendarDayToday: {
+    borderWidth: 1,
+    borderColor: COLORS.gold.primary,
+    borderRadius: 20,
+  },
+  calendarDayText: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+  },
+  calendarDayTextDisabled: {
+    color: COLORS.text.muted,
+  },
+  calendarDayTextSelected: {
+    color: COLORS.text.dark,
+    fontWeight: '600',
   },
 });
