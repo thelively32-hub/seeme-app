@@ -15,8 +15,8 @@ import BackgroundMedia from '../src/components/BackgroundMedia';
 
 const { width } = Dimensions.get('window');
 
-// IMPORTANTE: Reemplaza esta URL con tu video personalizado
-const VIDEO_URL = 'https://videos.pexels.com/video-files/3121459/3121459-uhd_1440_2560_24fps.mp4';
+// Video personalizado de SEE ME
+const VIDEO_URL = 'https://drive.google.com/uc?export=download&id=1AXDQwqxWBTl8G2TKMnpOA-Pspnomr1ZE';
 const FALLBACK_IMAGE = 'https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg?auto=compress&cs=tinysrgb&w=800';
 
 export default function WelcomeScreen() {
