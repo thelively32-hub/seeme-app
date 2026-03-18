@@ -242,9 +242,9 @@ export default function MapScreen() {
         lng = location.longitude;
         setUserLocation({ latitude: lat, longitude: lng });
       } else {
-        // Fallback to New York for web preview / demo
-        lat = 40.7128;
-        lng = -74.0060;
+        // Fallback to Dallas, Texas for web preview / demo
+        lat = 32.7767;
+        lng = -96.7970;
         setUserLocation({ latitude: lat, longitude: lng });
       }
       
@@ -256,11 +256,11 @@ export default function MapScreen() {
       }
     } catch (e) {
       console.error('Error loading data:', e);
-      // Fallback for demo
+      // Fallback for demo - Dallas, Texas
       try {
-        const nearbyPlaces = await api.getNearbyPlaces(40.7128, -74.0060, 2000, 25);
+        const nearbyPlaces = await api.getNearbyPlaces(32.7767, -96.7970, 2000, 25);
         setPlaces(nearbyPlaces);
-        setUserLocation({ latitude: 40.7128, longitude: -74.0060 });
+        setUserLocation({ latitude: 32.7767, longitude: -96.7970 });
       } catch (fallbackError) {
         console.error('Fallback error:', fallbackError);
       }
