@@ -276,7 +276,7 @@ export default function WelcomeScreen() {
     if (isAuthenticated) {
       router.replace('/(tabs)/explore');
     } else {
-      router.push('/(auth)/signup');
+      router.push('/(auth)/phone');
     }
   };
 
@@ -284,7 +284,7 @@ export default function WelcomeScreen() {
     if (isAuthenticated) {
       router.replace('/(tabs)/explore');
     } else {
-      router.push('/(auth)/login');
+      router.push('/(auth)/phone');
     }
   };
 
