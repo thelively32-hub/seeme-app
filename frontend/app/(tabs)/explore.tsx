@@ -191,6 +191,7 @@ export default function ExploreScreen() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [checkingInPlaceId, setCheckingInPlaceId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [presence, setPresence] = useState<{ is_present: boolean; current_place_name: string | null; status_message: string | null } | null>(null);
   const [errorModal, setErrorModal] = useState<{ visible: boolean; message: string; placeId: string | null }>({
     visible: false,
     message: '',
@@ -199,6 +200,17 @@ export default function ExploreScreen() {
   
   const refreshTimer = useRef<NodeJS.Timeout | null>(null);
   const { getCurrentLocation, permissionGranted, requestPermission } = useLocation();
+
+  // Load presence status
+  const loadPresence = async () => {
+    try {
+      const data = await api.getMyPresence();
+      setPresence(data);
+    } catch (e) {
+      // User might not be logged in
+      console.log('Could not load presence:', e);
+    }
+  };
 
   const filters = [
     { id: 'all', label: 'All', icon: 'apps' },
@@ -230,6 +242,7 @@ export default function ExploreScreen() {
 
   useEffect(() => {
     loadPlaces(true);
+    loadPresence();
   }, [selectedFilter]);
 
   useEffect(() => {
@@ -274,6 +287,7 @@ export default function ExploreScreen() {
       });
       Alert.alert("You're part of the vibe ✓", `Now at ${place.name}`, [{ text: 'OK' }]);
       loadPlaces(false);
+      loadPresence(); // Update presence indicator
     } catch (e: any) {
       let errorMessage = "Could not check in. Please try again.";
       if (e.message) {
@@ -352,6 +366,41 @@ export default function ExploreScreen() {
           )}
         </View>
       </View>
+
+      {/* Presence Banner */}
+      {presence && (
+        <View style={[styles.presenceBanner, presence.is_present ? styles.presenceBannerActive : styles.presenceBannerInactive]}>
+          <View style={[styles.presenceDot, presence.is_present ? styles.presenceDotActive : styles.presenceDotInactive]} />
+          <View style={styles.presenceInfo}>
+            <Text style={styles.presenceLabel}>
+              {presence.is_present ? 'Estas en' : 'No estas en ningun lugar'}
+            </Text>
+            {presence.is_present && presence.current_place_name && (
+              <Text style={styles.presencePlace}>{presence.current_place_name}</Text>
+            )}
+            {presence.status_message && (
+              <Text style={styles.presenceStatus}>{presence.status_message}</Text>
+            )}
+          </View>
+          {presence.is_present && (
+            <TouchableOpacity 
+              style={styles.checkoutButton}
+              onPress={async () => {
+                try {
+                  await api.checkout();
+                  loadPresence();
+                  loadPlaces(false);
+                  Alert.alert('Checkout', 'Has salido del lugar');
+                } catch (e) {
+                  console.error('Checkout error:', e);
+                }
+              }}
+            >
+              <Text style={styles.checkoutText}>Salir</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Filters */}
       <ScrollView
@@ -764,5 +813,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 28,
+  },
+  // Presence Banner Styles
+  presenceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  presenceBannerActive: {
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
+    borderColor: COLORS.border.gold,
+  },
+  presenceBannerInactive: {
+    backgroundColor: COLORS.background.card,
+    borderColor: COLORS.border.light,
+  },
+  presenceDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 12,
+  },
+  presenceDotActive: {
+    backgroundColor: COLORS.gold.primary,
+    shadowColor: COLORS.gold.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  presenceDotInactive: {
+    backgroundColor: COLORS.text.muted,
+  },
+  presenceInfo: {
+    flex: 1,
+  },
+  presenceLabel: {
+    fontSize: 12,
+    color: COLORS.text.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  presencePlace: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginTop: 2,
+  },
+  presenceStatus: {
+    fontSize: 13,
+    color: COLORS.gold.primary,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  checkoutButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+  },
+  checkoutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF6B6B',
   },
 });
