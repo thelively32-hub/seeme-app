@@ -145,6 +145,75 @@ export default function UserProfileScreen() {
     }
   };
 
+  const handleMoreOptions = () => {
+    Alert.alert(
+      'Opciones',
+      `¿Qué deseas hacer con ${profile?.name}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reportar',
+          onPress: handleReport,
+        },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: handleBlock,
+        },
+      ]
+    );
+  };
+
+  const handleReport = () => {
+    Alert.alert(
+      'Reportar usuario',
+      'Selecciona el motivo del reporte:',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Contenido inapropiado', onPress: () => submitReport('inappropriate_content') },
+        { text: 'Acoso', onPress: () => submitReport('harassment') },
+        { text: 'Perfil falso', onPress: () => submitReport('fake_profile') },
+        { text: 'Spam', onPress: () => submitReport('spam') },
+        { text: 'Comportamiento amenazante', onPress: () => submitReport('threatening') },
+      ]
+    );
+  };
+
+  const submitReport = async (reason: string) => {
+    if (!id) return;
+    try {
+      await api.reportUser(id, reason);
+      Alert.alert('Reporte enviado', 'Gracias por ayudarnos a mantener SEE ME seguro.');
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.detail || 'No se pudo enviar el reporte');
+    }
+  };
+
+  const handleBlock = () => {
+    Alert.alert(
+      'Bloquear usuario',
+      `¿Estás seguro de que quieres bloquear a ${profile?.name}? No podrán verte ni enviarte Vibes.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: async () => {
+            if (!id) return;
+            try {
+              await api.blockUser(id);
+              Alert.alert('Usuario bloqueado', 'Ya no podrás ver a este usuario ni él a ti.', [
+                { text: 'OK', onPress: () => router.back() }
+              ]);
+            } catch (e: any) {
+              Alert.alert('Error', 'No se pudo bloquear al usuario');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const getIntentionDisplay = (intention?: string) => {
     switch (intention) {
       case 'relationship': return { icon: '💕', text: 'Buscando relación' };
@@ -197,7 +266,7 @@ export default function UserProfileScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.moreButton}>
+        <TouchableOpacity style={styles.moreButton} onPress={handleMoreOptions}>
           <Ionicons name="ellipsis-horizontal" size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
       </View>

@@ -418,6 +418,84 @@ class ApiService {
     return this.request('/api/chats/unread/count');
   }
 
+  // ============== SAFETY & SECURITY ==============
+
+  // Report a user
+  async reportUser(userId: string, reason: string, details?: string) {
+    return this.request('/api/safety/report', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: userId,
+        reason,
+        details,
+      }),
+    });
+  }
+
+  // Block a user
+  async blockUser(userId: string) {
+    return this.request('/api/safety/block', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  }
+
+  // Unblock a user
+  async unblockUser(userId: string) {
+    return this.request(`/api/safety/block/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Get blocked users
+  async getBlockedUsers() {
+    return this.request('/api/safety/blocked');
+  }
+
+  // Set emergency contact
+  async setEmergencyContact(contact: {
+    name: string;
+    phone: string;
+    relationship?: string;
+  }) {
+    return this.request('/api/safety/emergency-contact', {
+      method: 'POST',
+      body: JSON.stringify(contact),
+    });
+  }
+
+  // Get emergency contact
+  async getEmergencyContact() {
+    return this.request('/api/safety/emergency-contact');
+  }
+
+  // Share date location
+  async shareDate(data: {
+    contact_name: string;
+    contact_phone: string;
+    place_name: string;
+    notes?: string;
+    duration_hours?: number;
+  }) {
+    return this.request('/api/safety/share-date', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Submit photo verification
+  async submitPhotoVerification(selfieBase64: string) {
+    return this.request('/api/safety/verify-photo', {
+      method: 'POST',
+      body: JSON.stringify({ selfie_base64: selfieBase64 }),
+    });
+  }
+
+  // Get verification status
+  async getVerificationStatus() {
+    return this.request('/api/safety/verification-status');
+  }
+
   // Health
   async healthCheck() {
     return this.request('/api/health');

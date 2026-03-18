@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 from contextlib import asynccontextmanager
 from collections import defaultdict
+from enum import Enum
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, status, Request
@@ -76,6 +77,10 @@ reviews_collection = db.reviews  # User reviews/ratings
 subscriptions_collection = db.subscriptions  # Premium subscriptions
 chats_collection = db.chats  # Temporary chats (24h)
 messages_collection = db.messages  # Chat messages
+reports_collection = db.reports  # User reports
+blocks_collection = db.blocks  # Blocked users
+safety_contacts_collection = db.safety_contacts  # Emergency contacts
+verifications_collection = db.verifications  # Photo verifications
 
 
 # ============== MODELS ==============
@@ -309,6 +314,52 @@ class ChatDetailResponse(BaseModel):
 class SendMessage(BaseModel):
     """Send a message in a chat"""
     content: str = Field(..., min_length=1, max_length=500)
+
+
+# ============== SAFETY & SECURITY MODELS ==============
+
+class ReportReason(str, Enum):
+    """Reasons for reporting a user"""
+    INAPPROPRIATE_CONTENT = "inappropriate_content"
+    HARASSMENT = "harassment"
+    FAKE_PROFILE = "fake_profile"
+    SPAM = "spam"
+    UNDERAGE = "underage"
+    THREATENING = "threatening"
+    OTHER = "other"
+
+
+class ReportUser(BaseModel):
+    """Report a user"""
+    user_id: str
+    reason: ReportReason
+    details: Optional[str] = Field(None, max_length=500)
+
+
+class BlockUser(BaseModel):
+    """Block a user"""
+    user_id: str
+
+
+class SafetyContact(BaseModel):
+    """Emergency contact for safety"""
+    name: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., min_length=10, max_length=20)
+    relationship: Optional[str] = Field(None, max_length=50)  # e.g., "Friend", "Family"
+
+
+class ShareLocation(BaseModel):
+    """Share current location/date info"""
+    contact_name: str
+    contact_phone: str
+    place_name: str
+    notes: Optional[str] = None
+    duration_hours: int = Field(default=3, ge=1, le=12)
+
+
+class PhotoVerification(BaseModel):
+    """Submit photo for verification"""
+    selfie_base64: str  # Base64 encoded selfie
 
 
 # Pre-defined vibe messages
@@ -2035,6 +2086,341 @@ async def get_unread_count(
         "unread_count": unread,
         "active_chats": len(chat_ids)
     }
+
+
+# ============== SAFETY & SECURITY ENDPOINTS ==============
+
+@app.post("/api/safety/report", tags=["Safety"])
+async def report_user(
+    report: ReportUser,
+    current_user: dict = Depends(get_current_user)
+):
+    """Report a user for inappropriate behavior"""
+    reporter_id = str(current_user["_id"])
+    
+    # Can't report yourself
+    if report.user_id == reporter_id:
+        raise HTTPException(status_code=400, detail="You cannot report yourself")
+    
+    # Check if reported user exists
+    try:
+        reported_user = await users_collection.find_one({"_id": ObjectId(report.user_id)})
+    except Exception:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not reported_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check for duplicate recent report
+    existing = await reports_collection.find_one({
+        "reporter_id": reporter_id,
+        "reported_user_id": report.user_id,
+        "created_at": {"$gte": datetime.utcnow() - timedelta(hours=24)}
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="You already reported this user recently")
+    
+    report_doc = {
+        "reporter_id": reporter_id,
+        "reported_user_id": report.user_id,
+        "reason": report.reason.value,
+        "details": report.details,
+        "status": "pending",  # pending, reviewed, action_taken, dismissed
+        "created_at": datetime.utcnow(),
+    }
+    
+    await reports_collection.insert_one(report_doc)
+    
+    # Increment report count on user
+    await users_collection.update_one(
+        {"_id": ObjectId(report.user_id)},
+        {"$inc": {"report_count": 1}}
+    )
+    
+    return {
+        "message": "Report submitted successfully. Thank you for keeping SEE ME safe.",
+        "status": "pending"
+    }
+
+
+@app.post("/api/safety/block", tags=["Safety"])
+async def block_user(
+    block: BlockUser,
+    current_user: dict = Depends(get_current_user)
+):
+    """Block a user - they won't see you and you won't see them"""
+    blocker_id = str(current_user["_id"])
+    
+    if block.user_id == blocker_id:
+        raise HTTPException(status_code=400, detail="You cannot block yourself")
+    
+    # Check if already blocked
+    existing = await blocks_collection.find_one({
+        "blocker_id": blocker_id,
+        "blocked_user_id": block.user_id
+    })
+    
+    if existing:
+        return {"message": "User already blocked", "blocked": True}
+    
+    block_doc = {
+        "blocker_id": blocker_id,
+        "blocked_user_id": block.user_id,
+        "created_at": datetime.utcnow(),
+    }
+    
+    await blocks_collection.insert_one(block_doc)
+    
+    # Also cancel any pending vibes between them
+    await vibes_collection.update_many(
+        {
+            "$or": [
+                {"from_user_id": blocker_id, "to_user_id": block.user_id},
+                {"from_user_id": block.user_id, "to_user_id": blocker_id}
+            ],
+            "status": "pending"
+        },
+        {"$set": {"status": "cancelled"}}
+    )
+    
+    return {"message": "User blocked successfully", "blocked": True}
+
+
+@app.delete("/api/safety/block/{user_id}", tags=["Safety"])
+async def unblock_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Unblock a previously blocked user"""
+    blocker_id = str(current_user["_id"])
+    
+    result = await blocks_collection.delete_one({
+        "blocker_id": blocker_id,
+        "blocked_user_id": user_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User was not blocked")
+    
+    return {"message": "User unblocked successfully", "blocked": False}
+
+
+@app.get("/api/safety/blocked", tags=["Safety"])
+async def get_blocked_users(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get list of blocked users"""
+    blocker_id = str(current_user["_id"])
+    
+    cursor = blocks_collection.find({"blocker_id": blocker_id})
+    blocks = await cursor.to_list(length=100)
+    
+    blocked_ids = [b["blocked_user_id"] for b in blocks]
+    
+    # Get user info
+    if not blocked_ids:
+        return []
+    
+    users_cursor = users_collection.find(
+        {"_id": {"$in": [ObjectId(uid) for uid in blocked_ids]}},
+        {"name": 1, "photo_url": 1}
+    )
+    users = await users_cursor.to_list(length=100)
+    users_map = {str(u["_id"]): u for u in users}
+    
+    return [
+        {
+            "user_id": b["blocked_user_id"],
+            "name": users_map.get(b["blocked_user_id"], {}).get("name", "Unknown"),
+            "photo_url": users_map.get(b["blocked_user_id"], {}).get("photo_url"),
+            "blocked_at": b["created_at"]
+        }
+        for b in blocks
+    ]
+
+
+@app.post("/api/safety/emergency-contact", tags=["Safety"])
+async def set_emergency_contact(
+    contact: SafetyContact,
+    current_user: dict = Depends(get_current_user)
+):
+    """Set or update emergency contact"""
+    user_id = str(current_user["_id"])
+    
+    contact_doc = {
+        "user_id": user_id,
+        "name": contact.name,
+        "phone": contact.phone,
+        "relationship": contact.relationship,
+        "updated_at": datetime.utcnow(),
+    }
+    
+    await safety_contacts_collection.update_one(
+        {"user_id": user_id},
+        {"$set": contact_doc},
+        upsert=True
+    )
+    
+    return {
+        "message": "Emergency contact saved",
+        "contact": {
+            "name": contact.name,
+            "phone": contact.phone,
+            "relationship": contact.relationship
+        }
+    }
+
+
+@app.get("/api/safety/emergency-contact", tags=["Safety"])
+async def get_emergency_contact(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current emergency contact"""
+    user_id = str(current_user["_id"])
+    
+    contact = await safety_contacts_collection.find_one({"user_id": user_id})
+    
+    if not contact:
+        return None
+    
+    return {
+        "name": contact["name"],
+        "phone": contact["phone"],
+        "relationship": contact.get("relationship")
+    }
+
+
+@app.post("/api/safety/share-date", tags=["Safety"])
+async def share_date_location(
+    share_data: ShareLocation,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Generate share data for sending to a trusted contact.
+    Returns formatted message to share via SMS/WhatsApp.
+    """
+    user_id = str(current_user["_id"])
+    user_name = current_user.get("name", "A SEE ME user")
+    
+    # Get current check-in if any
+    checkin = await checkins_collection.find_one({
+        "user_id": user_id,
+        "is_active": True
+    })
+    
+    location_info = share_data.place_name
+    if checkin:
+        location_info = checkin.get("place_name", share_data.place_name)
+    
+    # Generate shareable message
+    now = datetime.utcnow()
+    expected_end = now + timedelta(hours=share_data.duration_hours)
+    
+    share_message = f"""🛡️ SEE ME Safety Check
+
+{user_name} is meeting someone at:
+📍 {location_info}
+
+Started: {now.strftime('%I:%M %p')}
+Expected duration: {share_data.duration_hours} hours
+
+{f"Notes: {share_data.notes}" if share_data.notes else ""}
+
+If you don't hear from them by {expected_end.strftime('%I:%M %p')}, please check in.
+
+- Sent via SEE ME App"""
+    
+    return {
+        "message": share_message,
+        "recipient": {
+            "name": share_data.contact_name,
+            "phone": share_data.contact_phone
+        },
+        "expires_at": expected_end.isoformat()
+    }
+
+
+@app.post("/api/safety/verify-photo", tags=["Safety"])
+async def submit_photo_verification(
+    verification: PhotoVerification,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Submit a selfie for profile verification.
+    For MVP: Just stores the photo, manual review later.
+    """
+    user_id = str(current_user["_id"])
+    
+    # Check if already verified
+    if current_user.get("is_verified"):
+        return {"message": "Profile already verified", "status": "verified"}
+    
+    # Check for pending verification
+    existing = await verifications_collection.find_one({
+        "user_id": user_id,
+        "status": "pending"
+    })
+    
+    if existing:
+        return {
+            "message": "Verification already pending",
+            "status": "pending",
+            "submitted_at": existing["created_at"]
+        }
+    
+    verification_doc = {
+        "user_id": user_id,
+        "selfie_base64": verification.selfie_base64[:100] + "...",  # Don't store full base64 in this demo
+        "status": "pending",  # pending, approved, rejected
+        "created_at": datetime.utcnow(),
+    }
+    
+    await verifications_collection.insert_one(verification_doc)
+    
+    # For demo purposes, auto-approve after 5 seconds (in real app would be manual review)
+    # In production, this would go to a moderation queue
+    
+    return {
+        "message": "Verification photo submitted. You'll be notified once reviewed.",
+        "status": "pending"
+    }
+
+
+@app.get("/api/safety/verification-status", tags=["Safety"])
+async def get_verification_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current verification status"""
+    user_id = str(current_user["_id"])
+    
+    if current_user.get("is_verified"):
+        return {"status": "verified", "verified_at": current_user.get("verified_at")}
+    
+    verification = await verifications_collection.find_one(
+        {"user_id": user_id},
+        sort=[("created_at", -1)]
+    )
+    
+    if not verification:
+        return {"status": "not_submitted"}
+    
+    return {
+        "status": verification["status"],
+        "submitted_at": verification["created_at"]
+    }
+
+
+# Helper function to check if user is blocked
+async def is_user_blocked(user_id: str, other_user_id: str) -> bool:
+    """Check if either user has blocked the other"""
+    block = await blocks_collection.find_one({
+        "$or": [
+            {"blocker_id": user_id, "blocked_user_id": other_user_id},
+            {"blocker_id": other_user_id, "blocked_user_id": user_id}
+        ]
+    })
+    return block is not None
 
 
 # ============== USER PROFILE ENDPOINTS ==============

@@ -179,6 +179,18 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* Safety */}
+        <SectionHeader title="SEGURIDAD" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="shield-checkmark-outline"
+            iconColor="#4CAF50"
+            label="Centro de Seguridad"
+            value="Verificacion y contactos"
+            onPress={() => router.push('/settings/safety')}
+          />
+        </View>
+
         {/* Premium */}
         <SectionHeader title="PREMIUM" />
         <View style={styles.section}>
