@@ -567,6 +567,96 @@ class ApiService {
     return this.request('/api/presence/me');
   }
 
+  // ============== INVITATIONS ("Quién para...") ==============
+
+  // Get all active invitations
+  async getInvitations(paymentType?: string, limit?: number) {
+    let query = '/api/invitations?';
+    if (paymentType) query += `payment_type=${paymentType}&`;
+    if (limit) query += `limit=${limit}`;
+    return this.request(query);
+  }
+
+  // Get invitation detail
+  async getInvitation(invitationId: string) {
+    return this.request(`/api/invitations/${invitationId}`);
+  }
+
+  // Create a new invitation
+  async createInvitation(data: {
+    text: string;
+    payment_type: 'full' | 'half';
+    event_date: string;
+    event_time?: string;
+    place_name?: string;
+    place_address?: string;
+    target_user_id?: string;
+  }) {
+    return this.request('/api/invitations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Respond to an invitation ("Me interesa")
+  async respondToInvitation(invitationId: string, message?: string) {
+    return this.request(`/api/invitations/${invitationId}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  // Get my created invitations
+  async getMyInvitations() {
+    return this.request('/api/invitations/my/created');
+  }
+
+  // Delete my invitation
+  async deleteInvitation(invitationId: string) {
+    return this.request(`/api/invitations/${invitationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Get responses to my invitation
+  async getInvitationResponses(invitationId: string) {
+    return this.request(`/api/invitations/${invitationId}/responses`);
+  }
+
+  // Accept a response to my invitation
+  async acceptInvitationResponse(invitationId: string, userId: string) {
+    return this.request(`/api/invitations/${invitationId}/accept/${userId}`, {
+      method: 'POST',
+    });
+  }
+
+  // Reject a response to my invitation
+  async rejectInvitationResponse(invitationId: string, userId: string) {
+    return this.request(`/api/invitations/${invitationId}/reject/${userId}`, {
+      method: 'POST',
+    });
+  }
+
+  // Search users (Premium only)
+  async searchUsers(query: string) {
+    return this.request(`/api/users/search?query=${encodeURIComponent(query)}`);
+  }
+
+  // ============== REVIEWS & RATINGS ==============
+
+  // Rate a user (5-star system)
+  async rateUser(userId: string, rating: number, comment?: string) {
+    return this.request(`/api/users/${userId}/rate`, {
+      method: 'POST',
+      body: JSON.stringify({ rating, comment }),
+    });
+  }
+
+  // Get user reviews
+  async getUserReviews(userId: string) {
+    return this.request(`/api/users/${userId}/reviews`);
+  }
+
   // Health
   async healthCheck() {
     return this.request('/api/health');

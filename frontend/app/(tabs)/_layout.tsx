@@ -89,6 +89,22 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="invitations"
+        options={{
+          title: 'Planes',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <Ionicons 
+                name={focused ? 'megaphone' : 'megaphone-outline'} 
+                size={24} 
+                color={color} 
+              />
+              {focused && <View style={[styles.activeIndicator, { backgroundColor: color }]} />}
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="radar"
         options={{
           href: null, // Hide radar, replaced by vibes

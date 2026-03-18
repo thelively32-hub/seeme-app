@@ -78,6 +78,7 @@ subscriptions_collection = db.subscriptions  # Premium subscriptions
 chats_collection = db.chats  # Temporary chats (24h)
 messages_collection = db.messages  # Chat messages
 reports_collection = db.reports  # User reports
+invitations_collection = db.invitations  # "Quién para..." invitations
 blocks_collection = db.blocks  # Blocked users
 safety_contacts_collection = db.safety_contacts  # Emergency contacts
 verifications_collection = db.verifications  # Photo verifications
@@ -3137,7 +3138,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "SEE ME API",
-        "version": "2.1.0",
+        "version": "2.2.0",
         "timestamp": datetime.utcnow().isoformat(),
         "features": {
             "real_activity": True,
@@ -3145,7 +3146,707 @@ async def health_check():
             "auto_cleanup": True,
             "qr_checkin": True,
             "business_partners": True,
+            "invitations": True,
         }
+    }
+
+
+# ============== INVITATIONS SYSTEM ("Quién para...") ==============
+
+class PaymentType(str, Enum):
+    FULL = "full"  # I'll pay for everything
+    HALF = "half"  # Split the bill
+
+class CreateInvitation(BaseModel):
+    """Create a new invitation"""
+    text: str = Field(..., min_length=5, max_length=200, description="What's the plan? e.g., 'Quién mañana para el cine?'")
+    payment_type: PaymentType = Field(..., description="full = I pay, half = we split")
+    event_date: str = Field(..., description="Date of the event (YYYY-MM-DD)")
+    event_time: Optional[str] = Field(None, description="Time of the event (HH:MM)")
+    place_name: Optional[str] = Field(None, max_length=100, description="Where?")
+    place_address: Optional[str] = Field(None, max_length=200)
+    target_user_id: Optional[str] = Field(None, description="Premium only: send to specific user")
+
+class InvitationResponse(BaseModel):
+    """Invitation response model - Basic view (photo + message only for basic users)"""
+    id: str
+    user_id: str
+    user_name: str
+    user_photo: Optional[str]
+    # These fields are only populated for Premium users or if accepted
+    user_vibes_received: Optional[int] = None
+    user_rating: Optional[float] = None
+    text: str
+    payment_type: str
+    event_date: str
+    event_time: Optional[str]
+    place_name: Optional[str]
+    place_address: Optional[str]
+    created_at: datetime
+    expires_at: datetime
+    responses_count: int
+    is_targeted: bool  # True if sent to specific person (Premium)
+    can_see_profile: bool = False  # True if user can see creator's full profile
+
+class InvitationDetailResponse(InvitationResponse):
+    """Detailed invitation with creator profile - Premium users or accepted only"""
+    user_reviews_count: Optional[int] = None
+    user_places_visited: Optional[int] = None
+    user_is_verified: Optional[bool] = None
+    has_responded: bool  # If current user already responded
+    is_accepted: bool = False  # If creator accepted the response
+
+class RateUser(BaseModel):
+    """Rate a user after meeting (5-star system like Uber)"""
+    rating: int = Field(..., ge=1, le=5, description="Rating from 1 to 5 stars")
+    comment: Optional[str] = Field(None, max_length=500)
+
+class RespondToInvitation(BaseModel):
+    """Respond to an invitation"""
+    message: Optional[str] = Field(None, max_length=200, description="Optional message with response")
+
+
+@app.post("/api/invitations", response_model=InvitationResponse, tags=["Invitations"])
+async def create_invitation(
+    invitation: CreateInvitation,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a new invitation ("Quién para...").
+    - Basic users: Public invitation visible to all
+    - Premium users: Can also send to specific users
+    """
+    user_id = str(current_user["_id"])
+    
+    # Check if targeting specific user (Premium only)
+    is_targeted = False
+    if invitation.target_user_id:
+        if not current_user.get("is_premium", False):
+            raise HTTPException(
+                status_code=403,
+                detail="Sending invitations to specific users is a Premium feature"
+            )
+        # Verify target user exists
+        if not ObjectId.is_valid(invitation.target_user_id):
+            raise HTTPException(status_code=400, detail="Invalid target user ID")
+        target_user = await users_collection.find_one({"_id": ObjectId(invitation.target_user_id)})
+        if not target_user:
+            raise HTTPException(status_code=404, detail="Target user not found")
+        is_targeted = True
+    
+    # Parse event date for expiration
+    try:
+        event_date = datetime.strptime(invitation.event_date, "%Y-%m-%d")
+        # Invitation expires at end of event day
+        expires_at = event_date.replace(hour=23, minute=59, second=59)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    # Check if event is in the past
+    if expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Event date cannot be in the past")
+    
+    # Count vibes received by this user
+    vibes_received = await vibes_collection.count_documents({"to_user_id": user_id})
+    
+    # Get user's average rating
+    ratings = await reviews_collection.find({"user_id": user_id}).to_list(length=100)
+    avg_rating = sum(r.get("rating", 0) for r in ratings) / len(ratings) if ratings else None
+    
+    # Create invitation document
+    invitation_doc = {
+        "user_id": user_id,
+        "text": invitation.text,
+        "payment_type": invitation.payment_type.value,
+        "event_date": invitation.event_date,
+        "event_time": invitation.event_time,
+        "place_name": invitation.place_name,
+        "place_address": invitation.place_address,
+        "target_user_id": invitation.target_user_id,
+        "is_targeted": is_targeted,
+        "created_at": datetime.utcnow(),
+        "expires_at": expires_at,
+        "responses": [],  # List of user IDs who responded
+    }
+    
+    result = await invitations_collection.insert_one(invitation_doc)
+    
+    return InvitationResponse(
+        id=str(result.inserted_id),
+        user_id=user_id,
+        user_name=current_user.get("name", "Anonymous"),
+        user_photo=current_user.get("photo_url"),
+        user_vibes_received=vibes_received,
+        user_rating=avg_rating,
+        text=invitation.text,
+        payment_type=invitation.payment_type.value,
+        event_date=invitation.event_date,
+        event_time=invitation.event_time,
+        place_name=invitation.place_name,
+        place_address=invitation.place_address,
+        created_at=invitation_doc["created_at"],
+        expires_at=expires_at,
+        responses_count=0,
+        is_targeted=is_targeted,
+    )
+
+
+@app.get("/api/invitations", response_model=List[InvitationResponse], tags=["Invitations"])
+async def get_invitations(
+    payment_type: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get active invitations (like WhatsApp broadcast).
+    - Basic users: See only photo + message (no profile details)
+    - Premium users: See full profile info (vibes, rating, etc.)
+    """
+    user_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    now = datetime.utcnow()
+    
+    # Build query: public invitations OR targeted to me, not expired
+    query = {
+        "expires_at": {"$gt": now},
+        "$or": [
+            {"is_targeted": False},  # Public invitations
+            {"target_user_id": user_id},  # Targeted to me
+        ]
+    }
+    
+    if payment_type and payment_type in ["full", "half"]:
+        query["payment_type"] = payment_type
+    
+    cursor = invitations_collection.find(query).sort("created_at", -1).limit(limit)
+    invitations = await cursor.to_list(length=limit)
+    
+    result = []
+    for inv in invitations:
+        # Get invitation creator info
+        creator = await users_collection.find_one({"_id": ObjectId(inv["user_id"])})
+        if not creator:
+            continue
+        
+        # Check if this user has been accepted by the creator
+        accepted_responses = inv.get("accepted_responses", [])
+        is_accepted = user_id in accepted_responses
+        
+        # Premium users OR accepted users can see full profile
+        can_see_profile = is_premium or is_accepted
+        
+        # Only fetch full profile data if user can see it
+        vibes_received = None
+        avg_rating = None
+        if can_see_profile:
+            vibes_received = await vibes_collection.count_documents({"to_user_id": inv["user_id"]})
+            ratings = await reviews_collection.find({"user_id": inv["user_id"]}).to_list(length=100)
+            avg_rating = sum(r.get("rating", 0) for r in ratings) / len(ratings) if ratings else None
+        
+        result.append(InvitationResponse(
+            id=str(inv["_id"]),
+            user_id=inv["user_id"],
+            user_name=creator.get("name", "Anonymous"),
+            user_photo=creator.get("photo_url"),
+            user_vibes_received=vibes_received,
+            user_rating=avg_rating,
+            text=inv["text"],
+            payment_type=inv["payment_type"],
+            event_date=inv["event_date"],
+            event_time=inv.get("event_time"),
+            place_name=inv.get("place_name"),
+            place_address=inv.get("place_address"),
+            created_at=inv["created_at"],
+            expires_at=inv["expires_at"],
+            responses_count=len(inv.get("responses", [])),
+            is_targeted=inv.get("is_targeted", False),
+            can_see_profile=can_see_profile,
+        ))
+    
+    return result
+
+
+@app.get("/api/invitations/{invitation_id}", response_model=InvitationDetailResponse, tags=["Invitations"])
+async def get_invitation_detail(
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get detailed invitation with creator's profile.
+    - Basic users: Only see photo + message until accepted
+    - Premium users: See full profile (vibes, rating, places, reviews)
+    """
+    if not ObjectId.is_valid(invitation_id):
+        raise HTTPException(status_code=400, detail="Invalid invitation ID")
+    
+    invitation = await invitations_collection.find_one({"_id": ObjectId(invitation_id)})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    # Get creator info
+    creator = await users_collection.find_one({"_id": ObjectId(invitation["user_id"])})
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+    
+    user_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    
+    # Check if current user has been accepted
+    accepted_responses = invitation.get("accepted_responses", [])
+    is_accepted = user_id in accepted_responses
+    
+    # Premium OR accepted users can see full profile
+    can_see_profile = is_premium or is_accepted
+    
+    # Check if current user already responded
+    has_responded = user_id in invitation.get("responses", [])
+    
+    # Only fetch profile data if user can see it
+    vibes_received = None
+    avg_rating = None
+    reviews_count = None
+    places_visited_count = None
+    user_is_verified = None
+    
+    if can_see_profile:
+        vibes_received = await vibes_collection.count_documents({"to_user_id": invitation["user_id"]})
+        ratings = await reviews_collection.find({"user_id": invitation["user_id"]}).to_list(length=100)
+        avg_rating = sum(r.get("rating", 0) for r in ratings) / len(ratings) if ratings else None
+        reviews_count = len(ratings)
+        places_visited = await checkins_collection.distinct("place_id", {"user_id": invitation["user_id"]})
+        places_visited_count = len(places_visited)
+        user_is_verified = creator.get("is_verified", False)
+    
+    return InvitationDetailResponse(
+        id=str(invitation["_id"]),
+        user_id=invitation["user_id"],
+        user_name=creator.get("name", "Anonymous"),
+        user_photo=creator.get("photo_url"),
+        user_vibes_received=vibes_received,
+        user_rating=avg_rating,
+        text=invitation["text"],
+        payment_type=invitation["payment_type"],
+        event_date=invitation["event_date"],
+        event_time=invitation.get("event_time"),
+        place_name=invitation.get("place_name"),
+        place_address=invitation.get("place_address"),
+        created_at=invitation["created_at"],
+        expires_at=invitation["expires_at"],
+        responses_count=len(invitation.get("responses", [])),
+        is_targeted=invitation.get("is_targeted", False),
+        can_see_profile=can_see_profile,
+        user_reviews_count=reviews_count,
+        user_places_visited=places_visited_count,
+        user_is_verified=user_is_verified,
+        has_responded=has_responded,
+        is_accepted=is_accepted,
+    )
+
+
+@app.post("/api/invitations/{invitation_id}/respond", tags=["Invitations"])
+async def respond_to_invitation(
+    invitation_id: str,
+    response: RespondToInvitation,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Respond to an invitation ("Me interesa").
+    This sends a Vibe to the invitation creator.
+    """
+    if not ObjectId.is_valid(invitation_id):
+        raise HTTPException(status_code=400, detail="Invalid invitation ID")
+    
+    invitation = await invitations_collection.find_one({"_id": ObjectId(invitation_id)})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    # Check if expired
+    if invitation["expires_at"] < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="This invitation has expired")
+    
+    user_id = str(current_user["_id"])
+    
+    # Can't respond to own invitation
+    if invitation["user_id"] == user_id:
+        raise HTTPException(status_code=400, detail="You cannot respond to your own invitation")
+    
+    # Check if already responded
+    if user_id in invitation.get("responses", []):
+        raise HTTPException(status_code=400, detail="You have already responded to this invitation")
+    
+    # Add response
+    await invitations_collection.update_one(
+        {"_id": ObjectId(invitation_id)},
+        {"$push": {"responses": user_id}}
+    )
+    
+    # Send a Vibe to the invitation creator
+    vibe_message = response.message or f"Me interesa tu plan: {invitation['text'][:50]}..."
+    
+    vibe_doc = {
+        "from_user_id": user_id,
+        "to_user_id": invitation["user_id"],
+        "message": vibe_message,
+        "vibe_type": "invitation_response",
+        "invitation_id": invitation_id,
+        "status": "pending",
+        "created_at": datetime.utcnow(),
+    }
+    
+    await vibes_collection.insert_one(vibe_doc)
+    
+    return {
+        "message": "Response sent! The creator will see your interest.",
+        "vibe_sent": True
+    }
+
+
+@app.get("/api/invitations/my/created", response_model=List[InvitationResponse], tags=["Invitations"])
+async def get_my_invitations(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get invitations I created"""
+    user_id = str(current_user["_id"])
+    
+    cursor = invitations_collection.find({"user_id": user_id}).sort("created_at", -1)
+    invitations = await cursor.to_list(length=100)
+    
+    # Count vibes received
+    vibes_received = await vibes_collection.count_documents({"to_user_id": user_id})
+    
+    # Get average rating
+    ratings = await reviews_collection.find({"user_id": user_id}).to_list(length=100)
+    avg_rating = sum(r.get("rating", 0) for r in ratings) / len(ratings) if ratings else None
+    
+    result = []
+    for inv in invitations:
+        result.append(InvitationResponse(
+            id=str(inv["_id"]),
+            user_id=user_id,
+            user_name=current_user.get("name", "Anonymous"),
+            user_photo=current_user.get("photo_url"),
+            user_vibes_received=vibes_received,
+            user_rating=avg_rating,
+            text=inv["text"],
+            payment_type=inv["payment_type"],
+            event_date=inv["event_date"],
+            event_time=inv.get("event_time"),
+            place_name=inv.get("place_name"),
+            place_address=inv.get("place_address"),
+            created_at=inv["created_at"],
+            expires_at=inv["expires_at"],
+            responses_count=len(inv.get("responses", [])),
+            is_targeted=inv.get("is_targeted", False),
+        ))
+    
+    return result
+
+
+@app.delete("/api/invitations/{invitation_id}", tags=["Invitations"])
+async def delete_invitation(
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete my invitation"""
+    if not ObjectId.is_valid(invitation_id):
+        raise HTTPException(status_code=400, detail="Invalid invitation ID")
+    
+    invitation = await invitations_collection.find_one({"_id": ObjectId(invitation_id)})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    if invitation["user_id"] != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="You can only delete your own invitations")
+    
+    await invitations_collection.delete_one({"_id": ObjectId(invitation_id)})
+    
+    return {"message": "Invitation deleted"}
+
+
+@app.get("/api/invitations/{invitation_id}/responses", tags=["Invitations"])
+async def get_invitation_responses(
+    invitation_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get list of users who responded to my invitation"""
+    if not ObjectId.is_valid(invitation_id):
+        raise HTTPException(status_code=400, detail="Invalid invitation ID")
+    
+    invitation = await invitations_collection.find_one({"_id": ObjectId(invitation_id)})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    if invitation["user_id"] != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="You can only view responses to your own invitations")
+    
+    # Get responders info
+    responders = []
+    for resp_id in invitation.get("responses", []):
+        user = await users_collection.find_one({"_id": ObjectId(resp_id)})
+        if user:
+            vibes_received = await vibes_collection.count_documents({"to_user_id": resp_id})
+            ratings = await reviews_collection.find({"user_id": resp_id}).to_list(length=100)
+            avg_rating = sum(r.get("rating", 0) for r in ratings) / len(ratings) if ratings else None
+            
+            responders.append({
+                "user_id": resp_id,
+                "name": user.get("name", "Anonymous"),
+                "photo_url": user.get("photo_url"),
+                "vibes_received": vibes_received,
+                "rating": avg_rating,
+                "is_verified": user.get("is_verified", False),
+            })
+    
+    return {
+        "invitation_id": invitation_id,
+        "responses_count": len(responders),
+        "responders": responders
+    }
+
+
+@app.get("/api/users/search", tags=["Invitations"])
+async def search_users_for_invitation(
+    query: str,
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Premium only: Search users to send targeted invitation.
+    """
+    if not current_user.get("is_premium", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Searching users is a Premium feature"
+        )
+    
+    user_id = str(current_user["_id"])
+    
+    # Search by name (case insensitive)
+    cursor = users_collection.find({
+        "_id": {"$ne": current_user["_id"]},  # Exclude self
+        "name": {"$regex": query, "$options": "i"},
+        "ghost_mode": {"$ne": True},  # Respect ghost mode
+    }).limit(limit)
+    
+    users = await cursor.to_list(length=limit)
+    
+    result = []
+    for user in users:
+        uid = str(user["_id"])
+        vibes_received = await vibes_collection.count_documents({"to_user_id": uid})
+        
+        result.append({
+            "user_id": uid,
+            "name": user.get("name", "Anonymous"),
+            "photo_url": user.get("photo_url"),
+            "vibes_received": vibes_received,
+            "is_verified": user.get("is_verified", False),
+        })
+    
+    return result
+
+
+@app.post("/api/invitations/{invitation_id}/accept/{user_id}", tags=["Invitations"])
+async def accept_invitation_response(
+    invitation_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Accept a user's response to your invitation.
+    This allows the basic user to see your full profile.
+    """
+    if not ObjectId.is_valid(invitation_id):
+        raise HTTPException(status_code=400, detail="Invalid invitation ID")
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    invitation = await invitations_collection.find_one({"_id": ObjectId(invitation_id)})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    # Only the creator can accept responses
+    if invitation["user_id"] != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the invitation creator can accept responses")
+    
+    # Check if user has responded
+    if user_id not in invitation.get("responses", []):
+        raise HTTPException(status_code=400, detail="This user hasn't responded to your invitation")
+    
+    # Add to accepted_responses
+    await invitations_collection.update_one(
+        {"_id": ObjectId(invitation_id)},
+        {"$addToSet": {"accepted_responses": user_id}}
+    )
+    
+    # Create a chat between the two users (24h temporary chat)
+    chat_doc = {
+        "participants": [invitation["user_id"], user_id],
+        "invitation_id": invitation_id,
+        "created_at": datetime.utcnow(),
+        "expires_at": datetime.utcnow() + timedelta(hours=24),
+        "is_active": True,
+    }
+    chat_result = await chats_collection.insert_one(chat_doc)
+    
+    return {
+        "message": "Response accepted! You can now chat.",
+        "chat_id": str(chat_result.inserted_id)
+    }
+
+
+@app.post("/api/invitations/{invitation_id}/reject/{user_id}", tags=["Invitations"])
+async def reject_invitation_response(
+    invitation_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reject a user's response to your invitation."""
+    if not ObjectId.is_valid(invitation_id):
+        raise HTTPException(status_code=400, detail="Invalid invitation ID")
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    invitation = await invitations_collection.find_one({"_id": ObjectId(invitation_id)})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    if invitation["user_id"] != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the invitation creator can reject responses")
+    
+    # Remove from responses
+    await invitations_collection.update_one(
+        {"_id": ObjectId(invitation_id)},
+        {"$pull": {"responses": user_id}}
+    )
+    
+    return {"message": "Response rejected"}
+
+
+@app.post("/api/users/{user_id}/rate", tags=["Reviews"])
+async def rate_user(
+    user_id: str,
+    rating: RateUser,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Rate a user (5-star system like Uber).
+    Can only rate users you've interacted with (accepted invitation).
+    """
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    rater_id = str(current_user["_id"])
+    
+    if rater_id == user_id:
+        raise HTTPException(status_code=400, detail="You cannot rate yourself")
+    
+    # Check if target user exists
+    target_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if they've had an accepted interaction (via invitation)
+    interaction = await invitations_collection.find_one({
+        "$or": [
+            {"user_id": rater_id, "accepted_responses": user_id},
+            {"user_id": user_id, "accepted_responses": rater_id},
+        ]
+    })
+    
+    if not interaction:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only rate users you've had an accepted interaction with"
+        )
+    
+    # Check if already rated this user
+    existing_rating = await reviews_collection.find_one({
+        "reviewer_id": rater_id,
+        "user_id": user_id
+    })
+    
+    if existing_rating:
+        # Update existing rating
+        await reviews_collection.update_one(
+            {"_id": existing_rating["_id"]},
+            {"$set": {
+                "rating": rating.rating,
+                "comment": rating.comment,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        return {"message": "Rating updated", "rating": rating.rating}
+    
+    # Create new rating
+    review_doc = {
+        "reviewer_id": rater_id,
+        "user_id": user_id,
+        "rating": rating.rating,
+        "comment": rating.comment,
+        "created_at": datetime.utcnow()
+    }
+    await reviews_collection.insert_one(review_doc)
+    
+    return {"message": "Rating submitted", "rating": rating.rating}
+
+
+@app.get("/api/users/{user_id}/reviews", tags=["Reviews"])
+async def get_user_reviews(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get reviews for a user.
+    Premium users can see reviews of anyone.
+    Basic users can only see reviews if they've been accepted.
+    """
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    viewer_id = str(current_user["_id"])
+    is_premium = current_user.get("is_premium", False)
+    
+    # Check if viewer can see this user's reviews
+    if not is_premium and viewer_id != user_id:
+        # Check if they've had an accepted interaction
+        interaction = await invitations_collection.find_one({
+            "$or": [
+                {"user_id": viewer_id, "accepted_responses": user_id},
+                {"user_id": user_id, "accepted_responses": viewer_id},
+            ]
+        })
+        if not interaction:
+            raise HTTPException(
+                status_code=403,
+                detail="Upgrade to Premium to view user reviews"
+            )
+    
+    # Get reviews
+    cursor = reviews_collection.find({"user_id": user_id}).sort("created_at", -1)
+    reviews = await cursor.to_list(length=50)
+    
+    # Get average rating
+    avg_rating = sum(r.get("rating", 0) for r in reviews) / len(reviews) if reviews else None
+    
+    result = []
+    for review in reviews:
+        # Get reviewer info
+        reviewer = await users_collection.find_one({"_id": ObjectId(review["reviewer_id"])})
+        result.append({
+            "id": str(review["_id"]),
+            "rating": review["rating"],
+            "comment": review.get("comment"),
+            "reviewer_name": reviewer.get("name", "Anonymous") if reviewer else "Anonymous",
+            "reviewer_photo": reviewer.get("photo_url") if reviewer else None,
+            "created_at": review["created_at"].isoformat()
+        })
+    
+    return {
+        "user_id": user_id,
+        "average_rating": avg_rating,
+        "total_reviews": len(reviews),
+        "reviews": result
     }
 
 
