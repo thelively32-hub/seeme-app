@@ -16,8 +16,8 @@ import BackgroundMedia from '../src/components/BackgroundMedia';
 const { width } = Dimensions.get('window');
 
 // Video personalizado de SEE ME
-const VIDEO_URL = 'https://drive.google.com/uc?export=download&id=1AXDQwqxWBTl8G2TKMnpOA-Pspnomr1ZE';
-const FALLBACK_IMAGE = 'https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg?auto=compress&cs=tinysrgb&w=800';
+const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.mp4';
+const FALLBACK_IMAGE = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.jpg';
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
