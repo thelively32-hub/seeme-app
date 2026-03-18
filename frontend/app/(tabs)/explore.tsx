@@ -11,16 +11,16 @@ import {
   Alert,
   Animated,
   Modal,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 import useLocation from '../../src/hooks/useLocation';
+import COLORS from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
-
-// Activity refresh interval (30 seconds)
 const REFRESH_INTERVAL = 30000;
 
 interface Place {
@@ -37,43 +37,21 @@ interface Place {
   activity_updated_at: string;
 }
 
-// Activity level colors
-const getActivityColors = (level: string): { bg: string; bar: string[]; text: string } => {
+const getActivityColors = (level: string) => {
   switch (level) {
     case 'trending':
-      return {
-        bg: 'rgba(255, 85, 51, 0.15)',
-        bar: ['#ff5533', '#ff7b35'],
-        text: '#ff5533'
-      };
+      return { bg: 'rgba(255, 85, 51, 0.12)', bar: ['#ff5533', '#ff7b35'], text: '#ff5533' };
     case 'high':
-      return {
-        bg: 'rgba(255, 152, 0, 0.15)',
-        bar: ['#ff9800', '#ffb74d'],
-        text: '#ff9800'
-      };
+      return { bg: 'rgba(255, 152, 0, 0.12)', bar: ['#ff9800', '#ffb74d'], text: '#ff9800' };
     case 'medium':
-      return {
-        bg: 'rgba(255, 193, 7, 0.15)',
-        bar: ['#ffc107', '#ffeb3b'],
-        text: '#ffc107'
-      };
+      return { bg: 'rgba(255, 193, 7, 0.12)', bar: ['#ffc107', '#ffeb3b'], text: '#ffc107' };
     case 'low':
-      return {
-        bg: 'rgba(76, 175, 80, 0.15)',
-        bar: ['#4caf50', '#81c784'],
-        text: '#4caf50'
-      };
-    default: // none
-      return {
-        bg: 'rgba(102, 102, 102, 0.15)',
-        bar: ['#666666', '#888888'],
-        text: '#888888'
-      };
+      return { bg: 'rgba(76, 175, 80, 0.12)', bar: ['#4caf50', '#81c784'], text: '#4caf50' };
+    default:
+      return { bg: 'rgba(102, 102, 102, 0.12)', bar: ['#666666', '#888888'], text: '#888888' };
   }
 };
 
-// Activity bar width percentage
 const getActivityBarWidth = (level: string): string => {
   switch (level) {
     case 'trending': return '100%';
@@ -84,27 +62,17 @@ const getActivityBarWidth = (level: string): string => {
   }
 };
 
-// Animated trending indicator
+// Trending Badge Component
 const TrendingBadge = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const pulse = Animated.loop(
+    Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       ])
-    );
-    pulse.start();
-    return () => pulse.stop();
+    ).start();
   }, []);
 
   return (
@@ -114,6 +82,7 @@ const TrendingBadge = () => {
   );
 };
 
+// Place Card Component
 const PlaceCard = ({ 
   place, 
   onCheckIn,
@@ -128,15 +97,12 @@ const PlaceCard = ({
 
   return (
     <TouchableOpacity style={styles.placeCard} activeOpacity={0.85}>
-      <LinearGradient
-        colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
-        style={styles.placeCardGradient}
-      >
+      <View style={styles.placeCardInner}>
         {/* Header */}
         <View style={styles.placeHeader}>
           <View style={styles.placeInfo}>
             <View style={styles.placeNameRow}>
-              <Text style={styles.placeName}>{place.name}</Text>
+              <Text style={styles.placeName} numberOfLines={1}>{place.name}</Text>
               {place.is_trending && <TrendingBadge />}
             </View>
             <Text style={styles.placeType}>{place.type} • {place.distance}</Text>
@@ -147,7 +113,7 @@ const PlaceCard = ({
         <View style={[styles.activityContainer, { backgroundColor: colors.bg }]}>
           <View style={styles.activityBarBg}>
             <LinearGradient
-              colors={colors.bar}
+              colors={colors.bar as [string, string]}
               style={[styles.activityBarFill, { width: barWidth }]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -166,21 +132,21 @@ const PlaceCard = ({
             disabled={isCheckingIn}
           >
             {isCheckingIn ? (
-              <ActivityIndicator size="small" color="#ff7b35" />
+              <ActivityIndicator size="small" color={COLORS.gold.primary} />
             ) : (
               <>
-                <Ionicons name="location" size={18} color="#ff7b35" />
+                <Ionicons name="location" size={18} color={COLORS.gold.primary} />
                 <Text style={styles.checkInText}>Check In</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
 
-// Check-in error modal component
+// Check-in Modal
 const CheckInErrorModal = ({
   visible,
   message,
@@ -192,23 +158,20 @@ const CheckInErrorModal = ({
   onRetry: () => void;
   onClose: () => void;
 }) => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="fade"
-    onRequestClose={onClose}
-  >
+  <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         <View style={styles.modalIcon}>
-          <Ionicons name="location-outline" size={48} color="#ff7b35" />
+          <Ionicons name="location-outline" size={48} color={COLORS.gold.primary} />
         </View>
         <Text style={styles.modalTitle}>Can't check in yet</Text>
         <Text style={styles.modalMessage}>{message}</Text>
         <View style={styles.modalButtons}>
           <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
-            <Ionicons name="refresh" size={20} color="#fff" />
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <LinearGradient colors={COLORS.gradients.goldButton as [string, string, string]} style={styles.retryButtonGradient}>
+              <Ionicons name="refresh" size={20} color={COLORS.text.dark} />
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Text style={styles.closeButtonText}>Cancel</Text>
@@ -227,6 +190,7 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [checkingInPlaceId, setCheckingInPlaceId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [errorModal, setErrorModal] = useState<{ visible: boolean; message: string; placeId: string | null }>({
     visible: false,
     message: '',
@@ -234,11 +198,11 @@ export default function ExploreScreen() {
   });
   
   const refreshTimer = useRef<NodeJS.Timeout | null>(null);
-  const { getCurrentLocation, permissionGranted, requestPermission, loading: locationLoading } = useLocation();
+  const { getCurrentLocation, permissionGranted, requestPermission } = useLocation();
 
   const filters = [
     { id: 'all', label: 'All', icon: 'apps' },
-    { id: 'trending', label: 'Trending', icon: 'flame' },
+    { id: 'trending', label: 'Hot', icon: 'flame' },
     { id: 'Nightclub', label: 'Clubs', icon: 'musical-notes' },
     { id: 'Bar', label: 'Bars', icon: 'wine' },
     { id: 'Lounge', label: 'Lounges', icon: 'cafe' },
@@ -247,14 +211,12 @@ export default function ExploreScreen() {
   const loadPlaces = useCallback(async (showLoader = false) => {
     try {
       if (showLoader) setLoading(true);
-      
       let params: any = {};
       if (selectedFilter === 'trending') {
         params.trending = true;
       } else if (selectedFilter !== 'all') {
         params.type = selectedFilter;
       }
-      
       const data = await api.getPlaces(params.type, params.trending, 20);
       setPlaces(data);
       setLastUpdate(new Date());
@@ -266,21 +228,14 @@ export default function ExploreScreen() {
     }
   }, [selectedFilter]);
 
-  // Initial load
   useEffect(() => {
     loadPlaces(true);
   }, [selectedFilter]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
-    refreshTimer.current = setInterval(() => {
-      loadPlaces(false);
-    }, REFRESH_INTERVAL);
-
+    refreshTimer.current = setInterval(() => loadPlaces(false), REFRESH_INTERVAL);
     return () => {
-      if (refreshTimer.current) {
-        clearInterval(refreshTimer.current);
-      }
+      if (refreshTimer.current) clearInterval(refreshTimer.current);
     };
   }, [loadPlaces]);
 
@@ -291,13 +246,9 @@ export default function ExploreScreen() {
 
   const handleCheckIn = async (place: Place) => {
     setCheckingInPlaceId(place.id);
-    
     try {
-      // Step 1: Get current location
       const location = await getCurrentLocation();
-      
       if (!location) {
-        // Location failed - show friendly error
         setErrorModal({
           visible: true,
           message: "We need your location to verify check-in. Please enable GPS and try again.",
@@ -306,8 +257,6 @@ export default function ExploreScreen() {
         setCheckingInPlaceId(null);
         return;
       }
-
-      // Step 2: Check for mocked location
       if (location.isMocked) {
         setErrorModal({
           visible: true,
@@ -317,50 +266,28 @@ export default function ExploreScreen() {
         setCheckingInPlaceId(null);
         return;
       }
-
-      // Step 3: Attempt check-in with location data
       await api.checkIn(place.id, {
         latitude: location.latitude,
         longitude: location.longitude,
         accuracy: location.accuracy,
         isMocked: location.isMocked,
       });
-
-      // Success!
-      Alert.alert(
-        "You're part of the vibe ✓",
-        `Now at ${place.name}`,
-        [{ text: 'OK' }]
-      );
-      
-      loadPlaces(false); // Refresh to update activity
-      
+      Alert.alert("You're part of the vibe ✓", `Now at ${place.name}`, [{ text: 'OK' }]);
+      loadPlaces(false);
     } catch (e: any) {
-      // Handle location validation errors from backend
       let errorMessage = "Could not check in. Please try again.";
-      
       if (e.message) {
         try {
           const parsed = JSON.parse(e.message);
-          if (parsed.message) {
-            errorMessage = parsed.message;
-          }
+          if (parsed.message) errorMessage = parsed.message;
         } catch {
           errorMessage = e.message;
         }
       }
-      
-      // Check if it's a location error
       if (errorMessage.includes("away") || errorMessage.includes("close") || errorMessage.includes("distance")) {
         setErrorModal({
           visible: true,
           message: `You're not close enough to check in 📍\n\nMove closer to ${place.name} to activate check-in.`,
-          placeId: place.id,
-        });
-      } else if (errorMessage.includes("accuracy") || errorMessage.includes("GPS") || errorMessage.includes("signal")) {
-        setErrorModal({
-          visible: true,
-          message: "GPS signal too weak 📡\n\nMove to an open area for better GPS accuracy and try again.",
           placeId: place.id,
         });
       } else {
@@ -374,13 +301,9 @@ export default function ExploreScreen() {
   const handleRetryCheckIn = async () => {
     const placeId = errorModal.placeId;
     setErrorModal({ visible: false, message: '', placeId: null });
-    
     if (placeId) {
       const place = places.find(p => p.id === placeId);
-      if (place) {
-        // Small delay before retry
-        setTimeout(() => handleCheckIn(place), 500);
-      }
+      if (place) setTimeout(() => handleCheckIn(place), 500);
     }
   };
 
@@ -392,20 +315,43 @@ export default function ExploreScreen() {
     return `${Math.floor(seconds / 60)}m ago`;
   };
 
+  const filteredPlaces = places.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+      
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Text style={styles.headerTitle}>Explore</Text>
-        <TouchableOpacity style={styles.mapButton}>
-          <Ionicons name="map" size={24} color="#ff7b35" />
-        </TouchableOpacity>
+        <View>
+          <Text style={styles.headerTitle}>Explore</Text>
+          <Text style={styles.headerSubtitle}>Discover the vibe around you</Text>
+        </View>
       </View>
 
       {/* Search Bar */}
-      <TouchableOpacity style={styles.searchBar} activeOpacity={0.8}>
-        <Ionicons name="search" size={20} color="rgba(255,255,255,0.5)" />
-        <Text style={styles.searchPlaceholder}>Search places...</Text>
-      </TouchableOpacity>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color={COLORS.text.muted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search places..."
+            placeholderTextColor={COLORS.text.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={COLORS.text.muted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
       {/* Filters */}
       <ScrollView
@@ -426,7 +372,7 @@ export default function ExploreScreen() {
             <Ionicons
               name={filter.icon as any}
               size={16}
-              color={selectedFilter === filter.id ? '#fff' : 'rgba(255,255,255,0.6)'}
+              color={selectedFilter === filter.id ? COLORS.text.dark : COLORS.text.tertiary}
             />
             <Text
               style={[
@@ -440,7 +386,7 @@ export default function ExploreScreen() {
         ))}
       </ScrollView>
 
-      {/* Live Activity Header */}
+      {/* Live Header */}
       <View style={styles.liveHeader}>
         <View style={styles.liveIndicator}>
           <View style={styles.liveDot} />
@@ -452,12 +398,12 @@ export default function ExploreScreen() {
       {/* Places List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ff7b35" />
+          <ActivityIndicator size="large" color={COLORS.gold.primary} />
           <Text style={styles.loadingText}>Loading places...</Text>
         </View>
-      ) : places.length === 0 ? (
+      ) : filteredPlaces.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="location-outline" size={64} color="rgba(255,255,255,0.3)" />
+          <Ionicons name="location-outline" size={64} color={COLORS.text.muted} />
           <Text style={styles.emptyTitle}>No places found</Text>
           <Text style={styles.emptySubtitle}>Try a different filter</Text>
         </View>
@@ -467,14 +413,10 @@ export default function ExploreScreen() {
           contentContainerStyle={styles.placesContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#ff7b35"
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.gold.primary} />
           }
         >
-          {places.map((place) => (
+          {filteredPlaces.map((place) => (
             <PlaceCard 
               key={place.id} 
               place={place}
@@ -482,24 +424,19 @@ export default function ExploreScreen() {
               isCheckingIn={checkingInPlaceId === place.id}
             />
           ))}
-          
-          {/* Footer */}
           <View style={styles.listFooter}>
-            <Text style={styles.footerText}>
-              Social energy updates in real-time
-            </Text>
+            <Text style={styles.footerText}>Social energy updates in real-time</Text>
           </View>
         </ScrollView>
       )}
 
-      {/* Check-in Error Modal */}
       <CheckInErrorModal
         visible={errorModal.visible}
         message={errorModal.message}
         onRetry={handleRetryCheckIn}
         onClose={() => setErrorModal({ visible: false, message: '', placeId: null })}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -508,66 +445,69 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingBottom: 16,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
-  mapButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerSubtitle: {
+    fontSize: 15,
+    color: COLORS.text.secondary,
+    marginTop: 4,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    marginHorizontal: 20,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 16,
     gap: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.4)',
+    color: COLORS.text.primary,
   },
   filtersContainer: {
-    marginTop: 16,
     maxHeight: 50,
   },
   filtersContent: {
     paddingHorizontal: 20,
+    gap: 10,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: COLORS.background.card,
     gap: 6,
-    marginRight: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
   },
   filterChipActive: {
-    backgroundColor: '#ff7b35',
+    backgroundColor: COLORS.gold.primary,
+    borderColor: COLORS.gold.primary,
   },
   filterText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    color: COLORS.text.tertiary,
     fontWeight: '500',
   },
   filterTextActive: {
-    color: '#fff',
+    color: COLORS.text.dark,
+    fontWeight: '600',
   },
   liveHeader: {
     flexDirection: 'row',
@@ -585,17 +525,17 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ff5533',
+    backgroundColor: COLORS.live.red,
     marginRight: 8,
   },
   liveText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
   lastUpdateText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+    color: COLORS.text.muted,
   },
   loadingContainer: {
     flex: 1,
@@ -603,9 +543,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.secondary,
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 15,
   },
   emptyContainer: {
     flex: 1,
@@ -614,13 +554,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    color: '#fff',
+    color: COLORS.text.primary,
     fontSize: 18,
     fontWeight: '600',
     marginTop: 16,
   },
   emptySubtitle: {
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.tertiary,
     fontSize: 14,
     marginTop: 8,
   },
@@ -629,18 +569,18 @@ const styles = StyleSheet.create({
   },
   placesContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   placeCard: {
     marginBottom: 14,
     borderRadius: 16,
+    backgroundColor: COLORS.background.card,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
     overflow: 'hidden',
   },
-  placeCardGradient: {
+  placeCardInner: {
     padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   placeHeader: {
     flexDirection: 'row',
@@ -659,7 +599,8 @@ const styles = StyleSheet.create({
   placeName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.primary,
+    flex: 1,
   },
   trendingBadge: {
     marginLeft: 4,
@@ -669,7 +610,7 @@ const styles = StyleSheet.create({
   },
   placeType: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.tertiary,
     marginTop: 4,
   },
   activityContainer: {
@@ -701,7 +642,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 123, 53, 0.15)',
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
@@ -714,17 +655,17 @@ const styles = StyleSheet.create({
   checkInText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ff7b35',
+    color: COLORS.gold.primary,
   },
   listFooter: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   footerText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.3)',
+    fontSize: 13,
+    color: COLORS.text.muted,
   },
-  // Modal styles
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.8)',
@@ -733,20 +674,20 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#1a0a2e',
+    backgroundColor: COLORS.background.secondary,
     borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: COLORS.border.light,
   },
   modalIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 123, 53, 0.15)',
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -754,12 +695,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.text.primary,
     marginBottom: 12,
   },
   modalMessage: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.text.secondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -769,18 +710,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   retryButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  retryButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#ff7b35',
     paddingVertical: 14,
-    borderRadius: 25,
   },
   retryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.text.dark,
   },
   closeButton: {
     alignItems: 'center',
@@ -788,6 +731,6 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.tertiary,
   },
 });

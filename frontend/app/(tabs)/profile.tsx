@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Dimensions,
+  ScrollView,
+  Image,
   ActivityIndicator,
-  RefreshControl,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,242 +15,247 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
+import COLORS from '../../src/theme/colors';
 
-const { width } = Dimensions.get('window');
+interface UserProfile {
+  name: string;
+  email: string;
+  age?: number;
+  gender?: string;
+  looking_for?: string;
+  intention?: string;
+  is_visible: boolean;
+}
 
 interface UserStats {
-  vibes: number;
-  connection_rate: number;
   total_checkins: number;
-  unique_places: number;
-  best_night: string;
-  is_premium: boolean;
+  places_visited: number;
+  current_streak: number;
 }
 
-interface CheckinHistory {
-  id: string;
-  place_name: string;
-  checked_in_at: string;
-}
-
-const StatCard = ({
-  icon,
-  value,
-  label,
-  color,
-}: {
-  icon: string;
-  value: string | number;
-  label: string;
-  color: string;
+// Menu Item Component
+const MenuItem = ({ 
+  icon, 
+  label, 
+  onPress, 
+  showArrow = true,
+  danger = false,
+}: { 
+  icon: string; 
+  label: string; 
+  onPress: () => void;
+  showArrow?: boolean;
+  danger?: boolean;
 }) => (
-  <View style={styles.statCard}>
-    <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
-      <Ionicons name={icon as any} size={24} color={color} />
+  <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
+    <View style={[styles.menuIconContainer, danger && styles.menuIconDanger]}>
+      <Ionicons 
+        name={icon as any} 
+        size={20} 
+        color={danger ? COLORS.accent.error : COLORS.gold.primary} 
+      />
     </View>
+    <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
+    {showArrow && (
+      <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+    )}
+  </TouchableOpacity>
+);
+
+// Stat Badge Component
+const StatBadge = ({ value, label }: { value: number; label: string }) => (
+  <View style={styles.statBadge}>
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
 
-const PlaceHistoryCard = ({
-  name,
-  date,
-}: {
-  name: string;
-  date: string;
-}) => (
-  <View style={styles.placeHistoryCard}>
-    <View style={styles.placeHistoryInfo}>
-      <Text style={styles.placeHistoryName}>{name}</Text>
-      <Text style={styles.placeHistoryDate}>{date}</Text>
-    </View>
-  </View>
-);
-
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
-  const [checkinHistory, setCheckinHistory] = useState<CheckinHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadData = useCallback(async () => {
-    try {
-      const [statsData, historyData] = await Promise.all([
-        api.getUserStats(),
-        api.getCheckinHistory(5),
-      ]);
-      setStats(statsData);
-      setCheckinHistory(historyData);
-    } catch (e) {
-      console.error('Error loading profile data:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadProfile();
+  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    refreshUser();
-    loadData();
+  const loadProfile = async () => {
+    try {
+      const [profileData, statsData] = await Promise.all([
+        api.getProfile(),
+        api.getUserStats(),
+      ]);
+      setProfile(profileData);
+      setStats(statsData);
+    } catch (e) {
+      console.error('Error loading profile:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Log Out', 
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          }
+        },
+      ]
+    );
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   if (loading) {
     return (
-      <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#ff7b35" />
-        </View>
-      </LinearGradient>
+      <View style={[styles.container, styles.loadingContainer]}>
+        <LinearGradient
+          colors={[COLORS.background.primary, COLORS.background.secondary]}
+          style={StyleSheet.absoluteFill}
+        />
+        <ActivityIndicator size="large" color={COLORS.gold.primary} />
+      </View>
     );
   }
 
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 10 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#ff7b35"
-          />
-        }
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.placeholder} />
+          <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity 
             style={styles.settingsButton}
             onPress={() => router.push('/settings')}
           >
-            <Ionicons name="settings-outline" size={24} color="#fff" />
+            <Ionicons name="settings-outline" size={24} color={COLORS.text.primary} />
           </TouchableOpacity>
         </View>
 
-        {/* Profile Avatar with Eye Logo */}
-        <View style={styles.avatarSection}>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          {/* Avatar */}
           <View style={styles.avatarContainer}>
             <LinearGradient
-              colors={['#ff7b35', '#ec407a']}
+              colors={COLORS.gradients.goldButton as [string, string, string]}
               style={styles.avatarGradient}
             >
-              <Ionicons name="person" size={48} color="#fff" />
+              <Text style={styles.avatarText}>
+                {profile?.name ? getInitials(profile.name) : '?'}
+              </Text>
             </LinearGradient>
-            <View style={styles.eyeBadge}>
-              <Ionicons name="eye" size={20} color="#ff7b35" />
-            </View>
+            <TouchableOpacity style={styles.editAvatarButton}>
+              <Ionicons name="camera" size={16} color={COLORS.text.dark} />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.profileName}>{user?.name || 'User'}</Text>
-          {stats?.is_premium && (
-            <View style={styles.premiumBadge}>
-              <Ionicons name="star" size={14} color="#ffc107" />
-              <Text style={styles.premiumText}>SEE ME LIVE</Text>
-            </View>
-          )}
+
+          {/* Name & Info */}
+          <Text style={styles.profileName}>{profile?.name || 'User'}</Text>
+          <Text style={styles.profileEmail}>{profile?.email}</Text>
+
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <StatBadge value={stats?.total_checkins || 0} label="Check-ins" />
+            <View style={styles.statsDivider} />
+            <StatBadge value={stats?.places_visited || 0} label="Places" />
+            <View style={styles.statsDivider} />
+            <StatBadge value={stats?.current_streak || 0} label="Streak" />
+          </View>
+
+          {/* Edit Profile Button */}
+          <TouchableOpacity 
+            style={styles.editProfileButton}
+            onPress={() => router.push('/settings/edit-profile')}
+          >
+            <Text style={styles.editProfileText}>Edit Profile</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* VIBE STATS */}
-        <View style={styles.vibeStatsSection}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="star" size={18} color="#ffc107" />
-            <Text style={styles.sectionTitle}>VIBE STATS</Text>
-          </View>
-          <View style={styles.statsGrid}>
-            <StatCard
-              icon="hand-right"
-              value={stats?.vibes || user?.vibes || 0}
-              label="Vibes"
-              color="#ff7b35"
+        {/* Menu Sections */}
+        <View style={styles.menuSection}>
+          <Text style={styles.menuSectionTitle}>Account</Text>
+          <View style={styles.menuCard}>
+            <MenuItem 
+              icon="person-outline" 
+              label="Personal Information" 
+              onPress={() => router.push('/settings/edit-profile')}
             />
-            <StatCard
-              icon="trending-up"
-              value={`${stats?.connection_rate || 0}%`}
-              label="Connection Rate"
-              color="#4caf50"
+            <MenuItem 
+              icon="notifications-outline" 
+              label="Notifications" 
+              onPress={() => {}}
             />
-          </View>
-          <View style={styles.statsGridRow2}>
-            <StatCard
-              icon="location"
-              value={stats?.unique_places || 0}
-              label="Places Visited"
-              color="#2196f3"
-            />
-            <StatCard
-              icon="checkmark-circle"
-              value={stats?.total_checkins || 0}
-              label="Total Check-ins"
-              color="#9c27b0"
+            <MenuItem 
+              icon="shield-outline" 
+              label="Privacy" 
+              onPress={() => router.push('/legal/privacy')}
             />
           </View>
         </View>
 
-        {/* Places You've Been */}
-        {checkinHistory.length > 0 && (
-          <View style={styles.placesSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitleWhite}>Recent Check-ins</Text>
-            </View>
-            {checkinHistory.map((checkin) => (
-              <PlaceHistoryCard
-                key={checkin.id}
-                name={checkin.place_name}
-                date={formatDate(checkin.checked_in_at)}
-              />
-            ))}
+        <View style={styles.menuSection}>
+          <Text style={styles.menuSectionTitle}>Support</Text>
+          <View style={styles.menuCard}>
+            <MenuItem 
+              icon="help-circle-outline" 
+              label="Help Center" 
+              onPress={() => {}}
+            />
+            <MenuItem 
+              icon="document-text-outline" 
+              label="Terms of Service" 
+              onPress={() => router.push('/legal/terms')}
+            />
+            <MenuItem 
+              icon="chatbubble-outline" 
+              label="Contact Us" 
+              onPress={() => {}}
+            />
           </View>
-        )}
+        </View>
 
-        {/* Best Night */}
-        {stats?.best_night && (
-          <View style={styles.bestNightSection}>
-            <LinearGradient
-              colors={['rgba(255, 123, 53, 0.15)', 'rgba(236, 64, 122, 0.1)']}
-              style={styles.bestNightCard}
-            >
-              <View style={styles.bestNightHeader}>
-                <Ionicons name="flame" size={20} color="#ff7b35" />
-                <Text style={styles.bestNightTitle}>BEST NIGHT</Text>
-              </View>
-              <Text style={styles.bestNightValue}>{stats.best_night}</Text>
-              <Text style={styles.bestNightSubtext}>Your most active night</Text>
-            </LinearGradient>
+        <View style={styles.menuSection}>
+          <View style={styles.menuCard}>
+            <MenuItem 
+              icon="log-out-outline" 
+              label="Log Out" 
+              onPress={handleLogout}
+              showArrow={false}
+              danger
+            />
           </View>
-        )}
+        </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#ff5555" />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
+        {/* App Version */}
+        <Text style={styles.versionText}>See Me v1.0.0</Text>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -259,7 +264,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -267,33 +271,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
-  placeholder: {
-    width: 44,
-    height: 44,
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.text.primary,
   },
   settingsButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: COLORS.background.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarSection: {
+  profileCard: {
+    marginHorizontal: 20,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
-    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+    marginBottom: 24,
   },
   avatarContainer: {
     position: 'relative',
+    marginBottom: 16,
   },
   avatarGradient: {
     width: 100,
@@ -302,164 +314,122 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyeBadge: {
+  avatarText: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: COLORS.text.dark,
+  },
+  editAvatarButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#0d0415',
-    borderWidth: 3,
-    borderColor: '#0d0415',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.gold.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: COLORS.background.card,
   },
   profileName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
-    marginTop: 12,
+    color: COLORS.text.primary,
+    marginBottom: 4,
   },
-  premiumBadge: {
+  profileEmail: {
+    fontSize: 14,
+    color: COLORS.text.tertiary,
+    marginBottom: 20,
+  },
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 193, 7, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-    gap: 6,
+    marginBottom: 20,
   },
-  premiumText: {
-    color: '#ffc107',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  vibeStatsSection: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
+  statBadge: {
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffc107',
-    letterSpacing: 1,
-  },
-  sectionTitleWhite: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statsGridRow2: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    paddingHorizontal: 20,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 4,
-    textAlign: 'center',
+    color: COLORS.text.tertiary,
+    marginTop: 2,
   },
-  placesSection: {
-    marginBottom: 24,
+  statsDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: COLORS.border.light,
   },
-  placeHistoryCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+  editProfileButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 20,
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
   },
-  placeHistoryInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  placeHistoryName: {
-    fontSize: 16,
+  editProfileText: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.gold.primary,
   },
-  placeHistoryDate: {
-    fontSize: 12,
-    color: '#ff7b35',
-  },
-  bestNightSection: {
+  menuSection: {
     marginBottom: 24,
+    paddingHorizontal: 20,
   },
-  bestNightCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 123, 53, 0.3)',
-  },
-  bestNightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  bestNightTitle: {
+  menuSectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ff7b35',
+    color: COLORS.text.tertiary,
+    marginBottom: 12,
+    marginLeft: 4,
+    textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  bestNightValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
+  menuCard: {
+    backgroundColor: COLORS.background.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+    overflow: 'hidden',
   },
-  bestNightSubtext: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 4,
-  },
-  logoutButton: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    marginTop: 10,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
   },
-  logoutText: {
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(244, 197, 66, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  menuIconDanger: {
+    backgroundColor: 'rgba(255, 82, 82, 0.15)',
+  },
+  menuLabel: {
+    flex: 1,
     fontSize: 16,
-    color: '#ff5555',
-    fontWeight: '500',
+    color: COLORS.text.primary,
+  },
+  menuLabelDanger: {
+    color: COLORS.accent.error,
+  },
+  versionText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: COLORS.text.muted,
+    marginTop: 10,
+    marginBottom: 20,
   },
 });

@@ -1,287 +1,403 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
-  ActivityIndicator,
   Animated,
   Easing,
+  TouchableOpacity,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
-import useLocation from '../../src/hooks/useLocation';
+import COLORS from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
 
-interface NearbyStats {
-  total: number;
-  hot: number;
-  active: number;
-  chill: number;
+interface UserStats {
+  total_checkins: number;
+  places_visited: number;
+  current_streak: number;
+  trending_visits: number;
 }
+
+interface RecentCheckin {
+  id: string;
+  place_name: string;
+  place_type: string;
+  checked_in_at: string;
+}
+
+// Animated radar ring
+const RadarRing = ({ delay, size }: { delay: number; size: number }) => {
+  const scaleAnim = useRef(new Animated.Value(0.3)).current;
+  const opacityAnim = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    const animate = () => {
+      scaleAnim.setValue(0.3);
+      opacityAnim.setValue(0.6);
+      
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 3000,
+          delay,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 3000,
+          delay,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start(() => animate());
+    };
+    animate();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.radarRing,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          transform: [{ scale: scaleAnim }],
+          opacity: opacityAnim,
+        },
+      ]}
+    />
+  );
+};
+
+// Stat Card Component
+const StatCard = ({ 
+  icon, 
+  value, 
+  label, 
+  color 
+}: { 
+  icon: string; 
+  value: number; 
+  label: string; 
+  color: string;
+}) => (
+  <View style={styles.statCard}>
+    <View style={[styles.statIconContainer, { backgroundColor: `${color}20` }]}>
+      <Ionicons name={icon as any} size={22} color={color} />
+    </View>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
+// Recent Activity Item
+const ActivityItem = ({ checkin }: { checkin: RecentCheckin }) => {
+  const timeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  return (
+    <View style={styles.activityItem}>
+      <View style={styles.activityDot} />
+      <View style={styles.activityContent}>
+        <Text style={styles.activityPlace}>{checkin.place_name}</Text>
+        <Text style={styles.activityMeta}>{checkin.place_type} • {timeAgo(checkin.checked_in_at)}</Text>
+      </View>
+    </View>
+  );
+};
 
 export default function RadarScreen() {
   const insets = useSafeAreaInsets();
-  const [stats, setStats] = useState<NearbyStats>({ total: 0, hot: 0, active: 0, chill: 0 });
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([]);
   const [loading, setLoading] = useState(true);
-  const { getCurrentLocation } = useLocation();
-  
-  // Animation for radar sweep
-  const sweepAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    // Radar sweep animation
-    Animated.loop(
-      Animated.timing(sweepAnim, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const loadStats = useCallback(async () => {
+  const loadData = async (showLoader = true) => {
     try {
-      const location = await getCurrentLocation();
-      if (location) {
-        const places = await api.getNearbyPlaces(
-          location.latitude,
-          location.longitude,
-          2000,
-          25
-        );
-        
-        const hot = places.filter((p: any) => p.activity_level === 'trending' || p.activity_level === 'high').length;
-        const active = places.filter((p: any) => p.activity_level === 'medium').length;
-        const chill = places.filter((p: any) => p.activity_level === 'low' || p.activity_level === 'none').length;
-        
-        setStats({ total: places.length, hot, active, chill });
-      }
+      if (showLoader) setLoading(true);
+      const [statsData, checkinsData] = await Promise.all([
+        api.getUserStats(),
+        api.getCheckinHistory(5),
+      ]);
+      setStats(statsData);
+      setRecentCheckins(checkinsData);
     } catch (e) {
-      console.log('Error loading radar stats:', e);
+      console.error('Error loading radar data:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [getCurrentLocation]);
+  };
 
   useEffect(() => {
-    loadStats();
-    const interval = setInterval(loadStats, 30000);
-    return () => clearInterval(interval);
-  }, [loadStats]);
+    loadData();
+  }, []);
 
-  const sweepRotate = sweepAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData(false);
+  };
 
   return (
-    <LinearGradient colors={['#1a0a2e', '#0d0415']} style={styles.container}>
-      <View style={[styles.content, { paddingTop: insets.top + 20 }]}>
-        <Text style={styles.title}>Social Radar</Text>
-        <Text style={styles.subtitle}>Social energy around you</Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
 
-        {/* Radar visualization */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.gold.primary} />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Your Radar</Text>
+          <Text style={styles.headerSubtitle}>Track your social presence</Text>
+        </View>
+
+        {/* Radar Animation */}
         <View style={styles.radarContainer}>
-          <View style={styles.radarRing3} />
-          <View style={styles.radarRing2} />
-          <View style={styles.radarRing1} />
+          <RadarRing delay={0} size={width * 0.7} />
+          <RadarRing delay={1000} size={width * 0.7} />
+          <RadarRing delay={2000} size={width * 0.7} />
           
-          {/* Sweep animation */}
-          <Animated.View 
-            style={[
-              styles.radarSweep,
-              { transform: [{ rotate: sweepRotate }] }
-            ]}
-          >
+          {/* Center icon */}
+          <View style={styles.radarCenter}>
             <LinearGradient
-              colors={['rgba(255, 123, 53, 0.4)', 'transparent']}
-              style={styles.sweepGradient}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-          </Animated.View>
-
-          {/* Center with pulse */}
-          <Animated.View style={[styles.radarCenter, { transform: [{ scale: pulseAnim }] }]}>
-            <Ionicons name="radio" size={28} color="#ff7b35" />
-          </Animated.View>
-        </View>
-
-        {/* Stats Cards */}
-        {loading ? (
-          <ActivityIndicator size="small" color="#ff7b35" style={{ marginTop: 30 }} />
-        ) : (
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <View style={[styles.statDot, { backgroundColor: '#ff5533' }]} />
-              <Text style={styles.statValue}>{stats.hot}</Text>
-              <Text style={styles.statLabel}>Hot Vibe</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statDot, { backgroundColor: '#ffc107' }]} />
-              <Text style={styles.statValue}>{stats.active}</Text>
-              <Text style={styles.statLabel}>Active</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statDot, { backgroundColor: '#4caf50' }]} />
-              <Text style={styles.statValue}>{stats.chill}</Text>
-              <Text style={styles.statLabel}>Chill</Text>
-            </View>
+              colors={COLORS.gradients.goldButton as [string, string, string]}
+              style={styles.radarCenterGradient}
+            >
+              <Ionicons name="radio" size={32} color={COLORS.text.dark} />
+            </LinearGradient>
           </View>
-        )}
-
-        {/* Total places */}
-        <View style={styles.totalContainer}>
-          <Ionicons name="business" size={16} color="rgba(255,255,255,0.5)" />
-          <Text style={styles.totalText}>{stats.total} places nearby</Text>
         </View>
-      </View>
-    </LinearGradient>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.gold.primary} />
+          </View>
+        ) : (
+          <>
+            {/* Stats Grid */}
+            <View style={styles.statsGrid}>
+              <StatCard 
+                icon="location" 
+                value={stats?.total_checkins || 0} 
+                label="Check-ins" 
+                color={COLORS.gold.primary}
+              />
+              <StatCard 
+                icon="map" 
+                value={stats?.places_visited || 0} 
+                label="Places" 
+                color="#4CAF50"
+              />
+              <StatCard 
+                icon="flame" 
+                value={stats?.current_streak || 0} 
+                label="Streak" 
+                color="#FF5722"
+              />
+              <StatCard 
+                icon="trending-up" 
+                value={stats?.trending_visits || 0} 
+                label="Trending" 
+                color="#E91E63"
+              />
+            </View>
+
+            {/* Recent Activity */}
+            <View style={styles.activitySection}>
+              <Text style={styles.sectionTitle}>Recent Activity</Text>
+              {recentCheckins.length === 0 ? (
+                <View style={styles.noActivity}>
+                  <Ionicons name="time-outline" size={40} color={COLORS.text.muted} />
+                  <Text style={styles.noActivityText}>No recent check-ins</Text>
+                  <Text style={styles.noActivitySubtext}>Start exploring to build your history</Text>
+                </View>
+              ) : (
+                <View style={styles.activityList}>
+                  {recentCheckins.map((checkin) => (
+                    <ActivityItem key={checkin.id} checkin={checkin} />
+                  ))}
+                </View>
+              )}
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
-
-const radarSize = width - 100;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
-    alignItems: 'center',
+  },
+  content: {
+    paddingBottom: 100,
+  },
+  header: {
     paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  title: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 32,
     fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    color: COLORS.text.primary,
   },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.6)',
-    marginBottom: 30,
+  headerSubtitle: {
+    fontSize: 15,
+    color: COLORS.text.secondary,
+    marginTop: 4,
   },
   radarContainer: {
-    width: radarSize,
-    height: radarSize,
+    height: width * 0.6,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    marginBottom: 30,
   },
-  radarRing1: {
+  radarRing: {
     position: 'absolute',
-    width: '35%',
-    height: '35%',
-    borderRadius: 1000,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 123, 53, 0.3)',
-  },
-  radarRing2: {
-    position: 'absolute',
-    width: '65%',
-    height: '65%',
-    borderRadius: 1000,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 123, 53, 0.2)',
-  },
-  radarRing3: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 1000,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 123, 53, 0.1)',
-  },
-  radarSweep: {
-    position: 'absolute',
-    width: '50%',
-    height: '50%',
-    top: 0,
-    left: '25%',
-    transformOrigin: 'center bottom',
-  },
-  sweepGradient: {
-    width: '100%',
-    height: '100%',
-    borderTopLeftRadius: 1000,
-    borderTopRightRadius: 1000,
+    borderWidth: 2,
+    borderColor: COLORS.gold.primary,
   },
   radarCenter: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 123, 53, 0.2)',
+    position: 'absolute',
+  },
+  radarCenterGradient: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#ff7b35',
   },
-  statsContainer: {
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: 30,
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
+    marginBottom: 30,
   },
   statCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    width: (width - 44) / 2,
+    backgroundColor: COLORS.background.card,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    minWidth: 90,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: COLORS.border.light,
   },
-  statDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginBottom: 8,
+  statIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.text.primary,
   },
   statLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    color: COLORS.text.tertiary,
     marginTop: 4,
   },
-  totalContainer: {
+  activitySection: {
+    paddingHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginBottom: 16,
+  },
+  activityList: {
+    backgroundColor: COLORS.background.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 24,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
   },
-  totalText: {
+  activityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.gold.primary,
+    marginRight: 14,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityPlace: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  activityMeta: {
+    fontSize: 13,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
+  },
+  noActivity: {
+    backgroundColor: COLORS.background.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  noActivityText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginTop: 12,
+  },
+  noActivitySubtext: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.text.muted,
+    marginTop: 4,
   },
 });
