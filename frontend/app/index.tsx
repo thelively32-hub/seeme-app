@@ -147,15 +147,8 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
           </LinearGradient>
         </View>
 
-        {/* Pin tail (pointed part) */}
-        <View style={styles.pinTailWrapper}>
-          <LinearGradient
-            colors={[COLORS.goldPrimary, COLORS.goldPremium]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.pinTailGradient}
-          />
-        </View>
+        {/* Pin tail (pointed part) - Triangle using borders */}
+        <View style={styles.pinTail} />
       </View>
     </View>
   );
@@ -596,17 +589,17 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  pinTailWrapper: {
-    marginTop: -8,
-    width: 36,
-    height: 40,
-    overflow: 'hidden',
-  },
-  pinTailGradient: {
-    width: 36,
-    height: 36,
-    transform: [{ rotate: '45deg' }, { translateY: -18 }],
-    borderRadius: 6,
+  // Triangle tail using CSS borders - perfectly centered
+  pinTail: {
+    width: 0,
+    height: 0,
+    marginTop: -6,
+    borderLeftWidth: 20,
+    borderRightWidth: 20,
+    borderTopWidth: 32,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: COLORS.goldPrimary,
   },
 
   // Logo Text Styles
