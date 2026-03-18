@@ -17,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import COLORS from '../../src/theme/colors';
@@ -167,11 +166,40 @@ const CreateInvitationModal = ({
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [paymentType, setPaymentType] = useState<'full' | 'half'>('half');
-  const [eventDate, setEventDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(0); // 0 = hoy, 1 = mañana, etc.
   const [eventTime, setEventTime] = useState('');
   const [placeName, setPlaceName] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDateOptions, setShowDateOptions] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Generate next 7 days
+  const getDateOptions = () => {
+    const options = [];
+    const today = new Date();
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      let label = '';
+      if (i === 0) label = 'Hoy';
+      else if (i === 1) label = 'Mañana';
+      else label = `${dayNames[date.getDay()]} ${date.getDate()} ${monthNames[date.getMonth()]}`;
+      
+      options.push({
+        index: i,
+        label,
+        date: date.toISOString().split('T')[0],
+        fullLabel: `${dayNames[date.getDay()]} ${date.getDate()} de ${monthNames[date.getMonth()]}`,
+      });
+    }
+    return options;
+  };
+
+  const dateOptions = getDateOptions();
+  const selectedDate = dateOptions[selectedDay];
 
   const handleCreate = async () => {
     if (!text.trim()) {
@@ -184,14 +212,14 @@ const CreateInvitationModal = ({
       await onCreate({
         text: text.trim(),
         payment_type: paymentType,
-        event_date: eventDate.toISOString().split('T')[0],
+        event_date: selectedDate.date,
         event_time: eventTime || undefined,
         place_name: placeName || undefined,
       });
       // Reset form
       setText('');
       setPaymentType('half');
-      setEventDate(new Date());
+      setSelectedDay(0);
       setEventTime('');
       setPlaceName('');
       onClose();
@@ -256,25 +284,51 @@ const CreateInvitationModal = ({
               </TouchableOpacity>
             </View>
 
-            {/* Date */}
+            {/* Date - Custom Selector */}
             <Text style={styles.inputLabel}>Fecha del evento</Text>
-            <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+            <TouchableOpacity 
+              style={styles.dateButton} 
+              onPress={() => setShowDateOptions(!showDateOptions)}
+            >
               <Ionicons name="calendar" size={20} color={COLORS.gold.primary} />
-              <Text style={styles.dateButtonText}>
-                {eventDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </Text>
+              <Text style={styles.dateButtonText}>{selectedDate.fullLabel}</Text>
+              <Ionicons 
+                name={showDateOptions ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={COLORS.text.muted} 
+              />
             </TouchableOpacity>
 
-            {showDatePicker && (
-              <DateTimePicker
-                value={eventDate}
-                mode="date"
-                minimumDate={new Date()}
-                onChange={(event, date) => {
-                  setShowDatePicker(Platform.OS === 'ios');
-                  if (date) setEventDate(date);
-                }}
-              />
+            {/* Date Options Grid */}
+            {showDateOptions && (
+              <View style={styles.dateOptionsContainer}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.dateOptionsScroll}
+                >
+                  {dateOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.index}
+                      style={[
+                        styles.dateOptionButton,
+                        selectedDay === option.index && styles.dateOptionButtonActive
+                      ]}
+                      onPress={() => {
+                        setSelectedDay(option.index);
+                        setShowDateOptions(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dateOptionText,
+                        selectedDay === option.index && styles.dateOptionTextActive
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
             )}
 
             {/* Time (Optional) */}
@@ -813,8 +867,37 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.light,
   },
   dateButtonText: {
+    flex: 1,
     fontSize: 16,
     color: COLORS.text.primary,
+  },
+  dateOptionsContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  dateOptionsScroll: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  dateOptionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  dateOptionButtonActive: {
+    backgroundColor: COLORS.gold.primary,
+    borderColor: COLORS.gold.primary,
+  },
+  dateOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text.secondary,
+  },
+  dateOptionTextActive: {
+    color: COLORS.text.dark,
   },
   createButton: {
     flexDirection: 'row',
