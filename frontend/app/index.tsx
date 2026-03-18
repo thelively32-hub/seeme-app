@@ -20,12 +20,13 @@ const { width } = Dimensions.get('window');
 const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.mp4';
 const FALLBACK_IMAGE = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.jpg';
 
-// Colors - Gold/Cream premium theme
-const GOLD = '#D4B896';
-const GOLD_LIGHT = '#E8DCC8';
-const GOLD_DARK = '#C4A876';
+// Colors - Brighter Gold theme for better contrast
+const GOLD = '#E8D5B5';
+const GOLD_LIGHT = '#F5EBD9';
+const GOLD_BRIGHT = '#FFF8E7';
+const GOLD_DARK = '#D4B896';
 
-// Custom Location Pin Component (like the eye/pin in the design)
+// Custom Location Pin Component
 const LocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
   return (
     <View style={styles.pinWrapper}>
@@ -37,7 +38,7 @@ const LocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
             transform: [{ scale: pulseAnim }],
             opacity: pulseAnim.interpolate({
               inputRange: [1, 1.1],
-              outputRange: [0.4, 0.7],
+              outputRange: [0.5, 0.8],
             }),
           }
         ]} 
@@ -46,7 +47,7 @@ const LocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
       {/* Main pin shape */}
       <View style={styles.pinShape}>
         <LinearGradient
-          colors={[GOLD_LIGHT, GOLD, GOLD_DARK]}
+          colors={[GOLD_BRIGHT, GOLD_LIGHT, GOLD]}
           style={styles.pinGradient}
         >
           {/* Dark circle in center (eye effect) */}
@@ -73,7 +74,6 @@ export default function WelcomeScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Content fade in
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -91,7 +91,6 @@ export default function WelcomeScreen() {
       }),
     ]).start();
 
-    // Subtle pulse for the glow
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -140,7 +139,7 @@ export default function WelcomeScreen() {
         <BackgroundMedia
           videoSource={VIDEO_URL}
           imageSource={FALLBACK_IMAGE}
-          overlayOpacity={0.5}
+          overlayOpacity={0.6}
         />
       </View>
     );
@@ -148,11 +147,11 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background Video */}
+      {/* Background Video - Darker overlay for better contrast */}
       <BackgroundMedia
         videoSource={VIDEO_URL}
         imageSource={FALLBACK_IMAGE}
-        overlayOpacity={0.45}
+        overlayOpacity={0.58}
         overlayGradient={true}
       />
 
@@ -161,14 +160,14 @@ export default function WelcomeScreen() {
         style={[
           styles.content,
           {
-            paddingTop: insets.top + 20,
+            paddingTop: insets.top + 24,
             paddingBottom: insets.bottom + 16,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        {/* Top Badge */}
+        {/* Top Badge - Fixed */}
         <View style={styles.topBadge}>
           <View style={styles.badgeDot} />
           <Text style={styles.badgeText}>LIVE SOCIAL RADAR</Text>
@@ -176,17 +175,17 @@ export default function WelcomeScreen() {
 
         {/* Logo Section */}
         <View style={styles.logoSection}>
-          {/* Custom Location Pin with Eye */}
+          {/* Custom Location Pin */}
           <LocationPin pulseAnim={pulseAnim} />
 
-          {/* Main Logo Text */}
+          {/* Main Logo Text - Bigger & Bolder */}
           <View style={styles.logoTextContainer}>
             <Text style={styles.logoSee}>See</Text>
             <View style={styles.logoUnderline} />
-            <Text style={styles.logoMe}>M E</Text>
+            <Text style={styles.logoMe}>ME</Text>
           </View>
           
-          {/* Tagline */}
+          {/* Tagline - More visible */}
           <Text style={styles.tagline}>Know the vibe first</Text>
         </View>
 
@@ -199,7 +198,7 @@ export default function WelcomeScreen() {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={[GOLD_LIGHT, GOLD, GOLD_DARK]}
+              colors={[GOLD_BRIGHT, GOLD_LIGHT, GOLD]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryButtonGradient}
@@ -244,24 +243,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 28,
   },
-  // Top Badge
+  // Top Badge - Fixed visibility
   topBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
+    paddingTop: 4,
   },
   badgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: GOLD,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: GOLD_LIGHT,
+    // Glow
+    shadowColor: GOLD_LIGHT,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: GOLD,
+    fontSize: 12,
+    fontWeight: '700',
+    color: GOLD_LIGHT,
     letterSpacing: 3,
+    // Text shadow for better readability
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   // Logo Section
   logoSection: {
@@ -273,28 +282,26 @@ const styles = StyleSheet.create({
   // Location Pin Styles
   pinWrapper: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   pinGlow: {
     position: 'absolute',
-    bottom: -10,
-    width: 80,
-    height: 30,
-    backgroundColor: GOLD,
-    borderRadius: 40,
-    opacity: 0.4,
+    bottom: -8,
+    width: 90,
+    height: 35,
+    backgroundColor: GOLD_LIGHT,
+    borderRadius: 45,
   },
   pinShape: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     overflow: 'hidden',
-    // Shadow
-    shadowColor: GOLD,
+    shadowColor: GOLD_LIGHT,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12,
   },
   pinGradient: {
     flex: 1,
@@ -302,67 +309,80 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pinEye: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#1a1a2e',
   },
   pinTail: {
     width: 0,
     height: 0,
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderTopWidth: 18,
+    borderLeftWidth: 14,
+    borderRightWidth: 14,
+    borderTopWidth: 20,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: GOLD_DARK,
+    borderTopColor: GOLD,
     marginTop: -2,
   },
   pinDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: GOLD,
-    marginTop: 8,
-    opacity: 0.6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: GOLD_LIGHT,
+    marginTop: 10,
+    opacity: 0.8,
   },
-  // Logo Text
+  // Logo Text - Bigger & More visible
   logoTextContainer: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
   },
   logoSee: {
-    fontSize: 82,
+    fontSize: 96,
     fontWeight: '300',
-    color: GOLD_LIGHT,
+    color: GOLD_BRIGHT,
     fontStyle: 'italic',
-    letterSpacing: -1,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    letterSpacing: 0,
+    // Strong shadow for contrast
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
     textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 8,
+    textShadowRadius: 12,
   },
   logoUnderline: {
-    width: 50,
-    height: 1.5,
-    backgroundColor: GOLD,
-    marginTop: -4,
-    marginBottom: 10,
+    width: 60,
+    height: 2,
+    backgroundColor: GOLD_LIGHT,
+    marginTop: -2,
+    marginBottom: 12,
+    // Glow effect
+    shadowColor: GOLD_LIGHT,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
   },
   logoMe: {
-    fontSize: 24,
-    fontWeight: '500',
-    color: GOLD,
-    letterSpacing: 16,
-    marginLeft: 16,
+    fontSize: 28,
+    fontWeight: '600',
+    color: GOLD_LIGHT,
+    letterSpacing: 18,
+    marginLeft: 18,
+    // Shadow for readability
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   tagline: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: GOLD,
+    fontSize: 14,
+    fontWeight: '600',
+    color: GOLD_LIGHT,
     letterSpacing: 4,
-    marginTop: 32,
+    marginTop: 36,
     textTransform: 'uppercase',
-    opacity: 0.8,
+    // Shadow for contrast
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   // Bottom Section
   bottomSection: {
@@ -374,11 +394,11 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     overflow: 'hidden',
     marginBottom: 20,
-    shadowColor: GOLD,
+    shadowColor: GOLD_LIGHT,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.4,
     shadowRadius: 16,
-    elevation: 10,
+    elevation: 12,
   },
   primaryButtonGradient: {
     paddingVertical: 18,
@@ -386,7 +406,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryButtonText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1a1a1a',
     letterSpacing: 2,
@@ -398,22 +418,31 @@ const styles = StyleSheet.create({
   },
   signInText: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.8)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   signInLink: {
     fontSize: 15,
     color: '#ffffff',
-    fontWeight: '600',
+    fontWeight: '700',
     textDecorationLine: 'underline',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   legalText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     lineHeight: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   legalLink: {
-    color: GOLD,
+    color: GOLD_LIGHT,
     textDecorationLine: 'underline',
   },
 });
