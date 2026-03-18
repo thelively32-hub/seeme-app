@@ -55,21 +55,19 @@ export default function BackgroundMedia({
         />
       )}
 
-      {/* Video - Full quality, adjusted for better fit */}
+      {/* Video - Full quality, vertical video */}
       {showVideo && (
         <Video
           ref={videoRef}
           source={typeof videoSource === 'string' ? { uri: videoSource } : videoSource}
           style={styles.media}
-          resizeMode={ResizeMode.CONTAIN}
+          resizeMode={ResizeMode.COVER}
           shouldPlay={true}
           isLooping={true}
           isMuted={true}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           onError={handleVideoError}
           useNativeControls={false}
-          posterSource={imageSource ? (typeof imageSource === 'number' ? imageSource : { uri: imageSource as string }) : undefined}
-          usePoster={true}
         />
       )}
 
