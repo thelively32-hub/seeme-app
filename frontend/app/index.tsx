@@ -46,18 +46,24 @@ export default function WelcomeScreen() {
     ]).start();
   }, []);
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace('/(tabs)/explore');
-    }
-  }, [isAuthenticated, isLoading]);
+  // NO automatic redirect - always show intro screen first
 
   const handleCreateAccount = () => {
-    router.push('/(auth)/signup');
+    if (isAuthenticated) {
+      // User already logged in, go to app
+      router.replace('/(tabs)/explore');
+    } else {
+      router.push('/(auth)/signup');
+    }
   };
 
   const handleSignIn = () => {
-    router.push('/(auth)/login');
+    if (isAuthenticated) {
+      // User already logged in, go to app
+      router.replace('/(tabs)/explore');
+    } else {
+      router.push('/(auth)/login');
+    }
   };
 
   const handleTerms = () => {
@@ -72,6 +78,7 @@ export default function WelcomeScreen() {
     return (
       <View style={styles.container}>
         <BackgroundMedia
+          videoSource={VIDEO_URL}
           imageSource={FALLBACK_IMAGE}
           overlayOpacity={0.4}
         />

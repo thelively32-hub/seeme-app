@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -28,8 +28,8 @@ export default function BackgroundMedia({
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
 
-  // Determine if we should show video or fallback to image
-  const showVideo = videoSource && !videoError && Platform.OS !== 'web';
+  // Show video on all platforms
+  const showVideo = videoSource && !videoError;
   const showImage = !showVideo || !videoLoaded;
 
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
@@ -39,45 +39,46 @@ export default function BackgroundMedia({
   };
 
   const handleVideoError = () => {
+    console.log('Video error, showing fallback image');
     setVideoError(true);
   };
 
   return (
     <View style={styles.container}>
-      {/* Fallback Image (always rendered, hidden when video loads) */}
+      {/* Fallback Image (shown while video loads or on error) */}
       {imageSource && showImage && (
         <Image
           source={typeof imageSource === 'number' ? imageSource : { uri: imageSource as string }}
           style={styles.media}
           resizeMode="cover"
-          blurRadius={Platform.OS === 'ios' ? 2 : 1}
         />
       )}
 
-      {/* Video (only on native, not web) */}
+      {/* Video - fullscreen, autoplay, muted, loop */}
       {showVideo && (
         <Video
           ref={videoRef}
           source={typeof videoSource === 'string' ? { uri: videoSource } : videoSource}
-          style={[styles.media, !videoLoaded && styles.hidden]}
+          style={[styles.media, styles.video, !videoLoaded && styles.hidden]}
           resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-          isMuted
+          shouldPlay={true}
+          isLooping={true}
+          isMuted={true}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
           onError={handleVideoError}
+          useNativeControls={false}
         />
       )}
 
-      {/* Dark Overlay */}
+      {/* Dark Overlay for text readability */}
       {overlayGradient ? (
         <LinearGradient
           colors={[
-            `rgba(0, 0, 0, ${overlayOpacity * 0.3})`,
-            `rgba(0, 0, 0, ${overlayOpacity * 0.6})`,
-            `rgba(0, 0, 0, ${overlayOpacity})`,
+            `rgba(0, 0, 0, ${overlayOpacity * 0.2})`,
+            `rgba(0, 0, 0, ${overlayOpacity * 0.5})`,
+            `rgba(0, 0, 0, ${overlayOpacity * 0.8})`,
           ]}
-          locations={[0, 0.5, 1]}
+          locations={[0, 0.4, 1]}
           style={styles.overlay}
         />
       ) : (
@@ -90,12 +91,22 @@ export default function BackgroundMedia({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#000',
+    overflow: 'hidden',
   },
   media: {
-    width,
-    height,
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  video: {
+    // Ensure video covers the entire screen
+    minWidth: '100%',
+    minHeight: '100%',
   },
   hidden: {
     opacity: 0,
