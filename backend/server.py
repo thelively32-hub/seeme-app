@@ -96,7 +96,7 @@ class UserCreate(BaseModel):
 class UserVibe(BaseModel):
     gender: str = Field(..., pattern="^(man|woman|nonbinary)$")
     looking_for: List[str]
-    intention: str = Field(..., pattern="^(friends|date|casual)$")
+    intention: str = Field(..., pattern="^(friends|friendship|date|dating|casual)$")
 
 
 class UserLogin(BaseModel):
@@ -631,6 +631,12 @@ def user_to_response(user: dict) -> UserResponse:
         vibes=user.get("vibes", 0),
         connection_rate=user.get("connection_rate", 0.0),
         is_premium=user.get("is_premium", False),
+        is_verified=user.get("is_verified", False),
+        is_present=user.get("is_present", False),
+        status_message=user.get("status_message"),
+        ghost_mode=user.get("ghost_mode", False),
+        current_place_id=user.get("current_place_id"),
+        current_place_name=user.get("current_place_name"),
         created_at=user.get("created_at", datetime.utcnow()),
     )
 
