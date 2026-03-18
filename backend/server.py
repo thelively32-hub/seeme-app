@@ -47,7 +47,7 @@ def check_rate_limit(client_ip: str) -> bool:
 # ============== CONFIGURATION ==============
 
 # Check-in radius in meters (configurable)
-CHECKIN_RADIUS_METERS = int(os.getenv("CHECKIN_RADIUS", "30"))
+CHECKIN_RADIUS_METERS = int(os.getenv("CHECKIN_RADIUS", "50"))
 # Maximum acceptable GPS accuracy in meters
 MAX_GPS_ACCURACY_METERS = int(os.getenv("MAX_GPS_ACCURACY", "50"))
 

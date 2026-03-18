@@ -93,7 +93,19 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Request failed');
+        // Handle different error formats
+        let errorMessage = 'Request failed';
+        if (typeof data.detail === 'string') {
+          errorMessage = data.detail;
+        } else if (Array.isArray(data.detail)) {
+          // Pydantic validation errors
+          errorMessage = data.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join(', ');
+        } else if (data.detail && typeof data.detail === 'object') {
+          errorMessage = data.detail.msg || data.detail.message || JSON.stringify(data.detail);
+        } else if (data.message) {
+          errorMessage = data.message;
+        }
+        throw new Error(errorMessage);
       }
 
       return data;
