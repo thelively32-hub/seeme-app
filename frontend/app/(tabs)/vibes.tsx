@@ -201,20 +201,23 @@ export default function VibesScreen() {
   const [receivedVibes, setReceivedVibes] = useState<Vibe[]>([]);
   const [sentVibes, setSentVibes] = useState<Vibe[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [unreadChats, setUnreadChats] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
-      const [received, sent, vibeStats] = await Promise.all([
+      const [received, sent, vibeStats, chatCount] = await Promise.all([
         api.getReceivedVibes(),
         api.getSentVibes(),
         api.getVibeStats(),
+        api.getUnreadCount().catch(() => ({ unread_count: 0, active_chats: 0 })),
       ]);
       setReceivedVibes(received);
       setSentVibes(sent);
       setStats(vibeStats);
+      setUnreadChats(chatCount.active_chats || 0);
     } catch (e) {
       console.error('Error loading vibes:', e);
     } finally {
@@ -234,8 +237,22 @@ export default function VibesScreen() {
 
   const handleAcceptVibe = async (vibeId: string) => {
     try {
-      await api.respondToVibe(vibeId, 'accept');
-      Alert.alert('Connected! 🎉', 'You can now chat with this person');
+      const result = await api.respondToVibe(vibeId, 'accept');
+      if (result.chat_id) {
+        Alert.alert(
+          '¡Conectados! 🎉',
+          'Ya puedes chatear con esta persona. El chat dura 24 horas.',
+          [
+            { text: 'Más tarde', style: 'cancel' },
+            { 
+              text: 'Ir al chat', 
+              onPress: () => router.push(`/chats/${result.chat_id}`)
+            }
+          ]
+        );
+      } else {
+        Alert.alert('¡Conectados! 🎉', 'Ya puedes chatear con esta persona');
+      }
       loadData(false);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Could not accept vibe');
@@ -279,17 +296,31 @@ export default function VibesScreen() {
             <Text style={styles.headerTitle}>Vibes</Text>
             <Text style={styles.headerSubtitle}>Connect with people around you</Text>
           </View>
-          {!stats?.is_premium && (
-            <TouchableOpacity style={styles.upgradeButton}>
-              <LinearGradient
-                colors={COLORS.gradients.goldButton as [string, string, string]}
-                style={styles.upgradeButtonGradient}
-              >
-                <Ionicons name="star" size={14} color={COLORS.text.dark} />
-                <Text style={styles.upgradeButtonText}>PRO</Text>
-              </LinearGradient>
+          <View style={styles.headerActions}>
+            {/* Chats Button */}
+            <TouchableOpacity 
+              style={styles.chatsButton}
+              onPress={() => router.push('/chats')}
+            >
+              <Ionicons name="chatbubbles" size={22} color={COLORS.gold.primary} />
+              {unreadChats > 0 && (
+                <View style={styles.chatsBadge}>
+                  <Text style={styles.chatsBadgeText}>{unreadChats}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-          )}
+            {!stats?.is_premium && (
+              <TouchableOpacity style={styles.upgradeButton}>
+                <LinearGradient
+                  colors={COLORS.gradients.goldButton as [string, string, string]}
+                  style={styles.upgradeButtonGradient}
+                >
+                  <Ionicons name="star" size={14} color={COLORS.text.dark} />
+                  <Text style={styles.upgradeButtonText}>PRO</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Stats */}
@@ -415,6 +446,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.text.dark,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  chatsButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(244, 197, 66, 0.1)',
+    borderRadius: 22,
+    position: 'relative',
+  },
+  chatsBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: COLORS.live.red,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background.primary,
+  },
+  chatsBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
   statsCard: {
     flexDirection: 'row',

@@ -393,6 +393,31 @@ class ApiService {
     return this.request(`/api/business/${businessId}/qr`);
   }
 
+  // ============== CHAT ==============
+
+  // Get all my active chats
+  async getMyChats() {
+    return this.request('/api/chats');
+  }
+
+  // Get a specific chat with messages
+  async getChat(chatId: string) {
+    return this.request(`/api/chats/${chatId}`);
+  }
+
+  // Send a message in a chat
+  async sendMessage(chatId: string, content: string) {
+    return this.request(`/api/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  // Get unread message count
+  async getUnreadCount() {
+    return this.request('/api/chats/unread/count');
+  }
+
   // Health
   async healthCheck() {
     return this.request('/api/health');

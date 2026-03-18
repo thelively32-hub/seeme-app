@@ -74,6 +74,8 @@ checkin_logs_collection = db.checkin_logs  # GPS validation logs
 vibes_collection = db.vibes  # Vibes sent between users
 reviews_collection = db.reviews  # User reviews/ratings
 subscriptions_collection = db.subscriptions  # Premium subscriptions
+chats_collection = db.chats  # Temporary chats (24h)
+messages_collection = db.messages  # Chat messages
 
 
 # ============== MODELS ==============
@@ -266,6 +268,47 @@ class ReviewResponse(BaseModel):
     tags: List[str]
     comment: Optional[str]
     created_at: datetime
+
+
+# ============== CHAT MODELS ==============
+
+class ChatMessage(BaseModel):
+    """A message in a chat"""
+    id: str
+    chat_id: str
+    sender_id: str
+    sender_name: str
+    content: str
+    created_at: datetime
+
+
+class ChatResponse(BaseModel):
+    """A chat between two users"""
+    id: str
+    participants: List[dict]  # [{id, name, photo_url}]
+    vibe_type: Optional[str] = None
+    last_message: Optional[dict] = None
+    unread_count: int = 0
+    created_at: datetime
+    expires_at: datetime
+    is_expired: bool = False
+
+
+class ChatDetailResponse(BaseModel):
+    """Detailed chat with messages"""
+    id: str
+    participants: List[dict]
+    vibe_type: Optional[str] = None
+    messages: List[ChatMessage]
+    created_at: datetime
+    expires_at: datetime
+    time_remaining_seconds: int
+    is_expired: bool = False
+
+
+class SendMessage(BaseModel):
+    """Send a message in a chat"""
+    content: str = Field(..., min_length=1, max_length=500)
 
 
 # Pre-defined vibe messages
@@ -1698,7 +1741,9 @@ async def respond_to_vibe(
         {"$set": {"status": new_status, "responded_at": now}}
     )
     
-    # If accepted, update connection rates for both users
+    chat_id = None
+    
+    # If accepted, update connection rates for both users AND create a chat
     if action.action == "accept":
         await users_collection.update_one(
             {"_id": ObjectId(vibe["from_user_id"])},
@@ -1708,8 +1753,34 @@ async def respond_to_vibe(
             {"_id": current_user["_id"]},
             {"$inc": {"connections": 1}}
         )
+        
+        # Create a 24-hour chat between the two users
+        from_user = await users_collection.find_one({"_id": ObjectId(vibe["from_user_id"])})
+        chat_doc = {
+            "participants": [
+                {
+                    "id": vibe["from_user_id"],
+                    "name": from_user.get("name", "User") if from_user else "User",
+                    "photo_url": from_user.get("photo_url") if from_user else None,
+                },
+                {
+                    "id": user_id,
+                    "name": current_user.get("name", "User"),
+                    "photo_url": current_user.get("photo_url"),
+                }
+            ],
+            "participant_ids": [vibe["from_user_id"], user_id],
+            "vibe_id": vibe_id,
+            "vibe_type": vibe.get("vibe_type", "wave"),
+            "created_at": now,
+            "expires_at": now + timedelta(hours=24),
+            "last_message_at": now,
+            "is_active": True,
+        }
+        result = await chats_collection.insert_one(chat_doc)
+        chat_id = str(result.inserted_id)
     
-    return {"status": new_status, "vibe_id": vibe_id}
+    return {"status": new_status, "vibe_id": vibe_id, "chat_id": chat_id}
 
 
 @app.get("/api/vibes/stats", tags=["Vibes"])
@@ -1748,6 +1819,221 @@ async def get_vibe_stats(
         "daily_limit": "unlimited" if is_premium else 5,
         "next_vibe_at": next_vibe_at,
         "cooldown_hours": 0 if is_premium else 2
+    }
+
+
+# ============== CHAT ENDPOINTS ==============
+
+@app.get("/api/chats", tags=["Chat"])
+async def get_my_chats(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all active chats for the current user"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    # Find all active chats for this user
+    cursor = chats_collection.find({
+        "participant_ids": user_id,
+        "expires_at": {"$gt": now},
+        "is_active": True
+    }).sort("last_message_at", -1)
+    
+    chats = await cursor.to_list(length=50)
+    
+    result = []
+    for chat in chats:
+        # Get the other participant
+        other_participant = None
+        for p in chat["participants"]:
+            if p["id"] != user_id:
+                other_participant = p
+                break
+        
+        # Get last message
+        last_msg = await messages_collection.find_one(
+            {"chat_id": str(chat["_id"])},
+            sort=[("created_at", -1)]
+        )
+        
+        # Count unread messages (simplified - all messages not from this user since last read)
+        unread = await messages_collection.count_documents({
+            "chat_id": str(chat["_id"]),
+            "sender_id": {"$ne": user_id},
+            "read": {"$ne": True}
+        })
+        
+        time_remaining = int((chat["expires_at"] - now).total_seconds())
+        
+        result.append({
+            "id": str(chat["_id"]),
+            "other_user": other_participant,
+            "vibe_type": chat.get("vibe_type"),
+            "last_message": {
+                "content": last_msg["content"][:50] if last_msg else None,
+                "sender_id": last_msg["sender_id"] if last_msg else None,
+                "created_at": last_msg["created_at"] if last_msg else None
+            } if last_msg else None,
+            "unread_count": unread,
+            "created_at": chat["created_at"],
+            "expires_at": chat["expires_at"],
+            "time_remaining_seconds": max(0, time_remaining),
+            "time_remaining_hours": max(0, round(time_remaining / 3600, 1)),
+        })
+    
+    return result
+
+
+@app.get("/api/chats/{chat_id}", tags=["Chat"])
+async def get_chat(
+    chat_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get a specific chat with all messages"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    try:
+        chat = await chats_collection.find_one({
+            "_id": ObjectId(chat_id),
+            "participant_ids": user_id
+        })
+    except Exception:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    # Check if expired
+    is_expired = chat["expires_at"] < now
+    time_remaining = int((chat["expires_at"] - now).total_seconds())
+    
+    # Get all messages
+    cursor = messages_collection.find({"chat_id": chat_id}).sort("created_at", 1)
+    messages = await cursor.to_list(length=500)
+    
+    # Mark messages as read
+    await messages_collection.update_many(
+        {"chat_id": chat_id, "sender_id": {"$ne": user_id}},
+        {"$set": {"read": True}}
+    )
+    
+    # Get the other participant
+    other_participant = None
+    for p in chat["participants"]:
+        if p["id"] != user_id:
+            other_participant = p
+            break
+    
+    return {
+        "id": str(chat["_id"]),
+        "participants": chat["participants"],
+        "other_user": other_participant,
+        "vibe_type": chat.get("vibe_type"),
+        "messages": [
+            {
+                "id": str(m["_id"]),
+                "chat_id": chat_id,
+                "sender_id": m["sender_id"],
+                "sender_name": m["sender_name"],
+                "content": m["content"],
+                "created_at": m["created_at"],
+                "is_mine": m["sender_id"] == user_id
+            }
+            for m in messages
+        ] if not is_expired else [],
+        "created_at": chat["created_at"],
+        "expires_at": chat["expires_at"],
+        "time_remaining_seconds": max(0, time_remaining),
+        "time_remaining_hours": max(0, round(time_remaining / 3600, 1)),
+        "is_expired": is_expired,
+    }
+
+
+@app.post("/api/chats/{chat_id}/messages", tags=["Chat"])
+async def send_message(
+    chat_id: str,
+    message: SendMessage,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send a message in a chat"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    try:
+        chat = await chats_collection.find_one({
+            "_id": ObjectId(chat_id),
+            "participant_ids": user_id,
+            "is_active": True
+        })
+    except Exception:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    # Check if expired
+    if chat["expires_at"] < now:
+        raise HTTPException(status_code=400, detail="This chat has expired")
+    
+    # Create message
+    msg_doc = {
+        "chat_id": chat_id,
+        "sender_id": user_id,
+        "sender_name": current_user.get("name", "User"),
+        "content": message.content,
+        "created_at": now,
+        "read": False
+    }
+    
+    result = await messages_collection.insert_one(msg_doc)
+    
+    # Update chat's last message time
+    await chats_collection.update_one(
+        {"_id": ObjectId(chat_id)},
+        {"$set": {"last_message_at": now}}
+    )
+    
+    return {
+        "id": str(result.inserted_id),
+        "chat_id": chat_id,
+        "sender_id": user_id,
+        "sender_name": current_user.get("name", "User"),
+        "content": message.content,
+        "created_at": now,
+    }
+
+
+@app.get("/api/chats/unread/count", tags=["Chat"])
+async def get_unread_count(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get total unread message count across all chats"""
+    user_id = str(current_user["_id"])
+    now = datetime.utcnow()
+    
+    # Get all active chat IDs for this user
+    cursor = chats_collection.find({
+        "participant_ids": user_id,
+        "expires_at": {"$gt": now},
+        "is_active": True
+    })
+    chats = await cursor.to_list(length=100)
+    chat_ids = [str(c["_id"]) for c in chats]
+    
+    if not chat_ids:
+        return {"unread_count": 0, "active_chats": 0}
+    
+    # Count unread messages
+    unread = await messages_collection.count_documents({
+        "chat_id": {"$in": chat_ids},
+        "sender_id": {"$ne": user_id},
+        "read": {"$ne": True}
+    })
+    
+    return {
+        "unread_count": unread,
+        "active_chats": len(chat_ids)
     }
 
 
