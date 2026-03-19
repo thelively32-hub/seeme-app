@@ -10,6 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.seeme.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SEE ME needs your location to verify check-ins at places",
         "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places",
@@ -18,6 +19,7 @@
       }
     },
     "android": {
+      "package": "com.seeme.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0d0415"
