@@ -208,6 +208,13 @@ export default function SettingsScreen() {
         <SectionHeader title="CUENTA" />
         <View style={styles.section}>
           <SettingRow
+            icon="diamond-outline"
+            iconColor={COLORS.gold.primary}
+            label="SEE ME Premium"
+            value="Desbloquea todo"
+            onPress={() => router.push('/settings/subscription')}
+          />
+          <SettingRow
             icon="person-outline"
             label="Editar Perfil"
             onPress={() => router.push('/settings/edit-profile')}
