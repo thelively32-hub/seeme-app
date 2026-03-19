@@ -440,17 +440,45 @@ class ApiService {
     return this.request(`/api/chats/${chatId}`);
   }
 
-  // Send a message in a chat
+  // Send a text message in a chat
   async sendMessage(chatId: string, content: string) {
     return this.request(`/api/chats/${chatId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ 
+        content,
+        message_type: 'text'
+      }),
+    });
+  }
+
+  // Send an image message in a chat
+  async sendImageMessage(chatId: string, imageUrl: string, caption?: string) {
+    return this.request(`/api/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        content: caption || '',
+        image_url: imageUrl,
+        message_type: 'image'
+      }),
     });
   }
 
   // Get unread message count
   async getUnreadCount() {
     return this.request('/api/chats/unread/count');
+  }
+
+  // ============== IMAGE UPLOAD ==============
+
+  // Upload an image to Cloudinary
+  async uploadImage(base64Image: string, folder: string = 'chat_images') {
+    return this.request('/api/upload/image', {
+      method: 'POST',
+      body: JSON.stringify({
+        image_base64: base64Image,
+        folder,
+      }),
+    });
   }
 
   // ============== SAFETY & SECURITY ==============

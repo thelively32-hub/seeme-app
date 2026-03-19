@@ -45,6 +45,17 @@ except ValueError:
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyCPKT55qhr18vD63d91A5Ys6NoZvsq3D0s")
 GOOGLE_PLACES_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
+# ============== CLOUDINARY CONFIGURATION ==============
+import cloudinary
+import cloudinary.uploader
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dxgtxlgyr"),
+    api_key=os.getenv("CLOUDINARY_API_KEY", "261364693139651"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET", "QQQgc_FFx1_hykFaYhbE3a66-9U"),
+    secure=True
+)
+
 # ============== RATE LIMITING ==============
 # Simple in-memory rate limiter
 rate_limit_store: Dict[str, List[float]] = defaultdict(list)
@@ -343,7 +354,9 @@ class ChatDetailResponse(BaseModel):
 
 class SendMessage(BaseModel):
     """Send a message in a chat"""
-    content: str = Field(..., min_length=1, max_length=500)
+    content: str = Field(default="", max_length=500)
+    image_url: Optional[str] = None
+    message_type: str = Field(default="text", pattern="^(text|image)$")
 
 
 # ============== SAFETY & SECURITY MODELS ==============
@@ -2163,7 +2176,9 @@ async def get_chat(
                 "chat_id": chat_id,
                 "sender_id": m["sender_id"],
                 "sender_name": m["sender_name"],
-                "content": m["content"],
+                "content": m.get("content", ""),
+                "image_url": m.get("image_url"),
+                "message_type": m.get("message_type", "text"),
                 "created_at": m["created_at"],
                 "is_mine": m["sender_id"] == user_id
             }
@@ -2183,9 +2198,15 @@ async def send_message(
     message: SendMessage,
     current_user: dict = Depends(get_current_user)
 ):
-    """Send a message in a chat"""
+    """Send a message in a chat (text or image)"""
     user_id = str(current_user["_id"])
     now = datetime.utcnow()
+    
+    # Validate message has content
+    if message.message_type == "text" and not message.content.strip():
+        raise HTTPException(status_code=400, detail="Message content is required")
+    if message.message_type == "image" and not message.image_url:
+        raise HTTPException(status_code=400, detail="Image URL is required")
     
     try:
         chat = await chats_collection.find_one({
@@ -2208,7 +2229,9 @@ async def send_message(
         "chat_id": chat_id,
         "sender_id": user_id,
         "sender_name": current_user.get("name", "User"),
-        "content": message.content,
+        "content": message.content or "",
+        "image_url": message.image_url,
+        "message_type": message.message_type,
         "created_at": now,
         "read": False
     }
@@ -2226,7 +2249,9 @@ async def send_message(
         "chat_id": chat_id,
         "sender_id": user_id,
         "sender_name": current_user.get("name", "User"),
-        "content": message.content,
+        "content": message.content or "",
+        "image_url": message.image_url,
+        "message_type": message.message_type,
         "created_at": now,
     }
 
@@ -2262,6 +2287,43 @@ async def get_unread_count(
         "unread_count": unread,
         "active_chats": len(chat_ids)
     }
+
+
+# ============== IMAGE UPLOAD ENDPOINT ==============
+
+class ImageUploadRequest(BaseModel):
+    """Request for uploading an image"""
+    image_base64: str
+    folder: str = "chat_images"
+
+@app.post("/api/upload/image", tags=["Upload"])
+async def upload_image(
+    upload_data: ImageUploadRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload an image to Cloudinary and return the URL"""
+    try:
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(
+            f"data:image/jpeg;base64,{upload_data.image_base64}",
+            folder=upload_data.folder,
+            resource_type="image",
+            transformation=[
+                {"width": 1200, "height": 1200, "crop": "limit"},  # Max dimensions
+                {"quality": "auto:good"},  # Auto quality
+                {"fetch_format": "auto"}  # Auto format (webp, etc)
+            ]
+        )
+        
+        return {
+            "success": True,
+            "url": result["secure_url"],
+            "public_id": result["public_id"],
+            "width": result.get("width"),
+            "height": result.get("height"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
 
 # ============== SAFETY & SECURITY ENDPOINTS ==============

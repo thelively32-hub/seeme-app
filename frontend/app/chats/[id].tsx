@@ -11,11 +11,15 @@ import {
   Platform,
   Image,
   Keyboard,
+  Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
 import { getVibeById } from '../../src/constants/vibes';
@@ -27,6 +31,8 @@ interface Message {
   sender_id: string;
   sender_name: string;
   content: string;
+  image_url?: string;
+  message_type?: string;
   created_at: string;
   is_mine: boolean;
 }
@@ -59,8 +65,11 @@ export default function ChatScreen() {
   const [chat, setChat] = useState<ChatDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [showImageOptions, setShowImageOptions] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const loadChat = async () => {
@@ -139,9 +148,91 @@ export default function ChatScreen() {
     }
   };
 
+  const pickImage = async (useCamera: boolean) => {
+    setShowImageOptions(false);
+    
+    try {
+      // Request permissions
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso necesario', 'Necesitamos acceso a la cámara para tomar fotos');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permiso necesario', 'Necesitamos acceso a tu galería para seleccionar fotos');
+          return;
+        }
+      }
+
+      const result = useCamera 
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.7,
+            base64: true,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.7,
+            base64: true,
+          });
+
+      if (!result.canceled && result.assets[0].base64) {
+        await sendImageMessage(result.assets[0].base64);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+    }
+  };
+
+  const sendImageMessage = async (base64Image: string) => {
+    if (chat?.is_expired) return;
+    
+    setUploadingImage(true);
+    
+    try {
+      // First upload to Cloudinary
+      const uploadResult = await api.uploadImage(base64Image, 'chat_images');
+      
+      if (!uploadResult.url) {
+        throw new Error('Failed to get image URL');
+      }
+
+      // Then send as message
+      const newMsg = await api.sendImageMessage(chatId, uploadResult.url);
+      
+      setChat(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...prev.messages, { ...newMsg, is_mine: true }],
+        };
+      });
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      
+    } catch (error: any) {
+      console.error('Failed to send image:', error);
+      Alert.alert('Error', error.message || 'No se pudo enviar la imagen');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMine = item.is_mine;
     const showAvatar = !isMine && (index === 0 || chat?.messages[index - 1]?.sender_id !== item.sender_id);
+    const isImage = item.message_type === 'image' || item.image_url;
 
     return (
       <View style={[styles.messageRow, isMine && styles.messageRowMine]}>
@@ -160,14 +251,36 @@ export default function ChatScreen() {
             )}
           </View>
         )}
-        <View style={[styles.messageBubble, isMine ? styles.messageBubbleMine : styles.messageBubbleOther]}>
-          <Text style={[styles.messageText, isMine && styles.messageTextMine]}>
-            {item.content}
-          </Text>
-          <Text style={[styles.messageTime, isMine && styles.messageTimeMine]}>
-            {formatMessageTime(item.created_at)}
-          </Text>
-        </View>
+        
+        {isImage && item.image_url ? (
+          <TouchableOpacity 
+            style={[styles.imageBubble, isMine ? styles.imageBubbleMine : styles.imageBubbleOther]}
+            onPress={() => setSelectedImage(item.image_url || null)}
+          >
+            <Image 
+              source={{ uri: item.image_url }} 
+              style={styles.messageImage}
+              resizeMode="cover"
+            />
+            {item.content ? (
+              <Text style={[styles.imageCaption, isMine && styles.imageCaptionMine]}>
+                {item.content}
+              </Text>
+            ) : null}
+            <Text style={[styles.messageTime, isMine && styles.messageTimeMine]}>
+              {formatMessageTime(item.created_at)}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.messageBubble, isMine ? styles.messageBubbleMine : styles.messageBubbleOther]}>
+            <Text style={[styles.messageText, isMine && styles.messageTextMine]}>
+              {item.content}
+            </Text>
+            <Text style={[styles.messageTime, isMine && styles.messageTimeMine]}>
+              {formatMessageTime(item.created_at)}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -293,6 +406,19 @@ export default function ChatScreen() {
           </View>
         ) : (
           <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 8 }]}>
+            {/* Camera/Gallery Button */}
+            <TouchableOpacity
+              style={styles.mediaButton}
+              onPress={() => setShowImageOptions(true)}
+              disabled={uploadingImage}
+            >
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color={COLORS.gold.primary} />
+              ) : (
+                <Ionicons name="camera" size={24} color={COLORS.gold.primary} />
+              )}
+            </TouchableOpacity>
+
             <TextInput
               style={styles.input}
               value={message}
@@ -316,6 +442,69 @@ export default function ChatScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      {/* Image Options Modal */}
+      <Modal
+        visible={showImageOptions}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowImageOptions(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowImageOptions(false)}>
+          <View style={[styles.imageOptionsModal, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Enviar foto</Text>
+            
+            <TouchableOpacity style={styles.optionButton} onPress={() => pickImage(true)}>
+              <View style={[styles.optionIcon, { backgroundColor: '#4CAF5020' }]}>
+                <Ionicons name="camera" size={24} color="#4CAF50" />
+              </View>
+              <View style={styles.optionTextContainer}>
+                <Text style={styles.optionTitle}>Tomar selfie</Text>
+                <Text style={styles.optionSubtitle}>Usa la cámara para tomar una foto</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.optionButton} onPress={() => pickImage(false)}>
+              <View style={[styles.optionIcon, { backgroundColor: '#2196F320' }]}>
+                <Ionicons name="images" size={24} color="#2196F3" />
+              </View>
+              <View style={styles.optionTextContainer}>
+                <Text style={styles.optionTitle}>Galería</Text>
+                <Text style={styles.optionSubtitle}>Selecciona una foto de tu galería</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={() => setShowImageOptions(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Full Image Preview Modal */}
+      <Modal
+        visible={!!selectedImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <Pressable style={styles.imagePreviewOverlay} onPress={() => setSelectedImage(null)}>
+          <TouchableOpacity style={styles.closePreviewButton} onPress={() => setSelectedImage(null)}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          {selectedImage && (
+            <Image 
+              source={{ uri: selectedImage }} 
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          )}
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -473,6 +662,35 @@ const styles = StyleSheet.create({
   messageTimeMine: {
     color: 'rgba(0, 0, 0, 0.5)',
   },
+  // Image message styles
+  imageBubble: {
+    maxWidth: '75%',
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  imageBubbleOther: {
+    backgroundColor: COLORS.background.card,
+    borderBottomLeftRadius: 4,
+  },
+  imageBubbleMine: {
+    backgroundColor: COLORS.gold.primary,
+    borderBottomRightRadius: 4,
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    margin: 4,
+  },
+  imageCaption: {
+    fontSize: 14,
+    color: COLORS.text.primary,
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+  },
+  imageCaptionMine: {
+    color: COLORS.text.dark,
+  },
   emptyMessages: {
     flex: 1,
     alignItems: 'center',
@@ -486,11 +704,17 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: COLORS.border.light,
     backgroundColor: COLORS.background.primary,
+  },
+  mediaButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
@@ -502,7 +726,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text.primary,
     maxHeight: 100,
-    marginRight: 10,
+    marginRight: 8,
   },
   sendButton: {
     width: 44,
@@ -538,5 +762,89 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.text.muted,
     marginTop: 16,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  imageOptionsModal: {
+    backgroundColor: COLORS.background.primary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.border.light,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  optionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionTextContainer: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  optionSubtitle: {
+    fontSize: 13,
+    color: COLORS.text.tertiary,
+    marginTop: 2,
+  },
+  cancelButton: {
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.muted,
+  },
+  // Full image preview
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closePreviewButton: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    zIndex: 1,
+    padding: 8,
+  },
+  fullImage: {
+    width: '100%',
+    height: '80%',
   },
 });
