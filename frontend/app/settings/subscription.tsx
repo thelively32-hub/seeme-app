@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +21,10 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import { PurchasesPackage, PurchasesOffering } from 'react-native-purchases';
 import COLORS from '../../src/theme/colors';
+import { useAuth } from '../../src/context/AuthContext';
+import revenueCatService, { PREMIUM_ENTITLEMENT_ID } from '../../src/services/revenueCat';
 
 const { width } = Dimensions.get('window');
 
@@ -192,23 +197,117 @@ const PlanCard = ({
 
 export default function SubscriptionScreen() {
   const insets = useSafeAreaInsets();
+  const { user, refreshUser } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<'basic' | 'premium'>('basic');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [loading, setLoading] = useState(false);
+  const [offerings, setOfferings] = useState<PurchasesOffering | null>(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
-  const handleSubscribe = () => {
-    if (selectedPlan === 'premium') {
-      Alert.alert(
-        'Próximamente',
-        'El sistema de pagos estará disponible pronto. ¡Gracias por tu interés en Premium!',
-        [{ text: 'OK' }]
-      );
-    } else {
-      router.back();
+  const isPremium = user?.is_premium || false;
+
+  useEffect(() => {
+    initializeRevenueCat();
+  }, []);
+
+  const initializeRevenueCat = async () => {
+    if (Platform.OS === 'web') return; // RevenueCat doesn't work on web
+    
+    setLoading(true);
+    try {
+      await revenueCatService.initialize(user?.id);
+      const currentOfferings = await revenueCatService.getOfferings();
+      setOfferings(currentOfferings);
+    } catch (error) {
+      console.error('Failed to initialize RevenueCat:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const yearlyPrice = billingCycle === 'yearly' ? '$59.99' : '$9.99';
-  const yearlySavings = billingCycle === 'yearly' ? 'Ahorras $60/año' : '';
+  const handleSubscribe = async () => {
+    if (selectedPlan === 'basic') {
+      router.back();
+      return;
+    }
+
+    // Check if on web
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        'Suscripción',
+        'Para suscribirte a Premium, descarga la app en tu dispositivo móvil desde la App Store o Google Play.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Get the package to purchase
+    const packageToPurchase = billingCycle === 'yearly' 
+      ? offerings?.annual 
+      : offerings?.monthly;
+
+    if (!packageToPurchase) {
+      Alert.alert(
+        'No disponible',
+        'Los planes de suscripción aún no están configurados. Por favor intenta más tarde.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      const result = await revenueCatService.purchasePackage(packageToPurchase);
+      
+      if (result.success) {
+        await refreshUser();
+        Alert.alert(
+          '¡Bienvenido a Premium! 🎉',
+          'Tu suscripción está activa. ¡Disfruta de todas las ventajas!',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else if (result.error !== 'cancelled') {
+        Alert.alert('Error', result.error || 'No se pudo completar la compra');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Ocurrió un error al procesar la compra');
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('No disponible', 'Restaurar compras solo funciona en la app móvil.');
+      return;
+    }
+
+    setRestoring(true);
+    try {
+      const result = await revenueCatService.restorePurchases();
+      
+      if (result.success && result.isPremium) {
+        await refreshUser();
+        Alert.alert(
+          '¡Compras restauradas!',
+          'Tu suscripción Premium ha sido restaurada.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } else if (result.success) {
+        Alert.alert('Sin compras', 'No se encontraron compras anteriores para restaurar.');
+      } else {
+        Alert.alert('Error', result.error || 'No se pudieron restaurar las compras');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Ocurrió un error al restaurar');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const yearlyPrice = billingCycle === 'yearly' ? '$79.99' : '$9.99';
+  const yearlySavings = billingCycle === 'yearly' ? 'Ahorras $40/año' : '';
 
   return (
     <View style={styles.container}>
@@ -315,30 +414,63 @@ export default function SubscriptionScreen() {
 
       {/* Bottom CTA */}
       <View style={[styles.bottomCTA, { paddingBottom: insets.bottom + 20 }]}>
+        {/* Current Status */}
+        {isPremium && (
+          <View style={styles.premiumStatusBanner}>
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.gold.primary} />
+            <Text style={styles.premiumStatusText}>Eres Premium ✨</Text>
+          </View>
+        )}
+
         <TouchableOpacity 
-          style={styles.ctaButton}
+          style={[styles.ctaButton, (purchasing || loading) && styles.ctaButtonDisabled]}
           onPress={handleSubscribe}
           activeOpacity={0.9}
+          disabled={purchasing || loading || isPremium}
         >
           <LinearGradient
             colors={
-              selectedPlan === 'premium' 
+              selectedPlan === 'premium' && !isPremium
                 ? [COLORS.gold.primary, COLORS.gold.secondary, '#B8860B']
                 : [COLORS.background.card, COLORS.background.tertiary]
             }
             style={styles.ctaGradient}
           >
-            <Text style={[
-              styles.ctaText,
-              selectedPlan === 'premium' && styles.ctaTextPremium
-            ]}>
-              {selectedPlan === 'premium' 
-                ? `Comenzar Premium - ${billingCycle === 'yearly' ? '$59.99/año' : '$9.99/mes'}`
-                : 'Continuar con Plan Básico'
-              }
-            </Text>
+            {purchasing ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color={COLORS.text.dark} />
+                <Text style={[styles.ctaText, styles.ctaTextPremium]}>Procesando...</Text>
+              </View>
+            ) : (
+              <Text style={[
+                styles.ctaText,
+                selectedPlan === 'premium' && !isPremium && styles.ctaTextPremium
+              ]}>
+                {isPremium 
+                  ? '¡Ya eres Premium!'
+                  : selectedPlan === 'premium' 
+                    ? `Comenzar Premium - ${billingCycle === 'yearly' ? '$79.99/año' : '$9.99/mes'}`
+                    : 'Continuar con Plan Básico'
+                }
+              </Text>
+            )}
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* Restore Purchases */}
+        {!isPremium && Platform.OS !== 'web' && (
+          <TouchableOpacity 
+            style={styles.restoreButton}
+            onPress={handleRestorePurchases}
+            disabled={restoring}
+          >
+            {restoring ? (
+              <ActivityIndicator size="small" color={COLORS.text.secondary} />
+            ) : (
+              <Text style={styles.restoreText}>Restaurar compras</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -633,5 +765,38 @@ const styles = StyleSheet.create({
   ctaTextPremium: {
     color: '#000',
     fontWeight: '700',
+  },
+  ctaButtonDisabled: {
+    opacity: 0.7,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  premiumStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(244, 197, 66, 0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  premiumStatusText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.gold.primary,
+  },
+  restoreButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  restoreText: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    textDecorationLine: 'underline',
   },
 });

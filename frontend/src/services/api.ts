@@ -481,6 +481,21 @@ class ApiService {
     });
   }
 
+  // ============== SUBSCRIPTION & PREMIUM ==============
+
+  // Update premium status (called after RevenueCat purchase)
+  async updatePremiumStatus(isPremium: boolean) {
+    return this.request('/api/subscription/status', {
+      method: 'POST',
+      body: JSON.stringify({ is_premium: isPremium }),
+    });
+  }
+
+  // Get subscription status
+  async getSubscriptionStatus() {
+    return this.request('/api/subscription/status');
+  }
+
   // ============== SAFETY & SECURITY ==============
 
   // Report a user

@@ -2326,6 +2326,114 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=f"Failed to upload image: {str(e)}")
 
 
+# ============== SUBSCRIPTION ENDPOINTS ==============
+
+class SubscriptionStatusUpdate(BaseModel):
+    is_premium: bool
+
+@app.post("/api/subscription/status", tags=["Subscription"])
+async def update_subscription_status(
+    status_update: SubscriptionStatusUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user's premium status (called after RevenueCat purchase verification)"""
+    user_id = str(current_user["_id"])
+    
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "is_premium": status_update.is_premium,
+                "premium_updated_at": datetime.utcnow(),
+            }
+        }
+    )
+    
+    return {
+        "success": True,
+        "is_premium": status_update.is_premium,
+        "message": "Premium activated!" if status_update.is_premium else "Subscription ended"
+    }
+
+
+@app.get("/api/subscription/status", tags=["Subscription"])
+async def get_subscription_status(current_user: dict = Depends(get_current_user)):
+    """Get current subscription status"""
+    return {
+        "is_premium": current_user.get("is_premium", False),
+        "premium_updated_at": current_user.get("premium_updated_at"),
+    }
+
+
+# RevenueCat Webhook endpoint for server-to-server notifications
+class RevenueCatWebhookEvent(BaseModel):
+    event: dict
+    api_version: str = "1.0"
+
+@app.post("/api/webhooks/revenuecat", tags=["Webhooks"])
+async def revenuecat_webhook(webhook_data: dict):
+    """
+    Handle RevenueCat webhook events for subscription changes.
+    Configure this URL in RevenueCat dashboard: https://yourdomain.com/api/webhooks/revenuecat
+    """
+    try:
+        event = webhook_data.get("event", {})
+        event_type = event.get("type")
+        app_user_id = event.get("app_user_id")
+        
+        if not app_user_id:
+            return {"status": "ignored", "reason": "no user id"}
+        
+        # Handle different event types
+        premium_events = [
+            "INITIAL_PURCHASE",
+            "RENEWAL",
+            "PRODUCT_CHANGE",
+            "UNCANCELLATION",
+        ]
+        
+        non_premium_events = [
+            "CANCELLATION",
+            "EXPIRATION",
+            "BILLING_ISSUE",
+        ]
+        
+        if event_type in premium_events:
+            # User became premium
+            await users_collection.update_one(
+                {"_id": ObjectId(app_user_id)},
+                {
+                    "$set": {
+                        "is_premium": True,
+                        "premium_updated_at": datetime.utcnow(),
+                        "subscription_event": event_type,
+                    }
+                }
+            )
+            return {"status": "processed", "action": "premium_granted"}
+            
+        elif event_type in non_premium_events:
+            # User lost premium
+            await users_collection.update_one(
+                {"_id": ObjectId(app_user_id)},
+                {
+                    "$set": {
+                        "is_premium": False,
+                        "premium_updated_at": datetime.utcnow(),
+                        "subscription_event": event_type,
+                    }
+                }
+            )
+            return {"status": "processed", "action": "premium_revoked"}
+        
+        return {"status": "ignored", "reason": f"unhandled event type: {event_type}"}
+        
+    except Exception as e:
+        print(f"RevenueCat webhook error: {e}")
+        # Always return 200 to prevent webhook retries for our errors
+        return {"status": "error", "message": str(e)}
+
+
 # ============== SAFETY & SECURITY ENDPOINTS ==============
 
 @app.post("/api/safety/report", tags=["Safety"])
