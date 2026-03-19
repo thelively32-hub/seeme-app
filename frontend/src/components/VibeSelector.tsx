@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../theme/colors';
 import { VIBES, VIBE_CATEGORIES, VibeType, getVibesByCategory } from '../constants/vibes';
+import PremiumVibeIcon from './PremiumVibeIcon';
 
 const { width } = Dimensions.get('window');
 
@@ -27,32 +28,7 @@ interface VibeSelectorProps {
   sending?: boolean;
 }
 
-// Single Vibe Button
-const VibeButton = ({
-  vibe,
-  selected,
-  onPress,
-}: {
-  vibe: VibeType;
-  selected: boolean;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity
-    style={[
-      styles.vibeButton,
-      selected && { borderColor: vibe.color, backgroundColor: `${vibe.color}15` },
-    ]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <Text style={styles.vibeEmoji}>{vibe.icon}</Text>
-    <Text style={[styles.vibeLabel, selected && { color: vibe.color }]}>
-      {vibe.labelEs}
-    </Text>
-  </TouchableOpacity>
-);
-
-// Category Section
+// Category Section with Premium Icons
 const CategorySection = ({
   category,
   selectedVibe,
@@ -67,17 +43,25 @@ const CategorySection = ({
   return (
     <View style={styles.categorySection}>
       <View style={styles.categoryHeader}>
-        <Text style={styles.categoryIcon}>{category.icon}</Text>
+        <LinearGradient
+          colors={[COLORS.gold.primary, COLORS.gold.secondary]}
+          style={styles.categoryIconBg}
+        >
+          <Text style={styles.categoryIcon}>{category.icon}</Text>
+        </LinearGradient>
         <Text style={styles.categoryTitle}>{category.labelEs}</Text>
       </View>
       <View style={styles.vibesGrid}>
         {vibes.map((vibe) => (
-          <VibeButton
-            key={vibe.id}
-            vibe={vibe}
-            selected={selectedVibe?.id === vibe.id}
-            onPress={() => onSelectVibe(vibe)}
-          />
+          <View key={vibe.id} style={styles.vibeWrapper}>
+            <PremiumVibeIcon
+              vibe={vibe}
+              size="medium"
+              selected={selectedVibe?.id === vibe.id}
+              onPress={() => onSelectVibe(vibe)}
+              animated={selectedVibe?.id === vibe.id}
+            />
+          </View>
         ))}
       </View>
     </View>
@@ -96,6 +80,7 @@ export default function VibeSelector({
   const [showCustomInput, setShowCustomInput] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(100)).current;
 
   useEffect(() => {
     if (visible) {
@@ -111,10 +96,17 @@ export default function VibeSelector({
           duration: 200,
           useNativeDriver: true,
         }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 8,
+          tension: 65,
+          useNativeDriver: true,
+        }),
       ]).start();
     } else {
       scaleAnim.setValue(0.9);
       fadeAnim.setValue(0);
+      slideAnim.setValue(100);
       setSelectedVibe(null);
       setCustomMessage('');
       setShowCustomInput(false);
@@ -152,26 +144,43 @@ export default function VibeSelector({
           style={[
             styles.modal,
             {
-              transform: [{ scale: scaleAnim }],
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
               opacity: fadeAnim,
             },
           ]}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Send a Vibe</Text>
-              <Text style={styles.subtitle}>to {recipientName}</Text>
+          {/* Premium Header */}
+          <LinearGradient
+            colors={[COLORS.background.card, COLORS.background.secondary]}
+            style={styles.header}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.headerBadge}>
+                <LinearGradient
+                  colors={[COLORS.gold.primary, COLORS.gold.secondary]}
+                  style={styles.headerBadgeGradient}
+                >
+                  <Ionicons name="sparkles" size={16} color="#000" />
+                </LinearGradient>
+              </View>
+              <View>
+                <Text style={styles.title}>Enviar Vibe</Text>
+                <Text style={styles.subtitle}>a {recipientName}</Text>
+              </View>
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color={COLORS.text.tertiary} />
+              <Ionicons name="close" size={22} color={COLORS.text.secondary} />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
           {/* Vibes Grid */}
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
           >
             {VIBE_CATEGORIES.map((category) => (
               <CategorySection
@@ -185,63 +194,86 @@ export default function VibeSelector({
 
           {/* Selected Vibe Preview */}
           {selectedVibe && (
-            <View style={[styles.preview, { backgroundColor: `${selectedVibe.color}15` }]}>
-              <View style={styles.previewHeader}>
-                <Text style={styles.previewEmoji}>{selectedVibe.icon}</Text>
-                <View style={styles.previewInfo}>
-                  <Text style={[styles.previewLabel, { color: selectedVibe.color }]}>
-                    {selectedVibe.labelEs}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowCustomInput(!showCustomInput)}>
-                    <Text style={styles.editLink}>
-                      {showCustomInput ? 'Usar mensaje original' : 'Personalizar mensaje'}
+            <Animated.View 
+              style={[
+                styles.preview,
+              ]}
+            >
+              <LinearGradient
+                colors={[`${selectedVibe.color}20`, `${selectedVibe.color}05`]}
+                style={styles.previewGradient}
+              >
+                <View style={styles.previewHeader}>
+                  <View style={styles.previewVibeContainer}>
+                    <PremiumVibeIcon
+                      vibe={selectedVibe}
+                      size="small"
+                      selected
+                      showLabel={false}
+                      animated={false}
+                    />
+                  </View>
+                  <View style={styles.previewInfo}>
+                    <Text style={[styles.previewLabel, { color: selectedVibe.color }]}>
+                      {selectedVibe.labelEs}
                     </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowCustomInput(!showCustomInput)}>
+                      <Text style={styles.editLink}>
+                        {showCustomInput ? '↩ Usar original' : '✏️ Personalizar'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
 
-              {showCustomInput ? (
-                <TextInput
-                  style={styles.customInput}
-                  value={customMessage}
-                  onChangeText={setCustomMessage}
-                  placeholder="Escribe tu mensaje..."
-                  placeholderTextColor={COLORS.text.muted}
-                  maxLength={100}
-                  multiline
-                />
-              ) : (
-                <Text style={styles.previewMessage}>"{getMessage()}"</Text>
-              )}
-            </View>
+                {showCustomInput ? (
+                  <TextInput
+                    style={styles.customInput}
+                    value={customMessage}
+                    onChangeText={setCustomMessage}
+                    placeholder="Escribe tu mensaje..."
+                    placeholderTextColor={COLORS.text.muted}
+                    maxLength={100}
+                    multiline
+                  />
+                ) : (
+                  <Text style={styles.previewMessage}>"{getMessage()}"</Text>
+                )}
+              </LinearGradient>
+            </Animated.View>
           )}
 
-          {/* Send Button */}
-          <TouchableOpacity
-            style={[styles.sendButton, !selectedVibe && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!selectedVibe || sending}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={
-                selectedVibe
-                  ? [selectedVibe.color, selectedVibe.color + 'CC']
-                  : ['#3A3A3A', '#2A2A2A']
-              }
-              style={styles.sendButtonGradient}
+          {/* Premium Send Button */}
+          <View style={styles.sendButtonContainer}>
+            <TouchableOpacity
+              style={[styles.sendButton, !selectedVibe && styles.sendButtonDisabled]}
+              onPress={handleSend}
+              disabled={!selectedVibe || sending}
+              activeOpacity={0.9}
             >
-              {sending ? (
-                <Text style={styles.sendButtonText}>Enviando...</Text>
-              ) : (
-                <>
-                  <Text style={styles.sendButtonText}>
-                    {selectedVibe ? `Enviar ${selectedVibe.icon}` : 'Selecciona un Vibe'}
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={
+                  selectedVibe
+                    ? [COLORS.gold.primary, COLORS.gold.secondary, '#B8860B']
+                    : ['#3A3A3A', '#2A2A2A']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.sendButtonGradient}
+              >
+                {sending ? (
+                  <Text style={styles.sendButtonText}>Enviando...</Text>
+                ) : selectedVibe ? (
+                  <View style={styles.sendButtonContent}>
+                    <Text style={styles.sendButtonEmoji}>{selectedVibe.icon}</Text>
+                    <Text style={styles.sendButtonText}>Enviar Vibe</Text>
+                    <Ionicons name="paper-plane" size={18} color="#000" />
+                  </View>
+                ) : (
+                  <Text style={styles.sendButtonTextDisabled}>Selecciona un Vibe</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -255,146 +287,186 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
   },
   modal: {
-    backgroundColor: COLORS.background.secondary,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
+    backgroundColor: COLORS.background.primary,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '88%',
     paddingBottom: 34,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     padding: 20,
-    paddingBottom: 12,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.light,
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerBadge: {
+    width: 36,
+    height: 36,
+  },
+  headerBadgeGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: COLORS.text.primary,
   },
   subtitle: {
-    fontSize: 15,
-    color: COLORS.text.tertiary,
-    marginTop: 2,
+    fontSize: 14,
+    color: COLORS.text.muted,
+    marginTop: 1,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.background.card,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background.tertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scrollView: {
-    maxHeight: 350,
+    maxHeight: 340,
+  },
+  scrollContent: {
+    paddingBottom: 16,
   },
   categorySection: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   categoryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 14,
+    gap: 10,
+  },
+  categoryIconBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryIcon: {
-    fontSize: 18,
+    fontSize: 14,
   },
   categoryTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.gold.primary,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   vibesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 6,
   },
-  vibeButton: {
-    width: (width - 60) / 4,
-    aspectRatio: 1,
-    borderRadius: 16,
-    backgroundColor: COLORS.background.card,
-    borderWidth: 2,
-    borderColor: 'transparent',
+  vibeWrapper: {
+    width: (width - 44) / 4,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-  },
-  vibeEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  vibeLabel: {
-    fontSize: 11,
-    color: COLORS.text.tertiary,
-    textAlign: 'center',
+    marginBottom: 8,
   },
   preview: {
-    margin: 20,
-    marginTop: 16,
-    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
     borderRadius: 16,
+    overflow: 'hidden',
+  },
+  previewGradient: {
+    padding: 16,
   },
   previewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 12,
+    gap: 14,
   },
-  previewEmoji: {
-    fontSize: 36,
+  previewVibeContainer: {
+    // Container for the small vibe icon
   },
   previewInfo: {
     flex: 1,
   },
   previewLabel: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
   },
   editLink: {
-    fontSize: 13,
-    color: COLORS.text.tertiary,
-    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.text.muted,
+    marginTop: 3,
   },
   previewMessage: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text.primary,
     fontStyle: 'italic',
+    lineHeight: 22,
   },
   customInput: {
     backgroundColor: COLORS.background.card,
     borderRadius: 12,
     padding: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text.primary,
-    minHeight: 50,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  sendButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   sendButton: {
-    marginHorizontal: 20,
-    borderRadius: 25,
+    borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: COLORS.gold.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   sendButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
+    shadowOpacity: 0,
   },
   sendButtonGradient: {
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sendButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sendButtonEmoji: {
+    fontSize: 20,
+  },
   sendButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#000',
+  },
+  sendButtonTextDisabled: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.muted,
   },
 });
