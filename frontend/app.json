@@ -6,20 +6,29 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "seeme",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "owner": "seeme-app",
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.seeme.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SEE ME needs your location to verify check-ins at places",
-        "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places",
-        "NSCameraUsageDescription": "Take selfies to share in chat or scan QR codes",
-        "NSPhotoLibraryUsageDescription": "Share photos from your gallery in chat"
+        "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places and activity",
+        "NSCameraUsageDescription": "Take selfies to share in chat or scan QR codes to check-in",
+        "NSPhotoLibraryUsageDescription": "Share photos from your gallery in chat",
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
     "android": {
       "package": "com.seeme.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0d0415"
@@ -28,10 +37,14 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES"
-      ]
+        "READ_MEDIA_IMAGES",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -52,7 +65,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "SEE ME uses your location to verify check-ins and show nearby activity."
+          "locationAlwaysAndWhenInUsePermission": "SEE ME uses your location to verify check-ins and show nearby activity.",
+          "isAndroidBackgroundLocationEnabled": true
         }
       ],
       [
