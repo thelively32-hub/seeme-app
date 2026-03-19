@@ -496,6 +496,16 @@ class ApiService {
     return this.request('/api/subscription/status');
   }
 
+  // ============== PUSH NOTIFICATIONS ==============
+
+  // Save push notification token
+  async savePushToken(token: string) {
+    return this.request('/api/push-token', {
+      method: 'POST',
+      body: JSON.stringify({ push_token: token }),
+    });
+  }
+
   // ============== SAFETY & SECURITY ==============
 
   // Report a user

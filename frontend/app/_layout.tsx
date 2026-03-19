@@ -1,10 +1,40 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AuthProvider } from '../src/context/AuthContext';
+import { Platform } from 'react-native';
+import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { LanguageProvider } from '../src/i18n';
 import { TourProvider } from '../src/context/TourContext';
+import pushNotificationService from '../src/services/pushNotifications';
+
+// Component to initialize push notifications after auth
+function PushNotificationInitializer() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user && Platform.OS !== 'web') {
+      // Initialize push notifications
+      pushNotificationService.initialize();
+      
+      // Set up listeners
+      pushNotificationService.setupListeners(
+        (notification) => {
+          console.log('Notification received in foreground:', notification);
+        },
+        (response) => {
+          console.log('User tapped notification:', response);
+        }
+      );
+
+      return () => {
+        pushNotificationService.removeListeners();
+      };
+    }
+  }, [user]);
+
+  return null;
+}
 
 export default function RootLayout() {
   return (
@@ -12,6 +42,7 @@ export default function RootLayout() {
       <LanguageProvider>
         <AuthProvider>
           <TourProvider>
+            <PushNotificationInitializer />
             <StatusBar style="light" />
             <Stack
               screenOptions={{

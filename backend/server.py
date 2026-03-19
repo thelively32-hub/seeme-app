@@ -1864,6 +1864,23 @@ async def send_vibe(
         {"$inc": {"vibes_sent": 1}}
     )
     
+    # Send push notification to recipient
+    vibe_labels = {
+        "coffee": "un café ☕",
+        "drinks": "unos tragos 🍸",
+        "dance": "bailar 💃",
+        "chat": "charlar 💬",
+        "food": "comer 🍽️",
+        "chill": "pasar el rato 😎",
+    }
+    vibe_label = vibe_labels.get(vibe.vibe_type, "conectar")
+    await notify_user(
+        vibe.to_user_id,
+        "¡Nuevo Vibe! ✨",
+        f"{current_user.get('name', 'Alguien')} quiere {vibe_label} contigo",
+        {"type": "vibe", "vibe_id": str(result.inserted_id)}
+    )
+    
     return {
         "id": str(result.inserted_id),
         "from_user": {
@@ -2019,6 +2036,14 @@ async def respond_to_vibe(
         }
         result = await chats_collection.insert_one(chat_doc)
         chat_id = str(result.inserted_id)
+        
+        # Send push notification to vibe sender that it was accepted
+        await notify_user(
+            vibe["from_user_id"],
+            "¡Vibe Aceptado! 🎉",
+            f"{current_user.get('name', 'Alguien')} aceptó tu vibe. ¡Ahora pueden chatear!",
+            {"type": "vibe_accepted", "chat_id": chat_id, "vibe_id": vibe_id}
+        )
     
     return {"status": new_status, "vibe_id": vibe_id, "chat_id": chat_id}
 
@@ -2244,6 +2269,17 @@ async def send_message(
         {"$set": {"last_message_at": now}}
     )
     
+    # Send push notification to the other participant
+    other_user_id = [p for p in chat["participant_ids"] if p != user_id]
+    if other_user_id:
+        notification_body = "📷 Te envió una foto" if message.message_type == "image" else message.content[:50]
+        await notify_user(
+            other_user_id[0],
+            f"💬 {current_user.get('name', 'Alguien')}",
+            notification_body,
+            {"type": "chat", "chat_id": chat_id}
+        )
+    
     return {
         "id": str(result.inserted_id),
         "chat_id": chat_id,
@@ -2432,6 +2468,79 @@ async def revenuecat_webhook(webhook_data: dict):
         print(f"RevenueCat webhook error: {e}")
         # Always return 200 to prevent webhook retries for our errors
         return {"status": "error", "message": str(e)}
+
+
+# ============== PUSH NOTIFICATIONS ENDPOINTS ==============
+
+class PushTokenRequest(BaseModel):
+    push_token: str
+
+@app.post("/api/push-token", tags=["Notifications"])
+async def save_push_token(
+    token_data: PushTokenRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Save user's Expo push notification token"""
+    user_id = str(current_user["_id"])
+    
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "push_token": token_data.push_token,
+                "push_token_updated_at": datetime.utcnow(),
+            }
+        }
+    )
+    
+    return {"success": True, "message": "Push token saved"}
+
+
+# Helper function to send push notifications via Expo
+async def send_push_notification(
+    push_token: str,
+    title: str,
+    body: str,
+    data: dict = None
+) -> bool:
+    """Send a push notification via Expo's push notification service"""
+    if not push_token or not push_token.startswith('ExponentPushToken'):
+        return False
+    
+    message = {
+        "to": push_token,
+        "sound": "default",
+        "title": title,
+        "body": body,
+        "data": data or {},
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=message,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                }
+            )
+            result = response.json()
+            print(f"Push notification sent: {result}")
+            return response.status_code == 200
+    except Exception as e:
+        print(f"Failed to send push notification: {e}")
+        return False
+
+
+async def notify_user(user_id: str, title: str, body: str, data: dict = None):
+    """Helper to send notification to a specific user by ID"""
+    try:
+        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if user and user.get("push_token"):
+            await send_push_notification(user["push_token"], title, body, data)
+    except Exception as e:
+        print(f"Error notifying user {user_id}: {e}")
 
 
 # ============== SAFETY & SECURITY ENDPOINTS ==============
