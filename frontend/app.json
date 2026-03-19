@@ -55,7 +55,8 @@
         {
           "cameraPermission": "Scan QR codes to check-in at partner venues"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

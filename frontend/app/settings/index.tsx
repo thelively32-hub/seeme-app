@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,6 +68,38 @@ export default function SettingsScreen() {
   const [ghostMode, setGhostMode] = useState(false);
   const [language, setLanguage] = useState('es');
   const [deleting, setDeleting] = useState(false);
+  const [loadingGhostMode, setLoadingGhostMode] = useState(false);
+
+  // Load initial ghost mode state
+  useEffect(() => {
+    const loadGhostMode = async () => {
+      try {
+        const presence = await api.getMyPresence();
+        setGhostMode(presence?.ghost_mode || false);
+      } catch (e) {
+        console.log('Could not load ghost mode state');
+      }
+    };
+    loadGhostMode();
+  }, []);
+
+  const handleGhostModeToggle = async (value: boolean) => {
+    setLoadingGhostMode(true);
+    try {
+      await api.toggleGhostMode(value);
+      setGhostMode(value);
+      Alert.alert(
+        value ? 'Modo Fantasma Activado' : 'Modo Fantasma Desactivado',
+        value 
+          ? 'Ahora solo te verán las personas a las que envíes Vibes' 
+          : 'Ahora eres visible para todos'
+      );
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo cambiar el modo fantasma');
+    } finally {
+      setLoadingGhostMode(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -219,12 +252,16 @@ export default function SettingsScreen() {
             label="Modo Fantasma"
             showArrow={false}
             rightComponent={
-              <Switch
-                value={ghostMode}
-                onValueChange={setGhostMode}
-                trackColor={{ false: COLORS.background.card, true: `${COLORS.gold.primary}50` }}
-                thumbColor={ghostMode ? COLORS.gold.primary : '#f4f3f4'}
-              />
+              loadingGhostMode ? (
+                <ActivityIndicator size="small" color={COLORS.gold.primary} />
+              ) : (
+                <Switch
+                  value={ghostMode}
+                  onValueChange={handleGhostModeToggle}
+                  trackColor={{ false: COLORS.background.card, true: `${COLORS.gold.primary}50` }}
+                  thumbColor={ghostMode ? COLORS.gold.primary : '#f4f3f4'}
+                />
+              )
             }
           />
         </View>
