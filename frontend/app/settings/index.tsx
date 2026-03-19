@@ -64,13 +64,15 @@ const SectionHeader = ({ title }: { title: string }) => (
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { resetTour, startTour } = useTour();
   const [notifications, setNotifications] = useState(true);
   const [ghostMode, setGhostMode] = useState(false);
   const [language, setLanguage] = useState('es');
   const [deleting, setDeleting] = useState(false);
   const [loadingGhostMode, setLoadingGhostMode] = useState(false);
+  
+  const isPremium = user?.is_premium || false;
 
   // Load initial ghost mode state
   useEffect(() => {
@@ -104,6 +106,22 @@ export default function SettingsScreen() {
   };
 
   const handleGhostModeToggle = async (value: boolean) => {
+    // Check if user is premium before allowing toggle
+    if (!isPremium) {
+      Alert.alert(
+        '✨ Función Premium',
+        'El Modo Fantasma está disponible solo para usuarios Premium. ¡Actualiza para navegar de forma invisible!',
+        [
+          { text: 'Más tarde', style: 'cancel' },
+          { 
+            text: 'Ver Premium', 
+            onPress: () => router.push('/settings/subscription')
+          }
+        ]
+      );
+      return;
+    }
+    
     setLoadingGhostMode(true);
     try {
       await api.toggleGhostMode(value);
@@ -273,24 +291,44 @@ export default function SettingsScreen() {
         {/* Privacy */}
         <SectionHeader title="PRIVACIDAD" />
         <View style={styles.section}>
-          <SettingRow
-            icon="eye-off-outline"
-            iconColor="#9c27b0"
-            label="Modo Fantasma"
-            showArrow={false}
-            rightComponent={
-              loadingGhostMode ? (
-                <ActivityIndicator size="small" color={COLORS.gold.primary} />
-              ) : (
-                <Switch
-                  value={ghostMode}
-                  onValueChange={handleGhostModeToggle}
-                  trackColor={{ false: COLORS.background.card, true: `${COLORS.gold.primary}50` }}
-                  thumbColor={ghostMode ? COLORS.gold.primary : '#f4f3f4'}
-                />
-              )
-            }
-          />
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, { backgroundColor: '#9c27b020' }]}>
+              <Ionicons name="eye-off-outline" size={20} color="#9c27b0" />
+            </View>
+            <View style={styles.ghostModeLabel}>
+              <Text style={styles.settingLabel}>Modo Fantasma</Text>
+              {!isPremium && (
+                <View style={styles.premiumBadge}>
+                  <Ionicons name="diamond" size={10} color="#000" />
+                  <Text style={styles.premiumBadgeText}>Premium</Text>
+                </View>
+              )}
+            </View>
+            {loadingGhostMode ? (
+              <ActivityIndicator size="small" color={COLORS.gold.primary} />
+            ) : (
+              <Switch
+                value={ghostMode}
+                onValueChange={handleGhostModeToggle}
+                trackColor={{ false: COLORS.background.card, true: `${COLORS.gold.primary}50` }}
+                thumbColor={ghostMode ? COLORS.gold.primary : '#f4f3f4'}
+                disabled={!isPremium}
+                style={!isPremium ? { opacity: 0.5 } : undefined}
+              />
+            )}
+          </View>
+          {!isPremium && (
+            <TouchableOpacity 
+              style={styles.upgradeBanner}
+              onPress={() => router.push('/settings/subscription')}
+            >
+              <Ionicons name="sparkles" size={16} color={COLORS.gold.primary} />
+              <Text style={styles.upgradeBannerText}>
+                Navega invisible con Premium
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.gold.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Notifications */}
@@ -474,5 +512,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.text.muted,
     marginTop: 4,
+  },
+  ghostModeLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.gold.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000',
+  },
+  upgradeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${COLORS.gold.primary}15`,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border.light,
+  },
+  upgradeBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.gold.primary,
+    fontWeight: '500',
   },
 });
