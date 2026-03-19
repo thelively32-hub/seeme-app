@@ -68,6 +68,12 @@
           "cameraPermission": "Take selfies to share in chat"
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F4C542"
+        }
+      ],
       "@react-native-community/datetimepicker"
     ],
     "experiments": {

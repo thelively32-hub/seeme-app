@@ -31,85 +31,115 @@ export default function TermsScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.lastUpdated}>Última actualización: Junio 2025</Text>
+        <Text style={styles.lastUpdated}>Última actualización: Marzo 2025</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Aceptación de Términos</Text>
-          <Text style={styles.sectionText}>
-            Al usar See Me, aceptas estos términos. Si no estás de acuerdo, por favor no uses la app.
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>1. Aceptación de los Términos</Text>
+        <Text style={styles.paragraph}>
+          Al usar SEE ME, aceptas estos términos de servicio. Si no estás de acuerdo, no uses la aplicación.
+        </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Uso de la App</Text>
-          <Text style={styles.sectionText}>
-            • Debes tener al menos 18 años{"\n"}
-            • Tu cuenta es personal e intransferible{"\n"}
-            • Debes proporcionar información veraz{"\n"}
-            • No uses la app para actividades ilegales
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>2. Elegibilidad</Text>
+        <Text style={styles.paragraph}>
+          Para usar SEE ME debes:
+        </Text>
+        <Text style={styles.bullet}>• Tener al menos 18 años de edad</Text>
+        <Text style={styles.bullet}>• No estar prohibido de usar el servicio</Text>
+        <Text style={styles.bullet}>• Proporcionar información veraz</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Conducta del Usuario</Text>
-          <Text style={styles.sectionText}>
-            Los usuarios se comprometen a:{"\n"}
-            • Ser respetuosos con otros usuarios{"\n"}
-            • No acosar ni enviar contenido ofensivo{"\n"}
-            • No hacer spam ni publicidad{"\n"}
-            • Reportar comportamientos inapropiados
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>3. Tu Cuenta</Text>
+        <Text style={styles.paragraph}>
+          Eres responsable de mantener la seguridad de tu cuenta y de todas las actividades que ocurran bajo ella.
+        </Text>
+        <Text style={styles.paragraph}>
+          No compartas tu cuenta ni permitas que otros la usen.
+        </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>4. Sistema de Vibes</Text>
-          <Text style={styles.sectionText}>
-            Los "Vibes" son el sistema de comunicación de See Me. Al enviar un vibe:{"\n"}
-            • Aceptas que el destinatario vea tu perfil{"\n"}
-            • Los vibes expiran en 24 horas{"\n"}
-            • El destinatario puede aceptar o rechazar
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>4. Conducta del Usuario</Text>
+        <Text style={styles.paragraph}>
+          Al usar SEE ME, te comprometes a NO:
+        </Text>
+        <Text style={styles.bullet}>• Acosar, amenazar o intimidar a otros usuarios</Text>
+        <Text style={styles.bullet}>• Publicar contenido ilegal, ofensivo o inapropiado</Text>
+        <Text style={styles.bullet}>• Hacerte pasar por otra persona</Text>
+        <Text style={styles.bullet}>• Usar la app con fines comerciales no autorizados</Text>
+        <Text style={styles.bullet}>• Intentar acceder a cuentas de otros usuarios</Text>
+        <Text style={styles.bullet}>• Enviar spam o contenido no solicitado</Text>
+        <Text style={styles.bullet}>• Usar bots o sistemas automatizados</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>5. Check-ins y Ubicación</Text>
-          <Text style={styles.sectionText}>
-            Al hacer check-in:{"\n"}
-            • Tu ubicación se verifica por GPS{"\n"}
-            • Otros usuarios pueden verte en ese lugar{"\n"}
-            • Puedes controlar tu visibilidad en ajustes
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>5. Contenido</Text>
+        <Text style={styles.paragraph}>
+          Eres responsable del contenido que publicas. Al subir fotos o enviar mensajes, garantizas que tienes derecho a compartir ese contenido.
+        </Text>
+        <Text style={styles.paragraph}>
+          Nos reservamos el derecho de eliminar contenido que viole estos términos.
+        </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>6. Suscripciones</Text>
-          <Text style={styles.sectionText}>
-            • Plan gratuito: funciones básicas limitadas{"\n"}
-            • Plan Premium: funciones completas{"\n"}
-            • Los pagos se procesan de forma segura{"\n"}
-            • Puedes cancelar en cualquier momento
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>6. Sistema de Vibes</Text>
+        <Text style={styles.paragraph}>
+          Los "Vibes" son invitaciones para conectar con otros usuarios. Al enviar un Vibe, entiendes que:
+        </Text>
+        <Text style={styles.bullet}>• El receptor puede aceptar o rechazar libremente</Text>
+        <Text style={styles.bullet}>• Los chats tienen una duración de 24 horas</Text>
+        <Text style={styles.bullet}>• Debes respetar a los demás usuarios</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>7. Terminación</Text>
-          <Text style={styles.sectionText}>
-            Podemos suspender o eliminar cuentas que violen estos términos. Puedes eliminar tu cuenta en cualquier momento desde Configuración.
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>7. Ubicación y Presencia</Text>
+        <Text style={styles.paragraph}>
+          SEE ME usa tu ubicación para mostrar tu presencia en lugares. Al hacer check-in, otros usuarios podrán ver que estás en ese lugar.
+        </Text>
+        <Text style={styles.paragraph}>
+          Puedes usar el Modo Fantasma (Premium) para navegar de forma invisible.
+        </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>8. Contacto</Text>
-          <Text style={styles.sectionText}>
-            Para dudas sobre estos términos:{"\n"}
-            legal@seeme.app
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>8. Suscripciones Premium</Text>
+        <Text style={styles.paragraph}>
+          SEE ME ofrece suscripciones de pago con beneficios adicionales:
+        </Text>
+        <Text style={styles.bullet}>• Las suscripciones se renuevan automáticamente</Text>
+        <Text style={styles.bullet}>• Puedes cancelar en cualquier momento desde la configuración de tu tienda de aplicaciones</Text>
+        <Text style={styles.bullet}>• No hay reembolsos por períodos parciales</Text>
+
+        <Text style={styles.sectionTitle}>9. Seguridad</Text>
+        <Text style={styles.paragraph}>
+          Nos tomamos la seguridad muy en serio. Puedes:
+        </Text>
+        <Text style={styles.bullet}>• Bloquear usuarios que te molesten</Text>
+        <Text style={styles.bullet}>• Reportar comportamiento inapropiado</Text>
+        <Text style={styles.bullet}>• Configurar contactos de emergencia</Text>
+        <Text style={styles.paragraph}>
+          Investigamos todos los reportes y tomamos acciones apropiadas.
+        </Text>
+
+        <Text style={styles.sectionTitle}>10. Limitación de Responsabilidad</Text>
+        <Text style={styles.paragraph}>
+          SEE ME se proporciona "tal cual". No garantizamos:
+        </Text>
+        <Text style={styles.bullet}>• Que encontrarás conexiones</Text>
+        <Text style={styles.bullet}>• La veracidad de la información de otros usuarios</Text>
+        <Text style={styles.bullet}>• Disponibilidad continua del servicio</Text>
+        <Text style={styles.paragraph}>
+          No somos responsables por las interacciones entre usuarios fuera de la app.
+        </Text>
+
+        <Text style={styles.sectionTitle}>11. Terminación</Text>
+        <Text style={styles.paragraph}>
+          Podemos suspender o terminar tu cuenta si violas estos términos. Tú puedes eliminar tu cuenta en cualquier momento desde Configuración.
+        </Text>
+
+        <Text style={styles.sectionTitle}>12. Cambios a los Términos</Text>
+        <Text style={styles.paragraph}>
+          Podemos modificar estos términos. Te notificaremos sobre cambios importantes. El uso continuado después de los cambios implica aceptación.
+        </Text>
+
+        <Text style={styles.sectionTitle}>13. Contacto</Text>
+        <Text style={styles.paragraph}>
+          Para preguntas sobre estos términos:
+        </Text>
+        <Text style={styles.contactEmail}>legal@seeme.app</Text>
       </ScrollView>
     </View>
   );
@@ -142,30 +172,40 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 44,
   },
-  scrollView: {
-    flex: 1,
-  },
   content: {
-    padding: 20,
-    paddingBottom: 100,
+    flex: 1,
+    paddingHorizontal: 20,
   },
   lastUpdated: {
     fontSize: 13,
     color: COLORS.text.muted,
-    marginBottom: 24,
-  },
-  section: {
+    marginTop: 20,
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: COLORS.gold.primary,
-    marginBottom: 10,
+    marginTop: 24,
+    marginBottom: 12,
   },
-  sectionText: {
+  paragraph: {
     fontSize: 15,
     color: COLORS.text.secondary,
     lineHeight: 24,
+    marginBottom: 12,
+  },
+  bullet: {
+    fontSize: 15,
+    color: COLORS.text.secondary,
+    lineHeight: 24,
+    marginBottom: 8,
+    paddingLeft: 8,
+  },
+  contactEmail: {
+    fontSize: 16,
+    color: COLORS.gold.primary,
+    fontWeight: '600',
+    marginTop: 8,
   },
 });
