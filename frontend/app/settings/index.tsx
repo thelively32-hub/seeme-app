@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
+import { useTour } from '../../src/context/TourContext';
 
 const SettingRow = ({
   icon,
@@ -64,6 +65,7 @@ const SectionHeader = ({ title }: { title: string }) => (
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
+  const { resetTour, startTour } = useTour();
   const [notifications, setNotifications] = useState(true);
   const [ghostMode, setGhostMode] = useState(false);
   const [language, setLanguage] = useState('es');
@@ -82,6 +84,24 @@ export default function SettingsScreen() {
     };
     loadGhostMode();
   }, []);
+
+  const handleRestartTour = () => {
+    Alert.alert(
+      'Reiniciar Tour',
+      '¿Quieres ver el tour de la aplicación de nuevo?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Sí, reiniciar', 
+          onPress: async () => {
+            await resetTour();
+            startTour();
+            router.replace('/(tabs)/explore');
+          }
+        },
+      ]
+    );
+  };
 
   const handleGhostModeToggle = async (value: boolean) => {
     setLoadingGhostMode(true);
@@ -294,6 +314,13 @@ export default function SettingsScreen() {
             label="Idioma"
             value={language === 'en' ? 'English' : 'Español'}
             onPress={handleLanguageChange}
+          />
+          <SettingRow
+            icon="help-circle-outline"
+            iconColor="#FF9800"
+            label="Ver Tour de la App"
+            value="Guía interactiva"
+            onPress={handleRestartTour}
           />
         </View>
 

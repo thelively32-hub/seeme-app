@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
+import TourTooltip from '../../src/components/TourTooltip';
 
 interface UserProfile {
   name: string;
@@ -255,6 +256,9 @@ export default function ProfileScreen() {
         {/* App Version */}
         <Text style={styles.versionText}>See Me v1.0.0</Text>
       </ScrollView>
+
+      {/* Tour Tooltip */}
+      <TourTooltip screen="profile" />
     </View>
   );
 }

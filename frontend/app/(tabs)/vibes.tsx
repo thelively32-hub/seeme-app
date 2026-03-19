@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
+import TourTooltip from '../../src/components/TourTooltip';
 
 const { width } = Dimensions.get('window');
 
@@ -400,6 +401,9 @@ export default function VibesScreen() {
           </Text>
         )}
       </ScrollView>
+
+      {/* Tour Tooltip */}
+      <TourTooltip screen="vibes" />
     </View>
   );
 }

@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import api from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import COLORS from '../../src/theme/colors';
+import TourTooltip from '../../src/components/TourTooltip';
 
 interface Invitation {
   id: string;
@@ -683,6 +684,9 @@ export default function InvitationsScreen() {
         onCreate={handleCreateInvitation}
         editingInvitation={editingInvitation}
       />
+
+      {/* Tour Tooltip */}
+      <TourTooltip screen="invitations" />
     </View>
   );
 }

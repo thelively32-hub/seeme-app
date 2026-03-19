@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
 import useLocation from '../../src/hooks/useLocation';
 import COLORS from '../../src/theme/colors';
+import TourTooltip from '../../src/components/TourTooltip';
 
 const { width } = Dimensions.get('window');
 const REFRESH_INTERVAL = 30000;
@@ -499,6 +500,9 @@ export default function ExploreScreen() {
           <Ionicons name="qr-code" size={24} color={COLORS.text.dark} />
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* Tour Tooltip */}
+      <TourTooltip screen="explore" />
     </View>
   );
 }
