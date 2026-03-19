@@ -136,6 +136,20 @@ class ApiService {
     return data;
   }
 
+  // Firebase Phone Auth
+  async firebaseAuth(idToken: string, phoneNumber: string) {
+    const data = await this.request('/api/auth/firebase', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        id_token: idToken, 
+        phone_number: phoneNumber 
+      }),
+    });
+    await this.setToken(data.access_token);
+    await this.setStoredUser(data.user);
+    return data;
+  }
+
   async getMe() {
     return this.request('/api/auth/me');
   }

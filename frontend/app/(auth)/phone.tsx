@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,15 @@ import {
   Platform,
   Animated,
   Easing,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { signInWithPhoneNumber, RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
+import { auth } from '../../src/services/firebase';
 import COLORS from '../../src/theme/colors';
 
 // Country codes data
@@ -26,17 +30,26 @@ const COUNTRIES = [
   { code: '+54', flag: '🇦🇷', name: 'Argentina' },
 ];
 
+// Store confirmation result globally for verify screen
+let globalConfirmationResult: ConfirmationResult | null = null;
+
+export const getConfirmationResult = () => globalConfirmationResult;
+export const clearConfirmationResult = () => { globalConfirmationResult = null; };
+
 export default function PhoneScreen() {
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -51,7 +64,63 @@ export default function PhoneScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Initialize reCAPTCHA for web
+    if (Platform.OS === 'web') {
+      initRecaptcha();
+    } else {
+      // For native, we can proceed without reCAPTCHA (handled by Firebase SDK)
+      setRecaptchaReady(true);
+    }
+
+    return () => {
+      // Cleanup reCAPTCHA
+      if (recaptchaRef.current) {
+        try {
+          recaptchaRef.current.clear();
+        } catch (e) {
+          console.log('reCAPTCHA cleanup error:', e);
+        }
+      }
+    };
   }, []);
+
+  const initRecaptcha = async () => {
+    try {
+      // Create a container for reCAPTCHA if it doesn't exist
+      let recaptchaContainer = document.getElementById('recaptcha-container');
+      if (!recaptchaContainer) {
+        recaptchaContainer = document.createElement('div');
+        recaptchaContainer.id = 'recaptcha-container';
+        recaptchaContainer.style.position = 'fixed';
+        recaptchaContainer.style.bottom = '10px';
+        recaptchaContainer.style.left = '50%';
+        recaptchaContainer.style.transform = 'translateX(-50%)';
+        recaptchaContainer.style.zIndex = '9999';
+        document.body.appendChild(recaptchaContainer);
+      }
+
+      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          console.log('reCAPTCHA verified');
+        },
+        'expired-callback': () => {
+          console.log('reCAPTCHA expired');
+          setRecaptchaReady(false);
+          initRecaptcha();
+        }
+      });
+
+      await recaptchaRef.current.render();
+      setRecaptchaReady(true);
+      console.log('reCAPTCHA ready');
+    } catch (error) {
+      console.error('reCAPTCHA init error:', error);
+      // Still allow proceeding - Firebase will show visible reCAPTCHA if needed
+      setRecaptchaReady(true);
+    }
+  };
 
   const formatPhone = (text: string) => {
     // Remove non-digits
@@ -67,12 +136,58 @@ export default function PhoneScreen() {
     setPhone(formatted);
   };
 
-  const handleContinue = () => {
-    if (phone.replace(/\D/g, '').length >= 10) {
+  const handleContinue = async () => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+
+    const fullPhone = `${selectedCountry.code}${cleanPhone}`;
+    setLoading(true);
+
+    try {
+      let confirmationResult: ConfirmationResult;
+      
+      if (Platform.OS === 'web' && recaptchaRef.current) {
+        confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
+      } else {
+        // For native, Firebase SDK handles reCAPTCHA internally
+        // This path requires expo-dev-client or bare workflow
+        Alert.alert(
+          'Native Auth Required',
+          'Phone authentication on mobile requires a development build. Please test on web preview.',
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Store confirmation result for verify screen
+      globalConfirmationResult = confirmationResult;
+
+      // Navigate to verify screen
       router.push({
         pathname: '/(auth)/verify',
-        params: { phone: `${selectedCountry.code}${phone.replace(/\D/g, '')}` }
+        params: { phone: fullPhone }
       });
+    } catch (error: any) {
+      console.error('Phone auth error:', error);
+      let message = 'Failed to send verification code. Please try again.';
+      
+      if (error.code === 'auth/invalid-phone-number') {
+        message = 'Invalid phone number format. Please check and try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please try again later.';
+      } else if (error.code === 'auth/quota-exceeded') {
+        message = 'SMS quota exceeded. Please try again later.';
+      } else if (error.code === 'auth/captcha-check-failed') {
+        message = 'reCAPTCHA verification failed. Please refresh and try again.';
+      }
+      
+      Alert.alert('Error', message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,8 +251,9 @@ export default function PhoneScreen() {
                 keyboardType="phone-pad"
                 maxLength={14}
                 autoFocus
+                editable={!loading}
               />
-              {phone.length > 0 && (
+              {phone.length > 0 && !loading && (
                 <TouchableOpacity onPress={() => setPhone('')}>
                   <View style={styles.clearButton}>
                     <Ionicons name="close" size={16} color={COLORS.text.tertiary} />
@@ -170,36 +286,55 @@ export default function PhoneScreen() {
             </View>
           )}
 
+          {/* Firebase Security Info */}
+          <View style={styles.securityInfo}>
+            <Ionicons name="shield-checkmark" size={16} color={COLORS.gold.primary} />
+            <Text style={styles.securityText}>
+              Protected by Google reCAPTCHA
+            </Text>
+          </View>
+
           {/* Spacer */}
           <View style={styles.spacer} />
 
           {/* Continue Button */}
           <TouchableOpacity
-            style={[styles.continueButton, !isValidPhone && styles.continueButtonDisabled]}
+            style={[
+              styles.continueButton, 
+              (!isValidPhone || loading || !recaptchaReady) && styles.continueButtonDisabled
+            ]}
             onPress={handleContinue}
-            disabled={!isValidPhone}
+            disabled={!isValidPhone || loading || !recaptchaReady}
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={isValidPhone ? COLORS.gradients.goldButton : ['#3A3A3A', '#2A2A2A']}
+              colors={isValidPhone && !loading && recaptchaReady 
+                ? COLORS.gradients.goldButton 
+                : ['#3A3A3A', '#2A2A2A']}
               style={styles.continueButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Text style={[
-                styles.continueButtonText,
-                !isValidPhone && styles.continueButtonTextDisabled
-              ]}>
-                Continue
-              </Text>
+              {loading ? (
+                <ActivityIndicator color={COLORS.text.muted} />
+              ) : !recaptchaReady ? (
+                <Text style={styles.continueButtonTextDisabled}>Loading...</Text>
+              ) : (
+                <Text style={[
+                  styles.continueButtonText,
+                  !isValidPhone && styles.continueButtonTextDisabled
+                ]}>
+                  Continue
+                </Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
 
           {/* Terms */}
           <Text style={styles.termsText}>
             By tapping Continue, you agree to our{' '}
-            <Text style={styles.termsLink}>Terms</Text> and{' '}
-            <Text style={styles.termsLink}>Privacy Policy</Text>
+            <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>Terms</Text> and{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
           </Text>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -320,6 +455,17 @@ const styles = StyleSheet.create({
   countryOptionCode: {
     fontSize: 14,
     color: COLORS.text.tertiary,
+  },
+  securityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 8,
+  },
+  securityText: {
+    fontSize: 13,
+    color: COLORS.text.muted,
   },
   spacer: {
     flex: 1,

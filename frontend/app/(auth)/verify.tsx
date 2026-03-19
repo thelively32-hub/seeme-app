@@ -10,11 +10,15 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getConfirmationResult, clearConfirmationResult } from './phone';
+import api from '../../src/services/api';
+import { useAuth } from '../../src/context/AuthContext';
 import COLORS from '../../src/theme/colors';
 
 const CODE_LENGTH = 6;
@@ -22,6 +26,7 @@ const CODE_LENGTH = 6;
 export default function VerifyScreen() {
   const insets = useSafeAreaInsets();
   const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { refreshUser } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,7 +66,10 @@ export default function VerifyScreen() {
       });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      // Don't clear confirmation result on unmount - user might come back
+    };
   }, []);
 
   const shake = () => {
@@ -85,22 +93,56 @@ export default function VerifyScreen() {
   };
 
   const verifyCode = async (verificationCode: string) => {
+    const confirmationResult = getConfirmationResult();
+    
+    if (!confirmationResult) {
+      setError('Verification session expired. Please go back and try again.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      // Simulate API call - In production, verify with backend
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Confirm the code with Firebase
+      const userCredential = await confirmationResult.confirm(verificationCode);
+      const firebaseUser = userCredential.user;
       
-      // For demo: any 6-digit code works
-      // In production: validate with Twilio/Firebase
-      if (verificationCode.length === CODE_LENGTH) {
+      // Get Firebase ID token
+      const idToken = await firebaseUser.getIdToken();
+      
+      // Authenticate with our backend
+      const response = await api.firebaseAuth(idToken, phone || '');
+      
+      // Clear the confirmation result
+      clearConfirmationResult();
+      
+      // Refresh user in context
+      await refreshUser();
+      
+      // Navigate based on whether user is new
+      if (response.is_new_user) {
         router.replace('/(auth)/create-profile');
       } else {
-        throw new Error('Invalid code');
+        router.replace('/(tabs)/explore');
       }
-    } catch (e) {
-      setError('Invalid verification code');
+      
+    } catch (e: any) {
+      console.error('Verification error:', e);
+      
+      let errorMessage = 'Invalid verification code. Please try again.';
+      
+      if (e.code === 'auth/invalid-verification-code') {
+        errorMessage = 'Invalid verification code. Please check and try again.';
+      } else if (e.code === 'auth/code-expired') {
+        errorMessage = 'Verification code expired. Please request a new code.';
+      } else if (e.code === 'auth/session-expired') {
+        errorMessage = 'Session expired. Please go back and try again.';
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      setError(errorMessage);
       shake();
       setCode('');
     } finally {
@@ -111,24 +153,17 @@ export default function VerifyScreen() {
   const handleResend = async () => {
     if (!canResend) return;
     
-    setCanResend(false);
-    setCountdown(30);
-    setError('');
+    // Clear current confirmation and go back to phone screen
+    clearConfirmationResult();
     
-    // Restart countdown
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          setCanResend(true);
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    // Simulate sending new code
-    // In production: call API to resend SMS
+    Alert.alert(
+      'Resend Code',
+      'You will be redirected to request a new verification code.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'OK', onPress: () => router.back() }
+      ]
+    );
   };
 
   const renderCodeBoxes = () => {
@@ -211,6 +246,7 @@ export default function VerifyScreen() {
               keyboardType="number-pad"
               maxLength={CODE_LENGTH}
               autoFocus
+              editable={!loading}
             />
           </Animated.View>
 
@@ -246,7 +282,10 @@ export default function VerifyScreen() {
           </View>
 
           {/* Change Number */}
-          <TouchableOpacity style={styles.changeNumber} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.changeNumber} onPress={() => {
+            clearConfirmationResult();
+            router.back();
+          }}>
             <Text style={styles.changeNumberText}>Change phone number</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -349,6 +388,8 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.accent.error,
     fontSize: 14,
+    textAlign: 'center',
+    flex: 1,
   },
   loadingContainer: {
     flexDirection: 'row',

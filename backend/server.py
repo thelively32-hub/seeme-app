@@ -17,7 +17,29 @@ from bson import ObjectId
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
+# Firebase Admin SDK
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
+
 load_dotenv()
+
+# ============== FIREBASE CONFIGURATION ==============
+# Initialize Firebase Admin SDK
+FIREBASE_CONFIG = {
+    "apiKey": os.getenv("FIREBASE_API_KEY", "AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo"),
+    "authDomain": "see-me-app-5e487.firebaseapp.com",
+    "projectId": "see-me-app-5e487",
+    "storageBucket": "see-me-app-5e487.firebasestorage.app",
+    "messagingSenderId": "5904630206",
+    "appId": "1:5904630206:web:feecd66c5bcb713586f9ef"
+}
+
+# Initialize Firebase Admin (without credentials file - uses project ID only for token verification)
+try:
+    firebase_admin.get_app()
+except ValueError:
+    # No credentials file needed for just verifying tokens
+    firebase_admin.initialize_app(options={"projectId": FIREBASE_CONFIG["projectId"]})
 
 # Google Places API Configuration
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyCPKT55qhr18vD63d91A5Ys6NoZvsq3D0s")
@@ -809,6 +831,83 @@ async def login(credentials: UserLogin):
     return TokenResponse(
         access_token=token,
         user=user_to_response(user)
+    )
+
+
+# ============== FIREBASE PHONE AUTH ==============
+
+class FirebaseAuthRequest(BaseModel):
+    id_token: str
+    phone_number: str
+
+class FirebaseAuthResponse(BaseModel):
+    access_token: str
+    user: UserResponse
+    is_new_user: bool
+
+
+@app.post("/api/auth/firebase", response_model=FirebaseAuthResponse, tags=["Auth"])
+async def firebase_phone_auth(auth_data: FirebaseAuthRequest):
+    """Authenticate user via Firebase Phone Auth"""
+    try:
+        # Verify the Firebase ID token
+        decoded_token = firebase_auth.verify_id_token(auth_data.id_token)
+        firebase_uid = decoded_token['uid']
+        phone_number = decoded_token.get('phone_number') or auth_data.phone_number
+        
+    except firebase_admin.exceptions.FirebaseError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Firebase token: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token verification failed: {str(e)}")
+    
+    # Check if user exists by Firebase UID or phone number
+    user = await users_collection.find_one({
+        "$or": [
+            {"firebase_uid": firebase_uid},
+            {"phone_number": phone_number}
+        ]
+    })
+    
+    is_new_user = False
+    
+    if not user:
+        # Create new user
+        is_new_user = True
+        user_dict = {
+            "firebase_uid": firebase_uid,
+            "phone_number": phone_number,
+            "name": f"User_{phone_number[-4:]}",  # Temporary name
+            "email": None,
+            "password": None,  # No password for phone auth users
+            "age": None,
+            "gender": None,
+            "looking_for": None,
+            "intention": None,
+            "vibes": 0,
+            "connection_rate": 0.0,
+            "is_premium": False,
+            "created_at": datetime.utcnow(),
+            "auth_provider": "firebase_phone",
+        }
+        
+        result = await users_collection.insert_one(user_dict)
+        user_dict["_id"] = result.inserted_id
+        user = user_dict
+    else:
+        # Update Firebase UID if not set (migration from old system)
+        if not user.get("firebase_uid"):
+            await users_collection.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"firebase_uid": firebase_uid, "auth_provider": "firebase_phone"}}
+            )
+    
+    # Create our JWT token
+    token = create_access_token(data={"sub": str(user["_id"])})
+    
+    return FirebaseAuthResponse(
+        access_token=token,
+        user=user_to_response(user),
+        is_new_user=is_new_user
     )
 
 
