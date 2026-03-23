@@ -23,11 +23,15 @@
         "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places and activity",
         "NSCameraUsageDescription": "Take selfies to share in chat or scan QR codes to check-in",
         "NSPhotoLibraryUsageDescription": "Share photos from your gallery in chat",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
-      "package": "com.seeme.app",
+      "package": "com.seemeapp.android",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -88,7 +92,8 @@
           "color": "#F4C542"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true
