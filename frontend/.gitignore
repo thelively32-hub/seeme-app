@@ -17,9 +17,13 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+android/
+ios/
 
 # Metro
 .metro-health-check*
+.metro-cache/
+.metro/
 
 # debug
 npm-debug.*
@@ -29,11 +33,44 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # local env files
 .env*.local
+.env.local
 
 # typescript
 *.tsbuildinfo
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+*.cache
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 app-example

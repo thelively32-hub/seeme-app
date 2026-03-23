@@ -8,12 +8,6 @@
     "scheme": "seeme",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "owner": "seeme-app",
-    "extra": {
-      "eas": {
-        "projectId": "your-eas-project-id"
-      }
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.seeme.app",
