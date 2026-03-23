@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "5904630206",
+    "project_id": "see-me-app-5e487",
+    "storage_bucket": "see-me-app-5e487.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:5904630206:android:5c49499b6b8d9a3886f9ef",
+        "android_client_info": {
+          "package_name": "com.seemeapp.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUK6ZbkNRe7RTgmNYgRhmEFO7mIyPQap8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
