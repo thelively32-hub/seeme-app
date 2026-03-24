@@ -8,6 +8,12 @@
     "scheme": "seeme",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "owner": "thelively32",
+    "extra": {
+      "eas": {
+        "projectId": "98ae5773-f5c4-484c-bcc5-6d8cbdde85c"
+      }
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.seeme.app",
