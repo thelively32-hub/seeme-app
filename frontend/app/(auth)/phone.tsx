@@ -43,6 +43,7 @@ export default function PhoneScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -192,6 +193,7 @@ export default function PhoneScreen() {
   };
 
   const isValidPhone = phone.replace(/\D/g, '').length >= 10;
+  const canContinue = isValidPhone && termsAccepted && recaptchaReady && !loading;
 
   return (
     <View style={styles.container}>
@@ -294,6 +296,25 @@ export default function PhoneScreen() {
             </Text>
           </View>
 
+          {/* Terms Checkbox */}
+          <TouchableOpacity 
+            style={styles.termsCheckboxContainer}
+            onPress={() => setTermsAccepted(!termsAccepted)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+              {termsAccepted && (
+                <Ionicons name="checkmark" size={16} color={COLORS.text.dark} />
+              )}
+            </View>
+            <Text style={styles.termsText}>
+              I accept the{' '}
+              <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>Terms of Service</Text>
+              {' '}and{' '}
+              <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
+            </Text>
+          </TouchableOpacity>
+
           {/* Spacer */}
           <View style={styles.spacer} />
 
@@ -301,14 +322,14 @@ export default function PhoneScreen() {
           <TouchableOpacity
             style={[
               styles.continueButton, 
-              (!isValidPhone || loading || !recaptchaReady) && styles.continueButtonDisabled
+              !canContinue && styles.continueButtonDisabled
             ]}
             onPress={handleContinue}
-            disabled={!isValidPhone || loading || !recaptchaReady}
+            disabled={!canContinue}
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={isValidPhone && !loading && recaptchaReady 
+              colors={canContinue 
                 ? COLORS.gradients.goldButton 
                 : ['#3A3A3A', '#2A2A2A']}
               style={styles.continueButtonGradient}
@@ -322,7 +343,7 @@ export default function PhoneScreen() {
               ) : (
                 <Text style={[
                   styles.continueButtonText,
-                  !isValidPhone && styles.continueButtonTextDisabled
+                  !canContinue && styles.continueButtonTextDisabled
                 ]}>
                   Continue
                 </Text>
@@ -330,12 +351,13 @@ export default function PhoneScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Terms */}
-          <Text style={styles.termsText}>
-            By tapping Continue, you agree to our{' '}
-            <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>Terms</Text> and{' '}
-            <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
-          </Text>
+          {/* Security Info */}
+          <View style={styles.bottomSecurityInfo}>
+            <Ionicons name="shield-checkmark" size={14} color={COLORS.gold.primary} />
+            <Text style={styles.bottomSecurityText}>
+              Protected by Google reCAPTCHA
+            </Text>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -467,6 +489,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.text.muted,
   },
+  termsCheckboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 24,
+    gap: 12,
+    paddingRight: 16,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.border.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.gold.primary,
+    borderColor: COLORS.gold.primary,
+  },
   spacer: {
     flex: 1,
   },
@@ -505,12 +548,24 @@ const styles = StyleSheet.create({
     color: COLORS.text.muted,
   },
   termsText: {
-    fontSize: 13,
-    color: COLORS.text.muted,
-    textAlign: 'center',
-    lineHeight: 20,
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    lineHeight: 22,
   },
   termsLink: {
     color: COLORS.gold.primary,
+    fontWeight: '600',
+  },
+  bottomSecurityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 6,
+  },
+  bottomSecurityText: {
+    fontSize: 12,
+    color: COLORS.text.muted,
   },
 });
