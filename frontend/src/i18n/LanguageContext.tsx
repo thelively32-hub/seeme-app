@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform, NativeModules } from 'react-native';
-import * as Localization from 'expo-localization';
+import { Platform } from 'react-native';
 import { translations, Language, TranslationKeys } from './translations';
 
 interface LanguageContextType {
@@ -14,18 +13,19 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 const LANGUAGE_KEY = '@seeme_language';
 
-// Get device language
+// Get device language without expo-localization
 const getDeviceLanguage = (): Language => {
   try {
     let deviceLang = 'en';
     
     if (Platform.OS === 'web') {
       // For web, use browser language
-      deviceLang = navigator.language || (navigator as any).userLanguage || 'en';
-    } else {
-      // For native, use expo-localization
-      deviceLang = Localization.locale || 'en';
+      if (typeof navigator !== 'undefined') {
+        deviceLang = navigator.language || (navigator as any).userLanguage || 'en';
+      }
     }
+    // For native, we'll just use the saved preference or default to English
+    // The user can change it in settings
     
     // Extract the base language code (e.g., 'es-MX' -> 'es')
     const baseLang = deviceLang.split('-')[0].toLowerCase();
@@ -41,7 +41,6 @@ const getDeviceLanguage = (): Language => {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en');
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadLanguage();
@@ -54,7 +53,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         // Use saved preference
         setLanguageState(savedLang);
       } else {
-        // First time - detect from device
+        // First time - detect from device/browser
         const deviceLang = getDeviceLanguage();
         setLanguageState(deviceLang);
         // Save the detected language
@@ -64,8 +63,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       console.log('Error loading language:', e);
       // Fallback to device language detection
       setLanguageState(getDeviceLanguage());
-    } finally {
-      setIsLoading(false);
     }
   };
 
