@@ -93,7 +93,9 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-build-properties"
+      "expo-build-properties",
+      "expo-localization",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
