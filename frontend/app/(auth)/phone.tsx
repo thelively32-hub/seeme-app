@@ -94,9 +94,9 @@ export default function PhoneScreen() {
         recaptchaContainer = document.createElement('div');
         recaptchaContainer.id = 'recaptcha-container';
         recaptchaContainer.style.position = 'fixed';
-        recaptchaContainer.style.bottom = '180px';
+        recaptchaContainer.style.bottom = '10px';
         recaptchaContainer.style.left = '50%';
-        recaptchaContainer.style.transform = 'translateX(-50%) scale(0.9)';
+        recaptchaContainer.style.transform = 'translateX(-50%)';
         recaptchaContainer.style.zIndex = '9999';
         document.body.appendChild(recaptchaContainer);
       }
