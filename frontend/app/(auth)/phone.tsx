@@ -94,10 +94,10 @@ export default function PhoneScreen() {
         recaptchaContainer = document.createElement('div');
         recaptchaContainer.id = 'recaptcha-container';
         recaptchaContainer.style.position = 'fixed';
-        recaptchaContainer.style.bottom = '10px';
+        recaptchaContainer.style.bottom = '120px';
         recaptchaContainer.style.left = '50%';
-        recaptchaContainer.style.transform = 'translateX(-50%)';
-        recaptchaContainer.style.zIndex = '9999';
+        recaptchaContainer.style.transform = 'translateX(-50%) scale(0.85)';
+        recaptchaContainer.style.zIndex = '1';
         document.body.appendChild(recaptchaContainer);
       }
 
