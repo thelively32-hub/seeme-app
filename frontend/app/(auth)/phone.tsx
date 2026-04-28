@@ -102,9 +102,10 @@ export default function PhoneScreen() {
       }
 
       recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
+        size: 'normal',
         callback: () => {
           console.log('reCAPTCHA verified');
+          setRecaptchaReady(true);
         },
         'expired-callback': () => {
           console.log('reCAPTCHA expired');
