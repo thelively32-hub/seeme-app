@@ -148,24 +148,21 @@ export default function PhoneScreen() {
     setLoading(true);
 
     try {
-      let confirmationResult: ConfirmationResult;
-      
-      if (Platform.OS === 'web' && recaptchaRef.current) {
-        confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
+      if (Platform.OS === 'web') {
+        // Web: Use Firebase JS SDK with reCAPTCHA
+        if (!recaptchaRef.current) {
+          Alert.alert('Error', 'reCAPTCHA not ready. Please wait and try again.');
+          setLoading(false);
+          return;
+        }
+        const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
+        globalConfirmationResult = confirmationResult;
       } else {
-        // For native, Firebase SDK handles reCAPTCHA internally
-        // This path requires expo-dev-client or bare workflow
-        Alert.alert(
-          'Native Auth Required',
-          'Phone authentication on mobile requires a development build. Please test on web preview.',
-          [{ text: 'OK' }]
-        );
-        setLoading(false);
-        return;
+        // Native: Use React Native Firebase
+        const authNative = require('@react-native-firebase/auth').default;
+        const confirmationResult = await authNative().signInWithPhoneNumber(fullPhone);
+        globalConfirmationResult = confirmationResult;
       }
-
-      // Store confirmation result for verify screen
-      globalConfirmationResult = confirmationResult;
 
       // Navigate to verify screen
       router.push({
@@ -184,6 +181,8 @@ export default function PhoneScreen() {
         message = 'SMS quota exceeded. Please try again later.';
       } else if (error.code === 'auth/captcha-check-failed') {
         message = 'reCAPTCHA verification failed. Please refresh and try again.';
+      } else if (error.message) {
+        message = error.message;
       }
       
       Alert.alert('Error', message);

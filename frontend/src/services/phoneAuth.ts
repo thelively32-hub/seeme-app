@@ -1,90 +1,50 @@
-import { auth, verifyPhoneCode, signOutFirebase } from './firebase';
-import { PhoneAuthProvider, RecaptchaVerifier, signInWithPhoneNumber, ApplicationVerifier } from 'firebase/auth';
-import api from './api';
+import { Platform } from 'react-native';
+import { auth } from './firebase';
 
-// Store verification ID for OTP confirmation
-let currentVerificationId: string | null = null;
-let recaptchaVerifier: ApplicationVerifier | null = null;
+// Store confirmation result for native
+let confirmationResult: any = null;
 
-// For web - we need a visible reCAPTCHA
-export const initRecaptchaVerifier = (containerId: string = 'recaptcha-container'): RecaptchaVerifier | null => {
-  if (typeof window === 'undefined') return null;
-  
-  try {
-    recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
-      size: 'normal',
-      callback: () => {
-        console.log('reCAPTCHA solved');
-      },
-      'expired-callback': () => {
-        console.log('reCAPTCHA expired');
-      }
-    });
-    return recaptchaVerifier as RecaptchaVerifier;
-  } catch (error) {
-    console.error('Error initializing reCAPTCHA:', error);
-    return null;
+export const sendVerificationCode = async (phoneNumber: string, recaptchaVerifier?: any): Promise<string> => {
+  if (Platform.OS === 'web') {
+    // Web: Use Firebase JS SDK with reCAPTCHA
+    const { signInWithPhoneNumber } = require('firebase/auth');
+    const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+    confirmationResult = confirmation;
+    return confirmation.verificationId;
+  } else {
+    // Native: Use React Native Firebase
+    const confirmation = await auth.signInWithPhoneNumber(phoneNumber);
+    confirmationResult = confirmation;
+    return 'native-verification';
   }
 };
 
-// Send OTP to phone number
-export const sendOTP = async (
-  phoneNumber: string, 
-  appVerifier: ApplicationVerifier
-): Promise<string> => {
-  try {
-    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-    currentVerificationId = confirmationResult.verificationId;
-    return confirmationResult.verificationId;
-  } catch (error: any) {
-    console.error('Error sending OTP:', error);
-    throw new Error(error.message || 'Failed to send verification code');
-  }
-};
-
-// Verify OTP code
-export const verifyOTP = async (code: string): Promise<any> => {
-  if (!currentVerificationId) {
-    throw new Error('No verification in progress. Please request a new code.');
-  }
-  
-  try {
-    const user = await verifyPhoneCode(currentVerificationId, code);
-    
-    // Get Firebase ID token to authenticate with our backend
-    const idToken = await user.getIdToken();
-    
-    // Sync with our backend - create or login user
-    const backendResponse = await api.firebaseAuth(idToken, user.phoneNumber || '');
-    
-    currentVerificationId = null;
-    return {
-      firebaseUser: user,
-      backendUser: backendResponse.user,
-      isNewUser: backendResponse.is_new_user,
-    };
-  } catch (error: any) {
-    console.error('Error verifying OTP:', error);
-    if (error.code === 'auth/invalid-verification-code') {
-      throw new Error('Invalid verification code. Please try again.');
+export const verifyCode = async (verificationId: string, code: string): Promise<any> => {
+  if (Platform.OS === 'web') {
+    // Web: Use the confirmation result
+    if (confirmationResult) {
+      const result = await confirmationResult.confirm(code);
+      return result.user;
     }
-    throw new Error(error.message || 'Verification failed');
+    throw new Error('No confirmation result available');
+  } else {
+    // Native: Use the stored confirmation object
+    if (confirmationResult) {
+      const result = await confirmationResult.confirm(code);
+      return result.user;
+    }
+    throw new Error('No confirmation result available');
   }
 };
 
-// Sign out from Firebase and backend
-export const signOutPhone = async () => {
-  await signOutFirebase();
-  await api.logout();
-  currentVerificationId = null;
+export const getCurrentUser = () => {
+  if (Platform.OS === 'web') {
+    return auth.currentUser;
+  } else {
+    return auth.currentUser;
+  }
 };
 
-// Check if verification is in progress
-export const hasActiveVerification = () => {
-  return currentVerificationId !== null;
-};
-
-// Clear verification state
-export const clearVerification = () => {
-  currentVerificationId = null;
+export const resetVerification = () => {
+  confirmationResult = null;
 };
