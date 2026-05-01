@@ -96,7 +96,17 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static",
+            "extraPodfileProperties": {
+              "inhibit_all_warnings!": true
+            }
+          }
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {
