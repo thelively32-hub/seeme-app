@@ -68,7 +68,6 @@ export default function VerifyScreen() {
 
     return () => {
       clearInterval(timer);
-      // Don't clear confirmation result on unmount - user might come back
     };
   }, []);
 
@@ -104,12 +103,20 @@ export default function VerifyScreen() {
     setError('');
 
     try {
-      // Confirm the code with Firebase
-      const userCredential = await confirmationResult.confirm(verificationCode);
-      const firebaseUser = userCredential.user;
-      
-      // Get Firebase ID token
-      const idToken = await firebaseUser.getIdToken();
+      let firebaseUser: any;
+      let idToken: string;
+
+      if (Platform.OS === 'web') {
+        // Web: Use Firebase JS SDK confirmation
+        const userCredential = await confirmationResult.confirm(verificationCode);
+        firebaseUser = userCredential.user;
+        idToken = await firebaseUser.getIdToken();
+      } else {
+        // Native: Use React Native Firebase confirmation
+        const userCredential = await confirmationResult.confirm(verificationCode);
+        firebaseUser = userCredential.user;
+        idToken = await firebaseUser.getIdToken();
+      }
       
       // Authenticate with our backend
       const response = await api.firebaseAuth(idToken, phone || '');
@@ -138,6 +145,8 @@ export default function VerifyScreen() {
         errorMessage = 'Verification code expired. Please request a new code.';
       } else if (e.code === 'auth/session-expired') {
         errorMessage = 'Session expired. Please go back and try again.';
+      } else if (e.code === 'auth/invalid-verification-id') {
+        errorMessage = 'Session expired. Please go back and request a new code.';
       } else if (e.message) {
         errorMessage = e.message;
       }

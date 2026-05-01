@@ -16,8 +16,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { signInWithPhoneNumber, RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
-import { auth } from '../../src/services/firebase';
 import COLORS from '../../src/theme/colors';
 
 // Country codes data
@@ -31,9 +29,10 @@ const COUNTRIES = [
 ];
 
 // Store confirmation result globally for verify screen
-let globalConfirmationResult: ConfirmationResult | null = null;
+let globalConfirmationResult: any = null;
 
 export const getConfirmationResult = () => globalConfirmationResult;
+export const setConfirmationResult = (result: any) => { globalConfirmationResult = result; };
 export const clearConfirmationResult = () => { globalConfirmationResult = null; };
 
 export default function PhoneScreen() {
@@ -48,7 +47,7 @@ export default function PhoneScreen() {
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const recaptchaRef = useRef<any>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -66,17 +65,17 @@ export default function PhoneScreen() {
       }),
     ]).start();
 
-    // Initialize reCAPTCHA for web
+    // Initialize based on platform
     if (Platform.OS === 'web') {
-      initRecaptcha();
+      initRecaptchaWeb();
     } else {
-      // For native, we can proceed without reCAPTCHA (handled by Firebase SDK)
+      // For native, no reCAPTCHA needed - handled by Firebase native SDK
       setRecaptchaReady(true);
     }
 
     return () => {
-      // Cleanup reCAPTCHA
-      if (recaptchaRef.current) {
+      // Cleanup reCAPTCHA for web
+      if (Platform.OS === 'web' && recaptchaRef.current) {
         try {
           recaptchaRef.current.clear();
         } catch (e) {
@@ -86,9 +85,24 @@ export default function PhoneScreen() {
     };
   }, []);
 
-  const initRecaptcha = async () => {
+  const initRecaptchaWeb = async () => {
     try {
-      // Create a container for reCAPTCHA if it doesn't exist
+      const { initializeApp, getApps, getApp } = require('firebase/app');
+      const { getAuth, RecaptchaVerifier } = require('firebase/auth');
+      
+      const firebaseConfig = {
+        apiKey: "AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo",
+        authDomain: "see-me-app-5e487.firebaseapp.com",
+        projectId: "see-me-app-5e487",
+        storageBucket: "see-me-app-5e487.firebasestorage.app",
+        messagingSenderId: "5904630206",
+        appId: "1:5904630206:web:feecd66c5bcb713586f9ef"
+      };
+      
+      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      const auth = getAuth(app);
+      
+      // Create container for reCAPTCHA
       let recaptchaContainer = document.getElementById('recaptcha-container');
       if (!recaptchaContainer) {
         recaptchaContainer = document.createElement('div');
@@ -109,7 +123,7 @@ export default function PhoneScreen() {
         'expired-callback': () => {
           console.log('reCAPTCHA expired');
           setRecaptchaReady(false);
-          initRecaptcha();
+          initRecaptchaWeb();
         }
       });
 
@@ -118,15 +132,12 @@ export default function PhoneScreen() {
       console.log('reCAPTCHA ready');
     } catch (error) {
       console.error('reCAPTCHA init error:', error);
-      // Still allow proceeding - Firebase will show visible reCAPTCHA if needed
       setRecaptchaReady(true);
     }
   };
 
   const formatPhone = (text: string) => {
-    // Remove non-digits
     const cleaned = text.replace(/\D/g, '');
-    // Format as (XXX) XXX-XXXX
     if (cleaned.length <= 3) return cleaned;
     if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
@@ -150,18 +161,10 @@ export default function PhoneScreen() {
     try {
       if (Platform.OS === 'web') {
         // Web: Use Firebase JS SDK with reCAPTCHA
-        if (!recaptchaRef.current) {
-          Alert.alert('Error', 'reCAPTCHA not ready. Please wait and try again.');
-          setLoading(false);
-          return;
-        }
-        const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
-        globalConfirmationResult = confirmationResult;
+        await handleWebAuth(fullPhone);
       } else {
         // Native: Use React Native Firebase
-        const authNative = require('@react-native-firebase/auth').default;
-        const confirmationResult = await authNative().signInWithPhoneNumber(fullPhone);
-        globalConfirmationResult = confirmationResult;
+        await handleNativeAuth(fullPhone);
       }
 
       // Navigate to verify screen
@@ -171,24 +174,63 @@ export default function PhoneScreen() {
       });
     } catch (error: any) {
       console.error('Phone auth error:', error);
-      let message = 'Failed to send verification code. Please try again.';
-      
-      if (error.code === 'auth/invalid-phone-number') {
-        message = 'Invalid phone number format. Please check and try again.';
-      } else if (error.code === 'auth/too-many-requests') {
-        message = 'Too many attempts. Please try again later.';
-      } else if (error.code === 'auth/quota-exceeded') {
-        message = 'SMS quota exceeded. Please try again later.';
-      } else if (error.code === 'auth/captcha-check-failed') {
-        message = 'reCAPTCHA verification failed. Please refresh and try again.';
-      } else if (error.message) {
-        message = error.message;
-      }
-      
-      Alert.alert('Error', message);
+      handleAuthError(error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleWebAuth = async (fullPhone: string) => {
+    const { getApps, getApp, initializeApp } = require('firebase/app');
+    const { getAuth, signInWithPhoneNumber } = require('firebase/auth');
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo",
+      authDomain: "see-me-app-5e487.firebaseapp.com",
+      projectId: "see-me-app-5e487",
+      storageBucket: "see-me-app-5e487.firebasestorage.app",
+      messagingSenderId: "5904630206",
+      appId: "1:5904630206:web:feecd66c5bcb713586f9ef"
+    };
+    
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
+    
+    if (!recaptchaRef.current) {
+      throw new Error('reCAPTCHA not ready. Please wait and try again.');
+    }
+    
+    const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
+    globalConfirmationResult = confirmationResult;
+  };
+
+  const handleNativeAuth = async (fullPhone: string) => {
+    // Import React Native Firebase auth
+    const auth = require('@react-native-firebase/auth').default;
+    
+    // Sign in with phone number using native SDK
+    const confirmation = await auth().signInWithPhoneNumber(fullPhone);
+    globalConfirmationResult = confirmation;
+  };
+
+  const handleAuthError = (error: any) => {
+    let message = 'Failed to send verification code. Please try again.';
+    
+    if (error.code === 'auth/invalid-phone-number') {
+      message = 'Invalid phone number format. Please check and try again.';
+    } else if (error.code === 'auth/too-many-requests') {
+      message = 'Too many attempts. Please try again later.';
+    } else if (error.code === 'auth/quota-exceeded') {
+      message = 'SMS quota exceeded. Please try again later.';
+    } else if (error.code === 'auth/captcha-check-failed') {
+      message = 'reCAPTCHA verification failed. Please refresh and try again.';
+    } else if (error.code === 'auth/network-request-failed') {
+      message = 'Network error. Please check your connection and try again.';
+    } else if (error.message) {
+      message = error.message;
+    }
+    
+    Alert.alert('Error', message);
   };
 
   const isValidPhone = phone.replace(/\D/g, '').length >= 10;
@@ -291,7 +333,7 @@ export default function PhoneScreen() {
           <View style={styles.securityInfo}>
             <Ionicons name="shield-checkmark" size={16} color={COLORS.gold.primary} />
             <Text style={styles.securityText}>
-              Protected by Google reCAPTCHA
+              {Platform.OS === 'web' ? 'Protected by Google reCAPTCHA' : 'Secured by Firebase'}
             </Text>
           </View>
 
@@ -354,7 +396,7 @@ export default function PhoneScreen() {
           <View style={styles.bottomSecurityInfo}>
             <Ionicons name="shield-checkmark" size={14} color={COLORS.gold.primary} />
             <Text style={styles.bottomSecurityText}>
-              Protected by Google reCAPTCHA
+              {Platform.OS === 'web' ? 'Protected by Google reCAPTCHA' : 'Secured by Firebase'}
             </Text>
           </View>
         </Animated.View>
