@@ -12,7 +12,12 @@
           "package_name": "com.seemeapp.android"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "5904630206-j1611vsnkc3psffesuoqovjjkud58no0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDUK6ZbkNRe7RTgmNYgRhmEFO7mIyPQap8"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "5904630206-j1611vsnkc3psffesuoqovjjkud58no0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
