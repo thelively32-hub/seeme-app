@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.seeme.app",
       "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SEE ME needs your location to verify check-ins at places",
         "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places and activity",
