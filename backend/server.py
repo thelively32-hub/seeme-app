@@ -34,12 +34,20 @@ FIREBASE_CONFIG = {
     "appId": "1:5904630206:web:feecd66c5bcb713586f9ef"
 }
 
-# Initialize Firebase Admin (without credentials file - uses project ID only for token verification)
+# Initialize Firebase Admin with credentials from environment variable
+import json
 try:
     firebase_admin.get_app()
 except ValueError:
-    # No credentials file needed for just verifying tokens
-    firebase_admin.initialize_app(options={"projectId": FIREBASE_CONFIG["projectId"]})
+    firebase_creds_json = os.getenv("FIREBASE_CREDENTIALS")
+    if firebase_creds_json:
+        # Parse credentials from environment variable
+        creds_dict = json.loads(firebase_creds_json)
+        cred = credentials.Certificate(creds_dict)
+        firebase_admin.initialize_app(cred)
+    else:
+        # Fallback: No credentials file - uses project ID only
+        firebase_admin.initialize_app(options={"projectId": FIREBASE_CONFIG["projectId"]})
 
 # Google Places API Configuration
 GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyCPKT55qhr18vD63d91A5Ys6NoZvsq3D0s")
