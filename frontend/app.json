@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "seeme",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "owner": "thelively32",
     "extra": {
       "eas": {
@@ -51,16 +51,19 @@
       ],
       "googleServicesFile": "./google-services.json"
     },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "./plugins/withFirebaseFix",
       "expo-router",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -70,44 +73,11 @@
           "backgroundColor": "#0d0415"
         }
       ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "SEE ME uses your location to verify check-ins and show nearby activity.",
-          "isAndroidBackgroundLocationEnabled": true
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Take selfies to share in chat or scan QR codes"
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Share photos from your gallery in chat",
-          "cameraPermission": "Take selfies to share in chat"
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "color": "#F4C542"
-        }
-      ],
+      "expo-location",
+      "expo-camera",
+      "expo-image-picker",
+      "expo-notifications",
       "@react-native-community/datetimepicker",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static",
-            "extraPodfileProperties": {
-              "inhibit_all_warnings!": true
-            }
-          }
-        }
-      ],
       "expo-web-browser"
     ],
     "experiments": {
