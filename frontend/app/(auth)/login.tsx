@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,17 +16,33 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../../src/context/AuthContext';
+import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
 
-type AuthMode = 'options' | 'email-login' | 'email-signup' | 'phone';
+// Complete auth session for web
+WebBrowser.maybeCompleteAuthSession();
+
+// Google OAuth Client IDs - From Firebase Console
+const GOOGLE_CONFIG = {
+  androidClientId: '5904630206-android.apps.googleusercontent.com',
+  iosClientId: '5904630206-ios.apps.googleusercontent.com', 
+  webClientId: '5904630206-web.apps.googleusercontent.com',
+  expoClientId: '5904630206-expo.apps.googleusercontent.com',
+};
+
+type AuthMode = 'options' | 'email-login' | 'email-signup';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login, register } = useAuth();
+  const { login, register, refreshUser } = useAuth();
   const [mode, setMode] = useState<AuthMode>('options');
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
   
   // Email form state
   const [email, setEmail] = useState('');
@@ -34,7 +50,126 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  // Google Auth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: GOOGLE_CONFIG.androidClientId,
+    iosClientId: GOOGLE_CONFIG.iosClientId,
+    webClientId: GOOGLE_CONFIG.webClientId,
+  });
+
+  // Check Apple Auth availability
+  useEffect(() => {
+    const checkAppleAuth = async () => {
+      const available = await AppleAuthentication.isAvailableAsync();
+      setAppleAuthAvailable(available);
+    };
+    checkAppleAuth();
+  }, []);
+
+  // Handle Google response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      handleGoogleSuccess(response.authentication?.accessToken);
+    } else if (response?.type === 'error') {
+      setSocialLoading(null);
+      Alert.alert('Error', 'Google sign in failed. Please try again.');
+    }
+  }, [response]);
+
+  const handleGoogleSuccess = async (accessToken: string | undefined) => {
+    if (!accessToken) {
+      setSocialLoading(null);
+      return;
+    }
+    
+    try {
+      // Get user info from Google
+      const userInfoResponse = await fetch(
+        'https://www.googleapis.com/userinfo/v2/me',
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const userInfo = await userInfoResponse.json();
+      
+      // Authenticate with our backend
+      const result = await api.socialAuth('google', {
+        email: userInfo.email,
+        name: userInfo.name,
+        google_id: userInfo.id,
+        avatar: userInfo.picture,
+      });
+      
+      await refreshUser();
+      
+      if (result.is_new_user) {
+        router.replace('/(auth)/create-profile');
+      } else {
+        router.replace('/(tabs)/explore');
+      }
+    } catch (e: any) {
+      console.error('Google auth error:', e);
+      Alert.alert('Error', e.message || 'Failed to sign in with Google');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setSocialLoading('google');
+    try {
+      await promptAsync();
+    } catch (e) {
+      setSocialLoading(null);
+      Alert.alert('Error', 'Failed to start Google sign in');
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setSocialLoading('apple');
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      
+      // Get name from credential (only available on first sign in)
+      const fullName = credential.fullName;
+      const displayName = fullName 
+        ? `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim()
+        : undefined;
+      
+      // Authenticate with our backend
+      const result = await api.socialAuth('apple', {
+        apple_id: credential.user,
+        email: credential.email,
+        name: displayName,
+        identity_token: credential.identityToken,
+      });
+      
+      await refreshUser();
+      
+      if (result.is_new_user) {
+        router.replace('/(auth)/create-profile');
+      } else {
+        router.replace('/(tabs)/explore');
+      }
+    } catch (e: any) {
+      if (e.code !== 'ERR_CANCELED') {
+        console.error('Apple auth error:', e);
+        Alert.alert('Error', e.message || 'Failed to sign in with Apple');
+      }
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const handlePhoneSignIn = () => {
+    router.push('/(auth)/phone');
+  };
 
   const handleEmailLogin = async () => {
     if (!email || !password) {
@@ -74,18 +209,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    Alert.alert('Google Sign In', 'Google authentication coming soon!');
-  };
-
-  const handleAppleSignIn = () => {
-    Alert.alert('Apple Sign In', 'Apple authentication coming soon!');
-  };
-
-  const handlePhoneSignIn = () => {
-    router.push('/(auth)/phone');
-  };
-
   const resetForm = () => {
     setEmail('');
     setPassword('');
@@ -116,32 +239,45 @@ export default function LoginScreen() {
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={handleGoogleSignIn}
+          disabled={!request || socialLoading !== null}
           activeOpacity={0.8}
         >
           <View style={[styles.optionIconContainer, { backgroundColor: '#fff' }]}>
-            <Ionicons name="logo-google" size={24} color="#4285F4" />
+            {socialLoading === 'google' ? (
+              <ActivityIndicator size="small" color="#4285F4" />
+            ) : (
+              <Ionicons name="logo-google" size={24} color="#4285F4" />
+            )}
           </View>
           <Text style={styles.optionText}>Continue with Google</Text>
           <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
         </TouchableOpacity>
 
-        {/* Apple */}
-        <TouchableOpacity 
-          style={styles.optionButton}
-          onPress={handleAppleSignIn}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.optionIconContainer, { backgroundColor: '#fff' }]}>
-            <Ionicons name="logo-apple" size={24} color="#000" />
-          </View>
-          <Text style={styles.optionText}>Continue with Apple</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
-        </TouchableOpacity>
+        {/* Apple - Only show on iOS */}
+        {(Platform.OS === 'ios' && appleAuthAvailable) && (
+          <TouchableOpacity 
+            style={styles.optionButton}
+            onPress={handleAppleSignIn}
+            disabled={socialLoading !== null}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.optionIconContainer, { backgroundColor: '#fff' }]}>
+              {socialLoading === 'apple' ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Ionicons name="logo-apple" size={24} color="#000" />
+              )}
+            </View>
+            <Text style={styles.optionText}>Continue with Apple</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
+          </TouchableOpacity>
+        )}
 
         {/* Phone */}
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={handlePhoneSignIn}
+          disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
           <View style={[styles.optionIconContainer, { backgroundColor: COLORS.gold.primary }]}>
@@ -162,6 +298,7 @@ export default function LoginScreen() {
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={() => { resetForm(); setMode('email-login'); }}
+          disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
           <View style={[styles.optionIconContainer, { backgroundColor: COLORS.background.cardHover }]}>
@@ -175,6 +312,7 @@ export default function LoginScreen() {
         <TouchableOpacity 
           style={[styles.optionButton, styles.signupButton]}
           onPress={() => { resetForm(); setMode('email-signup'); }}
+          disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
           <LinearGradient

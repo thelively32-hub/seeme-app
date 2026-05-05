@@ -150,6 +150,37 @@ class ApiService {
     return data;
   }
 
+  // Social Auth (Google, Apple)
+  async socialAuth(provider: 'google' | 'apple', userData: {
+    email?: string;
+    name?: string;
+    google_id?: string;
+    apple_id?: string;
+    avatar?: string;
+    identity_token?: string;
+  }) {
+    const response = await fetch(`${this.baseUrl}/api/auth/social`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        ...userData,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Social authentication failed');
+    }
+    
+    const data = await response.json();
+    await this.setToken(data.access_token);
+    await this.setStoredUser(data.user);
+    return data;
+  }
+
   async getMe() {
     return this.request('/api/auth/me');
   }

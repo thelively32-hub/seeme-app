@@ -954,6 +954,112 @@ async def set_vibe(vibe_data: UserVibe, current_user: dict = Depends(get_current
     return user_to_response(updated)
 
 
+
+# ============== SOCIAL AUTH (Google, Apple) ==============
+class SocialAuthRequest(BaseModel):
+    provider: str  # 'google' or 'apple'
+    email: Optional[str] = None
+    name: Optional[str] = None
+    google_id: Optional[str] = None
+    apple_id: Optional[str] = None
+    avatar: Optional[str] = None
+    identity_token: Optional[str] = None
+
+class SocialAuthResponse(BaseModel):
+    access_token: str
+    user: UserResponse
+    is_new_user: bool
+
+@app.post("/api/auth/social", response_model=SocialAuthResponse, tags=["Auth"])
+async def social_auth(auth_data: SocialAuthRequest):
+    """Authenticate user via Google or Apple"""
+    provider = auth_data.provider.lower()
+    
+    if provider not in ['google', 'apple']:
+        raise HTTPException(status_code=400, detail="Invalid provider. Use 'google' or 'apple'")
+    
+    # Determine the social ID field
+    if provider == 'google':
+        social_id = auth_data.google_id
+        social_field = 'google_id'
+    else:
+        social_id = auth_data.apple_id
+        social_field = 'apple_id'
+    
+    if not social_id and not auth_data.email:
+        raise HTTPException(status_code=400, detail="Social ID or email is required")
+    
+    # Find existing user by social ID or email
+    query = {"$or": []}
+    if social_id:
+        query["$or"].append({social_field: social_id})
+    if auth_data.email:
+        query["$or"].append({"email": auth_data.email})
+    
+    user = await users_collection.find_one(query)
+    is_new_user = False
+    
+    if not user:
+        # Create new user
+        is_new_user = True
+        user_dict = {
+            "email": auth_data.email,
+            "name": auth_data.name or f"User_{social_id[-6:] if social_id else 'new'}",
+            "password": None,
+            "phone_number": None,
+            "firebase_uid": None,
+            "google_id": auth_data.google_id if provider == 'google' else None,
+            "apple_id": auth_data.apple_id if provider == 'apple' else None,
+            "photo_url": auth_data.avatar,
+            "age": None,
+            "gender": None,
+            "looking_for": None,
+            "intention": None,
+            "bio": None,
+            "vibes": 0,
+            "connection_rate": 0.0,
+            "is_premium": False,
+            "auth_provider": provider,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "last_seen": datetime.utcnow(),
+            "push_token": None,
+            "status_message": None,
+            "badges": [],
+            "blocks": [],
+            "reports": [],
+        }
+        result = await users_collection.insert_one(user_dict)
+        user = await users_collection.find_one({"_id": result.inserted_id})
+    else:
+        # Update existing user with social ID if not already set
+        update_dict = {
+            "last_seen": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        if social_id and not user.get(social_field):
+            update_dict[social_field] = social_id
+        if auth_data.avatar and not user.get('photo_url'):
+            update_dict['photo_url'] = auth_data.avatar
+        if auth_data.name and not user.get('name'):
+            update_dict['name'] = auth_data.name
+        
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": update_dict}
+        )
+        user = await users_collection.find_one({"_id": user["_id"]})
+    
+    # Create JWT token
+    token = create_access_token(data={"sub": str(user["_id"]), "auth_provider": provider})
+    
+    return {
+        "access_token": token,
+        "user": user_to_response(user),
+        "is_new_user": is_new_user,
+    }
+
+
 class ProfileUpdate(BaseModel):
     name: Optional[str] = None
     gender: Optional[str] = None
