@@ -57,6 +57,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withFirebaseFix",
       "expo-router",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
