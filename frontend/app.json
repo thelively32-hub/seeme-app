@@ -16,7 +16,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.seeme.app",
+      "bundleIdentifier": "com.luisgarcia.seeme",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
