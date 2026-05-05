@@ -30,10 +30,9 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Google OAuth Client IDs - From Firebase Console
 const GOOGLE_CONFIG = {
-  androidClientId: '5904630206-android.apps.googleusercontent.com',
-  iosClientId: '5904630206-ios.apps.googleusercontent.com', 
-  webClientId: '5904630206-web.apps.googleusercontent.com',
-  expoClientId: '5904630206-expo.apps.googleusercontent.com',
+  iosClientId: '5904630206-q9jhf2if199pmv836kuvkc66mv39if97.apps.googleusercontent.com',
+  androidClientId: '5904630206-f3m6liorm4i12b5bla4fo3ss4l9m3tsq.apps.googleusercontent.com',
+  webClientId: '5904630206-j1611vsnkc3psffesuoqovjjkud58no0.apps.googleusercontent.com',
 };
 
 type AuthMode = 'options' | 'email-login' | 'email-signup';
