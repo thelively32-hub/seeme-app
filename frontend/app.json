@@ -61,7 +61,8 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "ccacheEnabled": true
+            "ccacheEnabled": true,
+            "buildReactNativeFromSource": true
           }
         }
       ],
