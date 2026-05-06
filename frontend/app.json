@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "seeme",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "owner": "thelively32",
     "extra": {
       "eas": {
@@ -61,7 +61,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "deploymentTarget": "14.0"
+            "deploymentTarget": "15.1"
           }
         }
       ],
