@@ -69,7 +69,6 @@ export default function PhoneScreen() {
     if (Platform.OS === 'web') {
       initRecaptchaWeb();
     } else {
-      // For native, no reCAPTCHA needed - handled by Firebase native SDK
       setRecaptchaReady(true);
     }
 
@@ -199,14 +198,9 @@ export default function PhoneScreen() {
       throw new Error('reCAPTCHA not ready. Please wait and try again.');
     }
     
-    const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
-    globalConfirmationResult = confirmationResult;
   };
 
     
-    // Sign in with phone number using native SDK
-    const confirmation = await auth().signInWithPhoneNumber(fullPhone);
-    globalConfirmationResult = confirmation;
   };
 
   const handleAuthError = (error: any) => {
