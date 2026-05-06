@@ -66,15 +66,8 @@ export default function PhoneScreen() {
     ]).start();
 
     // Initialize based on platform
-    if (Platform.OS === 'web') {
-      initRecaptchaWeb();
-    } else if (Platform.OS === 'ios') {
-      // iOS uses Firebase JS SDK, needs reCAPTCHA
-      initRecaptchaWeb();
-    } else {
-      // For Android, no reCAPTCHA needed - handled by Firebase native SDK
-      setRecaptchaReady(true);
-    }
+    // All platforms now use Firebase JS SDK with reCAPTCHA
+    initRecaptchaWeb();
 
     return () => {
       // Cleanup reCAPTCHA for web
@@ -208,16 +201,9 @@ export default function PhoneScreen() {
   };
 
   const handleNativeAuth = async (fullPhone: string) => {
-    // For iOS without native Firebase, use the JS SDK same as web
-    // For Android, use React Native Firebase (native SDK)
-    if (Platform.OS === 'android') {
-      const auth = require('@react-native-firebase/auth').default;
-      const confirmation = await auth().signInWithPhoneNumber(fullPhone);
-      globalConfirmationResult = confirmation;
-    } else {
-      // iOS: Use Firebase JS SDK (same as web)
-      await handleWebAuth(fullPhone);
-    }
+    // Both iOS and Android now use Firebase JS SDK for consistency
+    // This avoids the @react-native-firebase compatibility issues
+    await handleWebAuth(fullPhone);
   };
 
   const handleAuthError = (error: any) => {
