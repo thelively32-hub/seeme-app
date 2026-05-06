@@ -61,20 +61,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "ccacheEnabled": true,
-            "extraPods": [
-              {
-                "name": "FirebaseCore",
-                "modular_headers": true
-              },
-              {
-                "name": "FirebaseAuth",
-                "modular_headers": true
-              }
-            ],
-            "buildSettings": {
-              "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES": "YES"
-            }
+            "deploymentTarget": "14.0"
           }
         }
       ],

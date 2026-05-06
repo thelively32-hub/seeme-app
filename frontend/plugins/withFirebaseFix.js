@@ -1,14 +1,33 @@
 /**
- * Expo Config Plugin para solucionar el error de compilación de iOS
- * con @react-native-firebase:
- * "include of non-modular header inside framework module"
- *
- * Solución basada en: https://github.com/invertase/react-native-firebase/issues/8657
+ * Expo Config Plugin - Firebase iOS Build Fix
+ * Soluciona: "include of non-modular header inside framework module 'RNFBApp'"
+ * 
+ * Este plugin inyecta la configuración necesaria en el Podfile usando
+ * el método oficial de Expo (mergeContents).
  */
 
 const { withDangerousMod } = require('@expo/config-plugins');
+const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode');
 const fs = require('fs');
 const path = require('path');
+
+const FIREBASE_FIX_TAG = 'react-native-firebase-fix';
+
+const firebaseFixCode = `
+  # ===== FIREBASE NON-MODULAR HEADERS FIX =====
+  # Fix for: include of non-modular header inside framework module 'RNFBApp'
+  # Reference: https://github.com/invertase/react-native-firebase/issues/8657
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    end
+  end
+  
+  installer.pods_project.build_configuration_list.build_configurations.each do |configuration|
+    configuration.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+  end
+  # ===== END FIREBASE FIX =====
+`;
 
 function withFirebaseFix(config) {
   return withDangerousMod(config, [
@@ -19,87 +38,71 @@ function withFirebaseFix(config) {
         'Podfile'
       );
 
-      console.log('[withFirebaseFix] 📍 Podfile path:', podfilePath);
+      console.log('[withFirebaseFix] 📍 Reading Podfile:', podfilePath);
 
       if (!fs.existsSync(podfilePath)) {
-        console.log('[withFirebaseFix] ⚠️ Podfile not found, skipping...');
+        console.log('[withFirebaseFix] ⚠️ Podfile not found');
         return config;
       }
 
       let podfileContent = fs.readFileSync(podfilePath, 'utf8');
 
-      // Verificar si ya existe el fix
-      if (podfileContent.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
-        console.log('[withFirebaseFix] ✅ Fix ya aplicado');
-        return config;
-      }
+      // Usar mergeContents para inyectar de forma segura
+      try {
+        const result = mergeContents({
+          tag: FIREBASE_FIX_TAG,
+          src: podfileContent,
+          newSrc: firebaseFixCode,
+          anchor: /post_install\s+do\s+\|installer\|/,
+          offset: 1, // Insertar después del anchor
+          comment: '#',
+        });
 
-      // Código de fix específico para Firebase pods
-      const firebaseFixCode = `
-    # ===== FIREBASE FIX START =====
-    # Fix for: include of non-modular header inside framework module 'RNFBApp'
-    # Reference: https://github.com/invertase/react-native-firebase/issues/8657
-    installer.pods_project.targets.each do |target|
-      if target.name.start_with?('RNFB') || target.name == 'Firebase' || target.name.start_with?('Firebase')
-        target.build_configurations.each do |config|
-          config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-          other_cflags = config.build_settings['OTHER_CFLAGS'] || ['$(inherited)']
-          unless other_cflags.include?('-Wno-non-modular-include-in-framework-module')
-            config.build_settings['OTHER_CFLAGS'] = other_cflags + ['-Wno-non-modular-include-in-framework-module']
-          end
-        end
-      end
-    end
-    
-    # Also apply to all pods as fallback
-    installer.pods_project.build_configuration_list.build_configurations.each do |configuration|
-      configuration.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-    end
-    # ===== FIREBASE FIX END =====`;
-
-      // Buscar diferentes patrones de post_install
-      const patterns = [
-        // Patrón de Expo: react_native_post_install
-        {
-          regex: /(react_native_post_install\s*\([^)]*\))/,
-          replacement: `$1\n${firebaseFixCode}`
-        },
-        // Patrón estándar: post_install do |installer|
-        {
-          regex: /(post_install\s+do\s+\|installer\|)/,
-          replacement: `$1\n${firebaseFixCode}`
+        if (result.didMerge) {
+          fs.writeFileSync(podfilePath, result.contents, 'utf8');
+          console.log('[withFirebaseFix] ✅ Fix inyectado exitosamente');
+        } else if (result.didClear) {
+          console.log('[withFirebaseFix] ℹ️ Fix existente fue actualizado');
+        } else {
+          // Fallback: buscar e inyectar manualmente
+          console.log('[withFirebaseFix] ⚠️ mergeContents no encontró anchor, intentando fallback...');
+          
+          if (podfileContent.includes('post_install do |installer|')) {
+            podfileContent = podfileContent.replace(
+              /(post_install\s+do\s+\|installer\|)/,
+              `$1\n${firebaseFixCode}`
+            );
+            fs.writeFileSync(podfilePath, podfileContent, 'utf8');
+            console.log('[withFirebaseFix] ✅ Fix inyectado via fallback');
+          } else {
+            console.log('[withFirebaseFix] ❌ No se encontró post_install block');
+          }
         }
-      ];
-
-      let applied = false;
-      for (const pattern of patterns) {
-        if (pattern.regex.test(podfileContent)) {
-          podfileContent = podfileContent.replace(pattern.regex, pattern.replacement);
-          console.log('[withFirebaseFix] ✅ Fix inyectado usando patrón:', pattern.regex.toString());
-          applied = true;
-          break;
+      } catch (error) {
+        console.log('[withFirebaseFix] ⚠️ Error con mergeContents, usando fallback:', error.message);
+        
+        // Fallback directo
+        if (!podfileContent.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
+          if (podfileContent.includes('post_install do |installer|')) {
+            podfileContent = podfileContent.replace(
+              /(post_install\s+do\s+\|installer\|)/,
+              `$1\n${firebaseFixCode}`
+            );
+          } else {
+            // Agregar post_install completo al final
+            podfileContent += `\npost_install do |installer|\n${firebaseFixCode}\nend\n`;
+          }
+          fs.writeFileSync(podfilePath, podfileContent, 'utf8');
+          console.log('[withFirebaseFix] ✅ Fix aplicado via fallback directo');
         }
       }
 
-      // Si no encontramos ningún patrón, agregar post_install completo
-      if (!applied) {
-        console.log('[withFirebaseFix] ⚠️ No se encontró post_install, agregando nuevo bloque');
-        const newPostInstall = `
-post_install do |installer|
-${firebaseFixCode}
-end
-`;
-        podfileContent += '\n' + newPostInstall;
-      }
-
-      fs.writeFileSync(podfilePath, podfileContent, 'utf8');
-      
-      // Verificar que se aplicó
-      const verifyContent = fs.readFileSync(podfilePath, 'utf8');
-      if (verifyContent.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
-        console.log('[withFirebaseFix] ✅ Fix verificado en Podfile');
+      // Verificación final
+      const finalContent = fs.readFileSync(podfilePath, 'utf8');
+      if (finalContent.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {
+        console.log('[withFirebaseFix] ✅ Verificación: Fix presente en Podfile');
       } else {
-        console.log('[withFirebaseFix] ❌ ERROR: Fix no se aplicó correctamente');
+        console.log('[withFirebaseFix] ❌ Verificación: Fix NO encontrado en Podfile');
       }
 
       return config;
