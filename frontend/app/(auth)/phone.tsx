@@ -1,16 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  Easing,
-  ActivityIndicator,
-  Alert,
+View,
+Text,
+StyleSheet,
+TouchableOpacity,
+TextInput,
+KeyboardAvoidingView,
+Animated,
+Easing,
+ActivityIndicator,
+Alert,
+Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,588 +18,252 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../src/theme/colors';
 
-// Country codes data
+// Firebase (WEB SDK only)
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+
+// Firebase config (web)
+const firebaseConfig = {
+apiKey: "AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo",
+authDomain: "see-me-app-5e487.firebaseapp.com",
+projectId: "see-me-app-5e487",
+storageBucket: "see-me-app-5e487.firebasestorage.app",
+messagingSenderId: "5904630206",
+appId: "1:5904630206:web:feecd66c5bcb713586f9ef",
+};
+
+// Init once
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+
+// Countries
 const COUNTRIES = [
-  { code: '+1', flag: '🇺🇸', name: 'USA' },
-  { code: '+34', flag: '🇪🇸', name: 'Spain' },
-  { code: '+44', flag: '🇬🇧', name: 'UK' },
-  { code: '+52', flag: '🇲🇽', name: 'Mexico' },
-  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+{ code: '+1', flag: '🇺🇸', name: 'USA' },
+{ code: '+34', flag: '🇪🇸', name: 'Spain' },
+{ code: '+44', flag: '🇬🇧', name: 'UK' },
+{ code: '+52', flag: '🇲🇽', name: 'Mexico' },
+{ code: '+57', flag: '🇨🇴', name: 'Colombia' },
+{ code: '+54', flag: '🇦🇷', name: 'Argentina' },
 ];
 
-// Store confirmation result globally for verify screen
+// Global confirmation for verify screen
 let globalConfirmationResult: any = null;
-
 export const getConfirmationResult = () => globalConfirmationResult;
-export const setConfirmationResult = (result: any) => { globalConfirmationResult = result; };
-export const clearConfirmationResult = () => { globalConfirmationResult = null; };
 
 export default function PhoneScreen() {
-  const insets = useSafeAreaInsets();
-  const [phone, setPhone] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [recaptchaReady, setRecaptchaReady] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-  const recaptchaRef = useRef<any>(null);
+const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
+const [phone, setPhone] = useState('');
+const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+const [showCountryPicker, setShowCountryPicker] = useState(false);
+const [loading, setLoading] = useState(false);
+const [recaptchaReady, setRecaptchaReady] = useState(false);
+const [termsAccepted, setTermsAccepted] = useState(false);
 
-    // Initialize based on platform
-    // All platforms now use Firebase JS SDK with reCAPTCHA
-    initRecaptchaWeb();
+const fadeAnim = useRef(new Animated.Value(0)).current;
+const slideAnim = useRef(new Animated.Value(20)).current;
+const recaptchaRef = useRef<any>(null);
 
-    return () => {
-      // Cleanup reCAPTCHA for web
-      if (Platform.OS === 'web' && recaptchaRef.current) {
-        try {
-          recaptchaRef.current.clear();
-        } catch (e) {
-          console.log('reCAPTCHA cleanup error:', e);
-        }
-      }
-    };
-  }, []);
+useEffect(() => {
+Animated.parallel([
+Animated.timing(fadeAnim, {
+toValue: 1,
+duration: 600,
+easing: Easing.out(Easing.cubic),
+useNativeDriver: true,
+}),
+Animated.timing(slideAnim, {
+toValue: 0,
+duration: 500,
+easing: Easing.out(Easing.cubic),
+useNativeDriver: true,
+}),
+]).start();
 
-  const initRecaptchaWeb = async () => {
-    try {
-      const { initializeApp, getApps, getApp } = require('firebase/app');
-      const { getAuth, RecaptchaVerifier } = require('firebase/auth');
-      
-      const firebaseConfig = {
-        apiKey: "AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo",
-        authDomain: "see-me-app-5e487.firebaseapp.com",
-        projectId: "see-me-app-5e487",
-        storageBucket: "see-me-app-5e487.firebasestorage.app",
-        messagingSenderId: "5904630206",
-        appId: "1:5904630206:web:feecd66c5bcb713586f9ef"
-      };
-      
-      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-      const auth = getAuth(app);
-      
-      // Create container for reCAPTCHA
-      let recaptchaContainer = document.getElementById('recaptcha-container');
-      if (!recaptchaContainer) {
-        recaptchaContainer = document.createElement('div');
-        recaptchaContainer.id = 'recaptcha-container';
-        recaptchaContainer.style.position = 'fixed';
-        recaptchaContainer.style.bottom = '10px';
-        recaptchaContainer.style.left = '50%';
-        recaptchaContainer.style.transform = 'translateX(-50%)';
-        recaptchaContainer.style.zIndex = '9999';
-        document.body.appendChild(recaptchaContainer);
-      }
+```
+initRecaptcha();
 
-      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {
-          console.log('reCAPTCHA verified');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired');
-          setRecaptchaReady(false);
-          initRecaptchaWeb();
-        }
-      });
+return () => {
+  try {
+    recaptchaRef.current?.clear?.();
+  } catch {}
+};
+```
 
-      await recaptchaRef.current.render();
-      setRecaptchaReady(true);
-      console.log('reCAPTCHA ready');
-    } catch (error) {
-      console.error('reCAPTCHA init error:', error);
-      setRecaptchaReady(true);
-    }
-  };
+}, []);
 
-  const formatPhone = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
+const initRecaptcha = async () => {
+try {
+// Solo web tiene document; en iOS/Android EAS igual compila esto sin ejecutarlo en runtime web
+if (typeof document !== 'undefined') {
+let container = document.getElementById('recaptcha-container');
+if (!container) {
+container = document.createElement('div');
+container.id = 'recaptcha-container';
+container.style.position = 'fixed';
+container.style.bottom = '10px';
+container.style.left = '50%';
+container.style.transform = 'translateX(-50%)';
+container.style.zIndex = '9999';
+document.body.appendChild(container);
+}
 
-  const handlePhoneChange = (text: string) => {
-    const formatted = formatPhone(text);
-    setPhone(formatted);
-  };
+```
+    recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+    });
 
-  const handleContinue = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      Alert.alert('Error', 'Please enter a valid phone number');
-      return;
-    }
+    await recaptchaRef.current.render();
+  }
 
-    const fullPhone = `${selectedCountry.code}${cleanPhone}`;
-    setLoading(true);
+  setRecaptchaReady(true);
+} catch (e) {
+  console.log('Recaptcha init error:', e);
+  setRecaptchaReady(true);
+}
+```
 
-    try {
-      if (Platform.OS === 'web') {
-        // Web: Use Firebase JS SDK with reCAPTCHA
-        await handleWebAuth(fullPhone);
-      } else {
-        // Native: Use React Native Firebase
-        await handleNativeAuth(fullPhone);
-      }
+};
 
-      // Navigate to verify screen
-      router.push({
-        pathname: '/(auth)/verify',
-        params: { phone: fullPhone }
-      });
-    } catch (error: any) {
-      console.error('Phone auth error:', error);
-      handleAuthError(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+const formatPhone = (text: string) => {
+const cleaned = text.replace(/\D/g, '');
+if (cleaned.length <= 3) return cleaned;
+if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+};
 
-  const handleWebAuth = async (fullPhone: string) => {
-    const { getApps, getApp, initializeApp } = require('firebase/app');
-    const { getAuth, signInWithPhoneNumber } = require('firebase/auth');
-    
-    const firebaseConfig = {
-      apiKey: "AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo",
-      authDomain: "see-me-app-5e487.firebaseapp.com",
-      projectId: "see-me-app-5e487",
-      storageBucket: "see-me-app-5e487.firebasestorage.app",
-      messagingSenderId: "5904630206",
-      appId: "1:5904630206:web:feecd66c5bcb713586f9ef"
-    };
-    
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    const auth = getAuth(app);
-    
-    if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA not ready. Please wait and try again.');
-    }
-    
-    const confirmationResult = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
-    globalConfirmationResult = confirmationResult;
-  };
+const handleContinue = async () => {
+const cleanPhone = phone.replace(/\D/g, '');
 
-  const handleNativeAuth = async (fullPhone: string) => {
-    // Both iOS and Android now use Firebase JS SDK for consistency
-    // This avoids the @react-native-firebase compatibility issues
-    await handleWebAuth(fullPhone);
-  };
+```
+if (cleanPhone.length < 10) {
+  Alert.alert('Error', 'Enter a valid phone number');
+  return;
+}
 
-  const handleAuthError = (error: any) => {
-    let message = 'Failed to send verification code. Please try again.';
-    
-    if (error.code === 'auth/invalid-phone-number') {
-      message = 'Invalid phone number format. Please check and try again.';
-    } else if (error.code === 'auth/too-many-requests') {
-      message = 'Too many attempts. Please try again later.';
-    } else if (error.code === 'auth/quota-exceeded') {
-      message = 'SMS quota exceeded. Please try again later.';
-    } else if (error.code === 'auth/captcha-check-failed') {
-      message = 'reCAPTCHA verification failed. Please refresh and try again.';
-    } else if (error.code === 'auth/network-request-failed') {
-      message = 'Network error. Please check your connection and try again.';
-    } else if (error.message) {
-      message = error.message;
-    }
-    
-    Alert.alert('Error', message);
-  };
+if (!termsAccepted) {
+  Alert.alert('Error', 'Accept terms to continue');
+  return;
+}
 
-  const isValidPhone = phone.replace(/\D/g, '').length >= 10;
-  const canContinue = isValidPhone && termsAccepted && recaptchaReady && !loading;
+const fullPhone = `${selectedCountry.code}${cleanPhone}`;
+setLoading(true);
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[COLORS.background.primary, COLORS.background.secondary]}
-        style={StyleSheet.absoluteFill}
-      />
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              paddingTop: insets.top + 20,
-              paddingBottom: insets.bottom + 20,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {/* Header */}
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
-          </TouchableOpacity>
+try {
+  if (!recaptchaRef.current) {
+    throw new Error('reCAPTCHA not ready');
+  }
 
-          {/* Title Section */}
-          <View style={styles.titleSection}>
-            <Text style={styles.title}>What's your{"\n"}phone number?</Text>
-            <Text style={styles.subtitle}>
-              We'll send you a verification code to confirm it's you
-            </Text>
-          </View>
-
-          {/* Phone Input Section */}
-          <View style={styles.inputSection}>
-            {/* Country Selector */}
-            <TouchableOpacity
-              style={styles.countrySelector}
-              onPress={() => setShowCountryPicker(!showCountryPicker)}
-            >
-              <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-              <Text style={styles.countryCode}>{selectedCountry.code}</Text>
-              <Ionicons name="chevron-down" size={16} color={COLORS.text.tertiary} />
-            </TouchableOpacity>
-
-            {/* Phone Input */}
-            <View style={styles.phoneInputContainer}>
-              <TextInput
-                style={styles.phoneInput}
-                placeholder="(555) 123-4567"
-                placeholderTextColor={COLORS.text.muted}
-                value={phone}
-                onChangeText={handlePhoneChange}
-                keyboardType="phone-pad"
-                maxLength={14}
-                autoFocus
-                editable={!loading}
-              />
-              {phone.length > 0 && !loading && (
-                <TouchableOpacity onPress={() => setPhone('')}>
-                  <View style={styles.clearButton}>
-                    <Ionicons name="close" size={16} color={COLORS.text.tertiary} />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Country Picker Dropdown */}
-          {showCountryPicker && (
-            <View style={styles.countryPicker}>
-              {COUNTRIES.map((country) => (
-                <TouchableOpacity
-                  key={country.code}
-                  style={[
-                    styles.countryOption,
-                    selectedCountry.code === country.code && styles.countryOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedCountry(country);
-                    setShowCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryOptionFlag}>{country.flag}</Text>
-                  <Text style={styles.countryOptionName}>{country.name}</Text>
-                  <Text style={styles.countryOptionCode}>{country.code}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Firebase Security Info */}
-          <View style={styles.securityInfo}>
-            <Ionicons name="shield-checkmark" size={16} color={COLORS.gold.primary} />
-            <Text style={styles.securityText}>
-              {Platform.OS === 'web' ? 'Protected by Google reCAPTCHA' : 'Secured by Firebase'}
-            </Text>
-          </View>
-
-          {/* Terms Checkbox */}
-          <TouchableOpacity 
-            style={styles.termsCheckboxContainer}
-            onPress={() => setTermsAccepted(!termsAccepted)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-              {termsAccepted && (
-                <Ionicons name="checkmark" size={16} color={COLORS.text.dark} />
-              )}
-            </View>
-            <Text style={styles.termsText}>
-              I accept the{' '}
-              <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>Terms of Service</Text>
-              {' '}and{' '}
-              <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
-            </Text>
-          </TouchableOpacity>
-
-          {/* Spacer */}
-          <View style={styles.spacer} />
-
-          {/* Continue Button */}
-          <TouchableOpacity
-            style={[
-              styles.continueButton, 
-              !canContinue && styles.continueButtonDisabled
-            ]}
-            onPress={handleContinue}
-            disabled={!canContinue}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={canContinue 
-                ? COLORS.gradients.goldButton 
-                : ['#3A3A3A', '#2A2A2A']}
-              style={styles.continueButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.text.muted} />
-              ) : !recaptchaReady ? (
-                <Text style={styles.continueButtonTextDisabled}>Loading...</Text>
-              ) : (
-                <Text style={[
-                  styles.continueButtonText,
-                  !canContinue && styles.continueButtonTextDisabled
-                ]}>
-                  Continue
-                </Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* Security Info */}
-          <View style={styles.bottomSecurityInfo}>
-            <Ionicons name="shield-checkmark" size={14} color={COLORS.gold.primary} />
-            <Text style={styles.bottomSecurityText}>
-              {Platform.OS === 'web' ? 'Protected by Google reCAPTCHA' : 'Secured by Firebase'}
-            </Text>
-          </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </View>
+  const confirmation = await signInWithPhoneNumber(
+    auth,
+    fullPhone,
+    recaptchaRef.current
   );
+
+  globalConfirmationResult = confirmation;
+
+  router.push({
+    pathname: '/(auth)/verify',
+    params: { phone: fullPhone },
+  });
+
+} catch (error: any) {
+  console.log(error);
+  Alert.alert('Error', error?.message || 'Failed to send code');
+} finally {
+  setLoading(false);
+}
+```
+
+};
+
+const canContinue =
+phone.replace(/\D/g, '').length >= 10 &&
+termsAccepted &&
+recaptchaReady &&
+!loading;
+
+return ( <View style={styles.container}>
+<LinearGradient
+colors={[COLORS.background.primary, COLORS.background.secondary]}
+style={StyleSheet.absoluteFill}
+/>
+
+```
+  <KeyboardAvoidingView
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    style={styles.keyboardView}
+  >
+    <Animated.View
+      style={[
+        styles.content,
+        {
+          paddingTop: insets.top + 20,
+          paddingBottom: insets.bottom + 20,
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
+      </TouchableOpacity>
+
+      <View style={styles.titleSection}>
+        <Text style={styles.title}>What's your phone number?</Text>
+        <Text style={styles.subtitle}>
+          We'll send you a verification code
+        </Text>
+      </View>
+
+      <View style={styles.inputSection}>
+        <TouchableOpacity
+          style={styles.countrySelector}
+          onPress={() => setShowCountryPicker(!showCountryPicker)}
+        >
+          <Text>{selectedCountry.flag}</Text>
+          <Text>{selectedCountry.code}</Text>
+        </TouchableOpacity>
+
+        <TextInput
+          style={styles.input}
+          value={phone}
+          onChangeText={(t) => setPhone(formatPhone(t))}
+          keyboardType="phone-pad"
+          placeholder="Phone number"
+        />
+      </View>
+
+      <TouchableOpacity onPress={() => setTermsAccepted(!termsAccepted)}>
+        <Text style={styles.terms}>Accept Terms</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleContinue}
+        disabled={!canContinue}
+      >
+        {loading ? <ActivityIndicator /> : <Text>Continue</Text>}
+      </TouchableOpacity>
+    </Animated.View>
+  </KeyboardAvoidingView>
+</View>
+```
+
+);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    marginLeft: -8,
-  },
-  titleSection: {
-    marginTop: 24,
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    lineHeight: 40,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.text.secondary,
-    marginTop: 12,
-    lineHeight: 24,
-  },
-  inputSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  countrySelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.card,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-  },
-  countryFlag: {
-    fontSize: 20,
-  },
-  countryCode: {
-    fontSize: 16,
-    color: COLORS.text.primary,
-    fontWeight: '600',
-  },
-  phoneInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.card,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border.gold,
-  },
-  phoneInput: {
-    flex: 1,
-    fontSize: 18,
-    color: COLORS.text.primary,
-    paddingVertical: 16,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  clearButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.background.cardHover,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countryPicker: {
-    marginTop: 12,
-    backgroundColor: COLORS.background.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-    overflow: 'hidden',
-  },
-  countryOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  countryOptionSelected: {
-    backgroundColor: COLORS.background.cardHover,
-  },
-  countryOptionFlag: {
-    fontSize: 20,
-  },
-  countryOptionName: {
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.text.primary,
-  },
-  countryOptionCode: {
-    fontSize: 14,
-    color: COLORS.text.tertiary,
-  },
-  securityInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    gap: 8,
-  },
-  securityText: {
-    fontSize: 13,
-    color: COLORS.text.muted,
-  },
-  termsCheckboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 24,
-    gap: 12,
-    paddingRight: 16,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: COLORS.border.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  checkboxChecked: {
-    backgroundColor: COLORS.gold.primary,
-    borderColor: COLORS.gold.primary,
-  },
-  spacer: {
-    flex: 1,
-  },
-  continueButton: {
-    borderRadius: 30,
-    overflow: 'hidden',
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.gold.bright,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  continueButtonDisabled: {
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  continueButtonGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.text.dark,
-    letterSpacing: 0.5,
-  },
-  continueButtonTextDisabled: {
-    color: COLORS.text.muted,
-  },
-  termsText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    lineHeight: 22,
-  },
-  termsLink: {
-    color: COLORS.gold.primary,
-    fontWeight: '600',
-  },
-  bottomSecurityInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    gap: 6,
-  },
-  bottomSecurityText: {
-    fontSize: 12,
-    color: COLORS.text.muted,
-  },
+container: { flex: 1 },
+keyboardView: { flex: 1 },
+content: { flex: 1, padding: 20 },
+titleSection: { marginBottom: 20 },
+title: { fontSize: 26, fontWeight: '700', color: '#fff' },
+subtitle: { color: '#aaa' },
+inputSection: { flexDirection: 'row', gap: 10 },
+countrySelector: { padding: 10, backgroundColor: '#222', borderRadius: 10 },
+input: { flex: 1, backgroundColor: '#222', padding: 12, borderRadius: 10 },
+button: { marginTop: 20, padding: 15, backgroundColor: 'gold', alignItems: 'center' },
+terms: { marginTop: 20, color: '#aaa' },
+backButton: { marginBottom: 20 },
 });
