@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "SEE ME",
-    "slug": "seeme",
+    "name": "VIBE ME",
+    "slug": "vibeme",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "seeme",
+    "scheme": "vibeme",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "owner": "thelively32",
@@ -16,12 +16,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.luisgarcia.seeme",
-      "buildNumber": "1",
+      "bundleIdentifier": "com.luisgarcia.vibeme",
+      "buildNumber": "2",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "SEE ME needs your location to verify check-ins at places",
-        "NSLocationAlwaysUsageDescription": "SEE ME uses your location to show nearby places and activity",
+        "NSLocationWhenInUseUsageDescription": "VIBE ME needs your location to verify check-ins at places",
+        "NSLocationAlwaysUsageDescription": "VIBE ME uses your location to show nearby places and activity",
         "NSCameraUsageDescription": "Take selfies to share in chat or scan QR codes to check-in",
         "NSPhotoLibraryUsageDescription": "Share photos from your gallery in chat",
         "UIBackgroundModes": [
@@ -32,8 +32,8 @@
       }
     },
     "android": {
-      "package": "com.seemeapp.android",
-      "versionCode": 1,
+      "package": "com.vibemeapp.android",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0d0415"
