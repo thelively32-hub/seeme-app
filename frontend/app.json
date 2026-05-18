@@ -66,28 +66,30 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "15.1",
+            "buildSettings": {
+              "CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES": "YES"
+            }
           }
         }
-      ],
-      [
+      ]
         "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#0d0415"
-        }
-      ],
-      "expo-location",
-      "expo-camera",
-      "expo-image-picker",
-      "expo-notifications",
-      "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      {
+        "image": "./assets/images/splash-icon.png",
+        "imageWidth": 200,
+        "resizeMode": "contain",
+        "backgroundColor": "#0d0415"
+      }
     ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    "expo-location",
+    "expo-camera",
+    "expo-image-picker",
+    "expo-notifications",
+    "@react-native-community/datetimepicker",
+    "expo-web-browser"
+  ],
+  "experiments": {
+    "typedRoutes": true
   }
+}
 }
