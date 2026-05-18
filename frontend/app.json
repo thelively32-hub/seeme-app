@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "VIBE ME",
+    "name": "Vibe Me",
     "slug": "vibeme",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,8 +20,8 @@
       "buildNumber": "2",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "VIBE ME needs your location to verify check-ins at places",
-        "NSLocationAlwaysUsageDescription": "VIBE ME uses your location to show nearby places and activity",
+        "NSLocationWhenInUseUsageDescription": "Vibe Me needs your location to verify check-ins at places",
+        "NSLocationAlwaysUsageDescription": "Vibe Me uses your location to show nearby places and activity",
         "NSCameraUsageDescription": "Take selfies to share in chat or scan QR codes to check-in",
         "NSPhotoLibraryUsageDescription": "Share photos from your gallery in chat",
         "UIBackgroundModes": [
