@@ -386,4 +386,3 @@ const styles = StyleSheet.create({
   bottomSecurityInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, gap: 6 },
   bottomSecurityText: { fontSize: 12, color: COLORS.text.muted },
 });
-```
