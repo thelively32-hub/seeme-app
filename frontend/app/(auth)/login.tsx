@@ -228,7 +228,7 @@ export default function LoginScreen() {
             <Ionicons name="location" size={32} color={COLORS.text.dark} />
           </LinearGradient>
         </View>
-        <Text style={styles.title}>Welcome to SEE ME</Text>
+        <Text style={styles.title}>Welcome to Vibe Me</Text>
         <Text style={styles.subtitle}>Choose how you want to continue</Text>
       </View>
 
@@ -422,7 +422,7 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
       <Text style={styles.formTitle}>Create Account</Text>
-      <Text style={styles.formSubtitle}>Join SEE ME and discover your social scene</Text>
+      <Text style={styles.formSubtitle}>Join Vibe Me and discover your social scene</Text>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 

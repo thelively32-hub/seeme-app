@@ -276,7 +276,7 @@ export default function WelcomeScreen() {
     if (isAuthenticated) {
       router.replace('/(tabs)/explore');
     } else {
-      router.push('/(auth)/phone');
+      router.push('/(auth)/login');
     }
   };
 
