@@ -95,7 +95,7 @@ export default function BackgroundMedia({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
+    backgroundColor: '#0d0415',
     overflow: 'hidden',
   },
   mediaWrapper: {
