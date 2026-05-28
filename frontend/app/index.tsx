@@ -396,8 +396,65 @@ export default function WelcomeScreen() {
             </View>
           </View>
 
-          {/* Location Pin Image - BELOW the text */}
-          <View style={styles.pinImageContainer}>
+          {/* Location Pin with Animated Radar Waves */}
+          <View style={styles.pinWithRadarContainer}>
+            {/* Animated radar waves */}
+            <View style={styles.radarWavesContainer}>
+              <Animated.View
+                style={[
+                  styles.radarWave,
+                  styles.radarWaveOuter,
+                  {
+                    transform: [
+                      {
+                        scale: pulseAnim.interpolate({
+                          inputRange: [1, 1.8],
+                          outputRange: [1, 1.4],
+                        }),
+                      },
+                    ],
+                    opacity: pulseAnim.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.4, 0],
+                    }),
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.radarWave,
+                  styles.radarWaveMiddle,
+                  {
+                    transform: [
+                      {
+                        scale: pulseAnim.interpolate({
+                          inputRange: [1, 1.8],
+                          outputRange: [1, 1.25],
+                        }),
+                      },
+                    ],
+                    opacity: pulseAnim.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.6, 0.1],
+                    }),
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.radarWave,
+                  styles.radarWaveInner,
+                  {
+                    opacity: pulseAnim.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.8, 0.3],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+            
+            {/* Pin Image */}
             <Animated.Image
               source={require('../assets/images/location-pin.png')}
               style={[
@@ -407,7 +464,7 @@ export default function WelcomeScreen() {
                     {
                       scale: pulseAnim.interpolate({
                         inputRange: [1, 1.8],
-                        outputRange: [1, 1.05],
+                        outputRange: [1, 1.03],
                       }),
                     },
                   ],
@@ -623,9 +680,44 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
   },
+  pinWithRadarContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    marginBottom: 8,
+    position: 'relative',
+    width: 120,
+    height: 120,
+  },
+  radarWavesContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  radarWave: {
+    position: 'absolute',
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: COLORS.goldPrimary,
+  },
+  radarWaveOuter: {
+    width: 110,
+    height: 110,
+  },
+  radarWaveMiddle: {
+    width: 85,
+    height: 85,
+  },
+  radarWaveInner: {
+    width: 60,
+    height: 60,
+  },
   pinImage: {
-    width: 180,
-    height: 180,
+    width: 65,
+    height: 85,
+    zIndex: 10,
   },
   pinHead: {
     width: 72,
@@ -762,29 +854,30 @@ const styles = StyleSheet.create({
 
   // Premium Button Styles
   premiumButton: {
-    width: '100%',
-    borderRadius: 30,
+    width: '85%',
+    borderRadius: 25,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 16,
+    alignSelf: 'center',
     ...Platform.select({
       ios: {
         shadowColor: COLORS.goldBright,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 15,
       },
       android: {
-        elevation: 15,
+        elevation: 12,
       },
     }),
   },
   premiumButtonGradient: {
-    paddingVertical: 18,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 30,
+    borderRadius: 25,
     overflow: 'hidden',
   },
   buttonShine: {
@@ -797,10 +890,10 @@ const styles = StyleSheet.create({
     transform: [{ skewX: '-20deg' }],
   },
   premiumButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: COLORS.textDark,
-    letterSpacing: 2.5,
+    letterSpacing: 2,
   },
 
   // Sign In Styles
