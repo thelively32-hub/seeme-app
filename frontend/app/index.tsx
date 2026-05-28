@@ -356,8 +356,8 @@ export default function WelcomeScreen() {
 
           {/* Main Logo Text */}
           <View style={styles.logoTextContainer}>
-            {/* "See" with custom styling */}
-            <Text style={styles.logoSee}>See</Text>
+            {/* "Vibe" with custom styling */}
+            <Text style={styles.logoVibe}>Vibe</Text>
 
             {/* Decorative line */}
             <LinearGradient
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  logoSee: {
+  logoVibe: {
     fontSize: 100,
     fontWeight: '300',
     color: COLORS.cream,
