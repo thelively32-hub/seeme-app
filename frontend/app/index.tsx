@@ -136,33 +136,27 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
 
       {/* Main Pin - Exact replica of app icon */}
       <View style={styles.svgPinContainer}>
-        <Svg width={100} height={115} viewBox="0 0 100 115">
+        <Svg width={70} height={75} viewBox="0 0 70 75">
           <Defs>
             <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="50%" y2="100%">
               <Stop offset="0%" stopColor="#FFE55C" />
               <Stop offset="40%" stopColor="#FFD700" />
               <Stop offset="100%" stopColor="#E6B800" />
             </SvgLinearGradient>
-            <SvgLinearGradient id="glowGradient" x1="50%" y1="0%" x2="50%" y2="100%">
-              <Stop offset="0%" stopColor="#FFE55C" stopOpacity="0.6" />
-              <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
-            </SvgLinearGradient>
           </Defs>
-          {/* Glow effect behind */}
-          <Circle cx="50" cy="45" r="48" fill="url(#glowGradient)" />
-          {/* Pin shape - rounder head, shorter point, modern */}
+          {/* Pin shape - compact, short point */}
           <Path
-            d="M50 8 
-               C78 8 92 28 92 50 
-               C92 72 70 88 50 108 
-               C30 88 8 72 8 50 
-               C8 28 22 8 50 8 Z"
+            d="M35 5 
+               C55 5 65 20 65 38 
+               C65 52 50 62 35 72 
+               C20 62 5 52 5 38 
+               C5 20 15 5 35 5 Z"
             fill="url(#goldGradient)"
           />
           {/* Large black circle */}
-          <Circle cx="50" cy="48" r="34" fill="#0a0a0a" />
+          <Circle cx="35" cy="35" r="24" fill="#0a0a0a" />
           {/* Gold dot in center */}
-          <Circle cx="50" cy="48" r="10" fill="#FFD700" />
+          <Circle cx="35" cy="35" r="7" fill="#FFD700" />
         </Svg>
       </View>
     </View>
