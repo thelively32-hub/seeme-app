@@ -134,29 +134,29 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
         <View style={styles.ringInner} />
       </View>
 
-      {/* Main Pin - Small decorative icon */}
+      {/* Main Pin - Tiny decorative icon */}
       <View style={styles.svgPinContainer}>
-        <Svg width={45} height={50} viewBox="0 0 45 50">
+        <Svg width={28} height={30} viewBox="0 0 28 30">
           <Defs>
             <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="50%" y2="100%">
               <Stop offset="0%" stopColor="#FFE55C" />
-              <Stop offset="40%" stopColor="#FFD700" />
+              <Stop offset="50%" stopColor="#FFD700" />
               <Stop offset="100%" stopColor="#E6B800" />
             </SvgLinearGradient>
           </Defs>
-          {/* Pin shape - very compact */}
+          {/* Pin - almost a circle with minimal point */}
           <Path
-            d="M22.5 3 
-               C35 3 42 13 42 25 
-               C42 35 32 42 22.5 48 
-               C13 42 3 35 3 25 
-               C3 13 10 3 22.5 3 Z"
+            d="M14 1 
+               C22 1 27 7 27 14 
+               C27 21 20 25 14 29 
+               C8 25 1 21 1 14 
+               C1 7 6 1 14 1 Z"
             fill="url(#goldGradient)"
           />
           {/* Black circle */}
-          <Circle cx="22.5" cy="23" r="15" fill="#0a0a0a" />
+          <Circle cx="14" cy="13" r="10" fill="#0a0a0a" />
           {/* Gold dot */}
-          <Circle cx="22.5" cy="23" r="4.5" fill="#FFD700" />
+          <Circle cx="14" cy="13" r="3" fill="#FFD700" />
         </Svg>
       </View>
     </View>
