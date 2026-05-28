@@ -134,25 +134,29 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
         <View style={styles.ringInner} />
       </View>
 
-      {/* Main Pin - Teardrop/Drop shape using SVG */}
+      {/* Main Pin - Exact replica of app icon */}
       <View style={styles.svgPinContainer}>
-        <Svg width={60} height={100} viewBox="0 0 60 100">
+        <Svg width={120} height={140} viewBox="0 0 120 140">
           <Defs>
             <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0%" stopColor="#FFD700" />
               <Stop offset="50%" stopColor="#D4A843" />
-              <Stop offset="100%" stopColor="#B8860B" />
+              <Stop offset="100%" stopColor="#C9A227" />
             </SvgLinearGradient>
           </Defs>
-          {/* Teardrop/Pin shape - very slim alien-like shape */}
+          {/* Pin shape - oval head with short pointed chin (alien face) */}
           <Path
-            d="M30 0 C42 0 52 10 52 24 C52 38 38 58 30 95 C22 58 8 38 8 24 C8 10 18 0 30 0 Z"
+            d="M60 5 
+               C95 5 110 30 110 55 
+               C110 80 85 100 60 130 
+               C35 100 10 80 10 55 
+               C10 30 25 5 60 5 Z"
             fill="url(#goldGradient)"
           />
-          {/* Black circle inside - occupies most of head */}
-          <Circle cx="30" cy="26" r="18" fill="#0a0a0a" />
+          {/* Large black circle - occupies most of head (alien eyes effect) */}
+          <Circle cx="60" cy="52" r="42" fill="#0a0a0a" />
           {/* Gold dot in center - Symbol of Ra */}
-          <Circle cx="30" cy="26" r="5" fill="#D4A843" />
+          <Circle cx="60" cy="52" r="12" fill="#D4A843" />
         </Svg>
       </View>
     </View>
