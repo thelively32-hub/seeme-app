@@ -398,56 +398,61 @@ export default function WelcomeScreen() {
 
           {/* Location Pin with Animated Radar Waves */}
           <View style={styles.pinWithRadarContainer}>
-            {/* Animated radar waves */}
+            {/* Animated ripple waves - like water ripples */}
             <View style={styles.radarWavesContainer}>
               <Animated.View
                 style={[
-                  styles.radarWave,
-                  styles.radarWaveOuter,
+                  styles.rippleWave,
                   {
                     transform: [
                       {
                         scale: pulseAnim.interpolate({
                           inputRange: [1, 1.8],
-                          outputRange: [1, 1.4],
+                          outputRange: [0.5, 2],
+                        }),
+                      },
+                    ],
+                    opacity: pulseAnim.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.6, 0],
+                    }),
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.rippleWave,
+                  {
+                    transform: [
+                      {
+                        scale: pulseAnim.interpolate({
+                          inputRange: [1, 1.8],
+                          outputRange: [0.6, 1.7],
+                        }),
+                      },
+                    ],
+                    opacity: pulseAnim.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.5, 0],
+                    }),
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.rippleWave,
+                  {
+                    transform: [
+                      {
+                        scale: pulseAnim.interpolate({
+                          inputRange: [1, 1.8],
+                          outputRange: [0.7, 1.4],
                         }),
                       },
                     ],
                     opacity: pulseAnim.interpolate({
                       inputRange: [1, 1.8],
                       outputRange: [0.4, 0],
-                    }),
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.radarWave,
-                  styles.radarWaveMiddle,
-                  {
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [1, 1.8],
-                          outputRange: [1, 1.25],
-                        }),
-                      },
-                    ],
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.8],
-                      outputRange: [0.6, 0.1],
-                    }),
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.radarWave,
-                  styles.radarWaveInner,
-                  {
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.8],
-                      outputRange: [0.8, 0.3],
                     }),
                   },
                 ]}
@@ -695,6 +700,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     height: '100%',
+  },
+  rippleWave: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: COLORS.goldPrimary,
+    backgroundColor: 'transparent',
   },
   radarWave: {
     position: 'absolute',
