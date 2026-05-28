@@ -23,15 +23,19 @@ const FALLBACK_IMAGE = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v17738
 
 // Premium Gold Color Palette - More vibrant & luxurious
 const COLORS = {
-  // Primary Golds
-  goldBright: '#FFD700',      // Vivid gold - highlights
-  goldPrimary: '#F4C542',     // Rich gold - main elements
+  // Primary Golds - Warm yellow gold (#FFD400 style)
+  goldBright: '#FFD400',      // Vivid gold - highlights
+  goldPrimary: '#FFD700',     // Rich gold - main elements
   goldLight: '#FFE566',       // Soft gold - accents
   goldPremium: '#E8B923',     // Deep gold - shadows
+  goldGlow: 'rgba(255, 212, 0, 0.3)', // Subtle glow
   
   // Neutrals
   cream: '#FFF8E7',           // Warm white
   champagne: '#F5E6C8',       // Elegant cream
+  
+  // Background overlay
+  overlayDark: 'rgba(0, 0, 0, 0.55)', // Cinematic overlay
   
   // Live indicator
   liveRed: '#FF3B30',         // Apple red for live
@@ -40,6 +44,8 @@ const COLORS = {
   // Text
   textDark: '#1A1A1A',
   textLight: '#FFFFFF',
+  textMuted: 'rgba(255, 255, 255, 0.7)',
+  textSubtle: 'rgba(255, 255, 255, 0.5)',
 };
 
 // Animated Live Pulse Component - Like Instagram Live
@@ -337,11 +343,11 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background Video */}
+      {/* Background Video with darker overlay */}
       <BackgroundMedia
         videoSource={VIDEO_URL}
         imageSource={FALLBACK_IMAGE}
-        overlayOpacity={0.52}
+        overlayOpacity={0.58}
         overlayGradient={true}
       />
 
@@ -350,14 +356,14 @@ export default function WelcomeScreen() {
         style={[
           styles.content,
           {
-            paddingTop: insets.top + 20,
-            paddingBottom: insets.bottom + 16,
+            paddingTop: insets.top + 30,
+            paddingBottom: insets.bottom + 20,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        {/* Top Badge - LIVE indicator */}
+        {/* Top Badge - LIVE indicator with more breathing room */}
         <View style={styles.topBadge}>
           <View style={styles.liveBadge}>
             <LivePulse pulseAnim={pulseAnim} />
@@ -366,39 +372,21 @@ export default function WelcomeScreen() {
           <Text style={styles.badgeText}>SOCIAL RADAR</Text>
         </View>
 
-        {/* Logo Section */}
+        {/* Spacer for visual hierarchy */}
+        <View style={styles.topSpacer} />
+
+        {/* HERO SECTION - Pin is the center of experience */}
         <Animated.View
           style={[
-            styles.logoSection,
+            styles.heroSection,
             {
               transform: [{ scale: logoScaleAnim }],
             },
           ]}
         >
-          {/* Main Logo Text */}
-          <View style={styles.logoTextContainer}>
-            {/* "Vibe" with custom styling */}
-            <Text style={styles.logoVibe}>Vibe</Text>
-
-            {/* Decorative line */}
-            <LinearGradient
-              colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldBright]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.logoLine}
-            />
-
-            {/* "ME" with letter spacing */}
-            <View style={styles.logoMeContainer}>
-              <Text style={styles.logoMeLetter}>M</Text>
-              <Text style={styles.logoMeSpace}> </Text>
-              <Text style={styles.logoMeLetter}>E</Text>
-            </View>
-          </View>
-
-          {/* Location Pin with Animated Radar Waves */}
-          <View style={styles.pinWithRadarContainer}>
-            {/* Animated ripple waves - like water ripples */}
+          {/* Location Pin with Animated Radar Waves - HERO ELEMENT */}
+          <View style={styles.pinHeroContainer}>
+            {/* Animated ripple waves - elegant water ripples */}
             <View style={styles.radarWavesContainer}>
               <Animated.View
                 style={[
@@ -408,26 +396,7 @@ export default function WelcomeScreen() {
                       {
                         scale: pulseAnim.interpolate({
                           inputRange: [1, 1.8],
-                          outputRange: [0.5, 2],
-                        }),
-                      },
-                    ],
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.8],
-                      outputRange: [0.6, 0],
-                    }),
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.rippleWave,
-                  {
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [1, 1.8],
-                          outputRange: [0.6, 1.7],
+                          outputRange: [0.4, 2.2],
                         }),
                       },
                     ],
@@ -446,7 +415,7 @@ export default function WelcomeScreen() {
                       {
                         scale: pulseAnim.interpolate({
                           inputRange: [1, 1.8],
-                          outputRange: [0.7, 1.4],
+                          outputRange: [0.5, 1.8],
                         }),
                       },
                     ],
@@ -457,19 +426,44 @@ export default function WelcomeScreen() {
                   },
                 ]}
               />
+              <Animated.View
+                style={[
+                  styles.rippleWave,
+                  {
+                    transform: [
+                      {
+                        scale: pulseAnim.interpolate({
+                          inputRange: [1, 1.8],
+                          outputRange: [0.6, 1.4],
+                        }),
+                      },
+                    ],
+                    opacity: pulseAnim.interpolate({
+                      inputRange: [1, 1.8],
+                      outputRange: [0.3, 0],
+                    }),
+                  },
+                ]}
+              />
             </View>
             
-            {/* Pin Image */}
+            {/* Pin Image - HERO with floating animation */}
             <Animated.Image
               source={require('../assets/images/location-pin.png')}
               style={[
-                styles.pinImage,
+                styles.pinImageHero,
                 {
                   transform: [
                     {
                       scale: pulseAnim.interpolate({
                         inputRange: [1, 1.8],
-                        outputRange: [1, 1.03],
+                        outputRange: [1, 1.02],
+                      }),
+                    },
+                    {
+                      translateY: pulseAnim.interpolate({
+                        inputRange: [1, 1.4, 1.8],
+                        outputRange: [0, -3, 0],
                       }),
                     },
                   ],
@@ -479,6 +473,27 @@ export default function WelcomeScreen() {
             />
           </View>
         </Animated.View>
+
+        {/* Brand Section - Below pin */}
+        <View style={styles.brandSection}>
+          {/* Main Logo Text */}
+          <View style={styles.logoTextContainer}>
+            {/* "Vibe" with elegant thin typography */}
+            <Text style={styles.logoVibe}>Vibe</Text>
+
+            {/* "ME" with tighter spacing */}
+            <View style={styles.logoMeContainer}>
+              <Text style={styles.logoMeLetter}>M</Text>
+              <Text style={styles.logoMeLetter}>E</Text>
+            </View>
+          </View>
+
+          {/* Tagline */}
+          <Text style={styles.tagline}>Discover who's around your vibe</Text>
+        </View>
+
+        {/* Spacer */}
+        <View style={styles.flexSpacer} />
 
         {/* Bottom Section */}
         <View style={styles.bottomSection}>
