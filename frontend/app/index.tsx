@@ -86,6 +86,8 @@ const LivePulse = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
 };
 
 // Classic Location Pin - Teardrop shape with concentric rings
+import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+
 const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
   return (
     <View style={styles.pinContainer}>
@@ -132,18 +134,26 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
         <View style={styles.ringInner} />
       </View>
 
-      {/* Main Pin - Teardrop shape like app icon */}
-      <View style={styles.teardropContainer}>
-        {/* Pin head (circle part) - black circle with gold border */}
-        <View style={styles.pinHead}>
-          {/* Black center with gold dot */}
-          <View style={styles.pinCenterCircle}>
-            <View style={styles.pinCenterDot} />
-          </View>
-        </View>
-
-        {/* Pin tail (pointed part) - Triangle using borders */}
-        <View style={styles.pinTail} />
+      {/* Main Pin - Teardrop/Drop shape using SVG */}
+      <View style={styles.svgPinContainer}>
+        <Svg width={80} height={110} viewBox="0 0 80 110">
+          <Defs>
+            <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#FFD700" />
+              <Stop offset="50%" stopColor="#D4A843" />
+              <Stop offset="100%" stopColor="#B8860B" />
+            </SvgLinearGradient>
+          </Defs>
+          {/* Teardrop/Pin shape - continuous curve */}
+          <Path
+            d="M40 0 C60 0 75 15 75 35 C75 55 55 75 40 105 C25 75 5 55 5 35 C5 15 20 0 40 0 Z"
+            fill="url(#goldGradient)"
+          />
+          {/* Black circle inside */}
+          <Circle cx="40" cy="38" r="24" fill="#0a0a0a" />
+          {/* Gold dot in center - Symbol of Ra */}
+          <Circle cx="40" cy="38" r="8" fill="#D4A843" />
+        </Svg>
       </View>
     </View>
   );
@@ -571,6 +581,11 @@ const styles = StyleSheet.create({
         elevation: 15,
       },
     }),
+  },
+  svgPinContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   pinHead: {
     width: 72,
