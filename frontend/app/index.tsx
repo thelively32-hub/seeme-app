@@ -132,7 +132,7 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
         <View style={styles.ringInner} />
       </View>
 
-      {/* Main Pin - Teardrop shape */}
+      {/* Main Pin - Teardrop shape like app icon */}
       <View style={styles.teardropContainer}>
         {/* Pin head (circle part) */}
         <View style={styles.pinHead}>
@@ -142,8 +142,11 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
             end={{ x: 0.7, y: 1 }}
             style={styles.pinHeadGradient}
           >
-            {/* White/light circle in center */}
-            <View style={styles.pinCenterCircle} />
+            {/* Black circle in center - like app icon */}
+            <View style={styles.pinCenterCircle}>
+              {/* Small gold dot in center */}
+              <View style={styles.pinCenterDot} />
+            </View>
           </LinearGradient>
         </View>
 
@@ -589,18 +592,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pinCenterCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.cream,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.4,
         shadowRadius: 4,
       },
     }),
+  },
+  pinCenterDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.goldPrimary,
   },
   // Triangle tail using CSS borders - perfectly centered
   pinTail: {
