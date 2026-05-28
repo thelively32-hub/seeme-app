@@ -136,27 +136,33 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
 
       {/* Main Pin - Exact replica of app icon */}
       <View style={styles.svgPinContainer}>
-        <Svg width={120} height={140} viewBox="0 0 120 140">
+        <Svg width={100} height={115} viewBox="0 0 100 115">
           <Defs>
-            <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#FFD700" />
-              <Stop offset="50%" stopColor="#D4A843" />
-              <Stop offset="100%" stopColor="#C9A227" />
+            <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="50%" y2="100%">
+              <Stop offset="0%" stopColor="#FFE55C" />
+              <Stop offset="40%" stopColor="#FFD700" />
+              <Stop offset="100%" stopColor="#E6B800" />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="glowGradient" x1="50%" y1="0%" x2="50%" y2="100%">
+              <Stop offset="0%" stopColor="#FFE55C" stopOpacity="0.6" />
+              <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
             </SvgLinearGradient>
           </Defs>
-          {/* Pin shape - oval head with short pointed chin (alien face) */}
+          {/* Glow effect behind */}
+          <Circle cx="50" cy="45" r="48" fill="url(#glowGradient)" />
+          {/* Pin shape - rounder head, shorter point, modern */}
           <Path
-            d="M60 5 
-               C95 5 110 30 110 55 
-               C110 80 85 100 60 130 
-               C35 100 10 80 10 55 
-               C10 30 25 5 60 5 Z"
+            d="M50 8 
+               C78 8 92 28 92 50 
+               C92 72 70 88 50 108 
+               C30 88 8 72 8 50 
+               C8 28 22 8 50 8 Z"
             fill="url(#goldGradient)"
           />
-          {/* Large black circle - occupies most of head (alien eyes effect) */}
-          <Circle cx="60" cy="52" r="42" fill="#0a0a0a" />
-          {/* Gold dot in center - Symbol of Ra */}
-          <Circle cx="60" cy="52" r="12" fill="#D4A843" />
+          {/* Large black circle */}
+          <Circle cx="50" cy="48" r="34" fill="#0a0a0a" />
+          {/* Gold dot in center */}
+          <Circle cx="50" cy="48" r="10" fill="#FFD700" />
         </Svg>
       </View>
     </View>
