@@ -375,9 +375,6 @@ export default function WelcomeScreen() {
             },
           ]}
         >
-          {/* Premium Location Pin */}
-          <PremiumLocationPin pulseAnim={pulseAnim} />
-
           {/* Main Logo Text */}
           <View style={styles.logoTextContainer}>
             {/* "Vibe" with custom styling */}
@@ -399,11 +396,25 @@ export default function WelcomeScreen() {
             </View>
           </View>
 
-          {/* Premium Tagline */}
-          <View style={styles.taglineContainer}>
-            <View style={styles.taglineLine} />
-            <Text style={styles.tagline}>KNOW THE VIBE FIRST</Text>
-            <View style={styles.taglineLine} />
+          {/* Location Pin Image - BELOW the text */}
+          <View style={styles.pinImageContainer}>
+            <Animated.Image
+              source={require('../assets/images/location-pin.png')}
+              style={[
+                styles.pinImage,
+                {
+                  transform: [
+                    {
+                      scale: pulseAnim.interpolate({
+                        inputRange: [1, 1.8],
+                        outputRange: [1, 1.05],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+              resizeMode="contain"
+            />
           </View>
         </Animated.View>
 
@@ -605,6 +616,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+  },
+  pinImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  pinImage: {
+    width: 180,
+    height: 180,
   },
   pinHead: {
     width: 72,
