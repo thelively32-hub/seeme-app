@@ -134,20 +134,12 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
 
       {/* Main Pin - Teardrop shape like app icon */}
       <View style={styles.teardropContainer}>
-        {/* Pin head (circle part) */}
+        {/* Pin head (circle part) - black circle with gold border */}
         <View style={styles.pinHead}>
-          <LinearGradient
-            colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldPremium]}
-            start={{ x: 0.3, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.pinHeadGradient}
-          >
-            {/* Black circle in center - like app icon */}
-            <View style={styles.pinCenterCircle}>
-              {/* Small gold dot in center */}
-              <View style={styles.pinCenterDot} />
-            </View>
-          </LinearGradient>
+          {/* Black center with gold dot */}
+          <View style={styles.pinCenterCircle}>
+            <View style={styles.pinCenterDot} />
+          </View>
         </View>
 
         {/* Pin tail (pointed part) - Triangle using borders */}
@@ -585,33 +577,39 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     overflow: 'hidden',
+    borderWidth: 4,
+    borderColor: COLORS.goldPrimary,
+    backgroundColor: '#0a0a0a',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pinHeadGradient: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   pinCenterCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1a1a1a',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#0a0a0a',
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.4,
-        shadowRadius: 4,
-      },
-    }),
   },
   pinCenterDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: COLORS.goldPrimary,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.goldBright,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 6,
+      },
+    }),
   },
   // Triangle tail using CSS borders - perfectly centered
   pinTail: {
