@@ -136,7 +136,7 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
 
       {/* Main Pin - Teardrop/Drop shape using SVG */}
       <View style={styles.svgPinContainer}>
-        <Svg width={80} height={110} viewBox="0 0 80 110">
+        <Svg width={60} height={100} viewBox="0 0 60 100">
           <Defs>
             <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0%" stopColor="#FFD700" />
@@ -144,15 +144,15 @@ const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
               <Stop offset="100%" stopColor="#B8860B" />
             </SvgLinearGradient>
           </Defs>
-          {/* Teardrop/Pin shape - continuous curve */}
+          {/* Teardrop/Pin shape - very slim alien-like shape */}
           <Path
-            d="M40 0 C60 0 75 15 75 35 C75 55 55 75 40 105 C25 75 5 55 5 35 C5 15 20 0 40 0 Z"
+            d="M30 0 C42 0 52 10 52 24 C52 38 38 58 30 95 C22 58 8 38 8 24 C8 10 18 0 30 0 Z"
             fill="url(#goldGradient)"
           />
-          {/* Black circle inside */}
-          <Circle cx="40" cy="38" r="24" fill="#0a0a0a" />
+          {/* Black circle inside - occupies most of head */}
+          <Circle cx="30" cy="26" r="18" fill="#0a0a0a" />
           {/* Gold dot in center - Symbol of Ra */}
-          <Circle cx="40" cy="38" r="8" fill="#D4A843" />
+          <Circle cx="30" cy="26" r="5" fill="#D4A843" />
         </Svg>
       </View>
     </View>
