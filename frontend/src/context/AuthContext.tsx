@@ -37,15 +37,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUser = async () => {
     try {
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      );
+      
       const storedUser = await api.getStoredUser();
       if (storedUser) {
         setUser(storedUser);
         // Verify token is still valid
         try {
-          const freshUser = await api.getMe();
+          const freshUser = await Promise.race([
+            api.getMe(),
+            timeoutPromise
+          ]) as User;
           setUser(freshUser);
         } catch (e) {
-          // Token invalid, clear it
+          // Token invalid or timeout, clear it
           await api.logout();
           setUser(null);
         }

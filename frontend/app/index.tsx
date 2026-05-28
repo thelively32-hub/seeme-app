@@ -304,6 +304,9 @@ export default function WelcomeScreen() {
           imageSource={FALLBACK_IMAGE}
           overlayOpacity={0.55}
         />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
       </View>
     );
   }
@@ -419,6 +422,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  loadingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#FFD700',
+    fontSize: 18,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
