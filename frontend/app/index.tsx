@@ -375,7 +375,7 @@ export default function WelcomeScreen() {
         {/* Spacer for visual hierarchy */}
         <View style={styles.topSpacer} />
 
-        {/* HERO SECTION - Pin is the center of experience */}
+        {/* HERO SECTION - Brand Logo centered */}
         <Animated.View
           style={[
             styles.heroSection,
@@ -384,8 +384,29 @@ export default function WelcomeScreen() {
             },
           ]}
         >
-          {/* Location Pin with Animated Radar Waves - HERO ELEMENT */}
-          <View style={styles.pinHeroContainer}>
+          {/* Logo centered with elegant typography */}
+          <View style={styles.logoHeroContainer}>
+            {/* Main Logo Text - "Vibe" */}
+            <Text style={styles.logoVibeHero}>Vibe</Text>
+            
+            {/* Decorative line */}
+            <LinearGradient
+              colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldBright]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.logoLineHero}
+            />
+            
+            {/* "M E" with elegant spacing */}
+            <View style={styles.logoMeHeroContainer}>
+              <Text style={styles.logoMeHeroLetter}>M</Text>
+              <View style={styles.logoMeHeroSpace} />
+              <Text style={styles.logoMeHeroLetter}>E</Text>
+            </View>
+          </View>
+          
+          {/* Location Pin below logo - smaller and elegant */}
+          <View style={styles.pinBelowLogo}>
             {/* Animated ripple waves - elegant water ripples */}
             <View style={styles.radarWavesContainer}>
               <Animated.View
@@ -447,11 +468,11 @@ export default function WelcomeScreen() {
               />
             </View>
             
-            {/* Pin Image - HERO with floating animation */}
+            {/* Pin Image with floating animation */}
             <Animated.Image
               source={require('../assets/images/location-pin.png')}
               style={[
-                styles.pinImageHero,
+                styles.pinImageSmall,
                 {
                   transform: [
                     {
@@ -474,21 +495,8 @@ export default function WelcomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Brand Section - Below pin */}
-        <View style={styles.brandSection}>
-          {/* Main Logo Text */}
-          <View style={styles.logoTextContainer}>
-            {/* "Vibe" with elegant thin typography */}
-            <Text style={styles.logoVibe}>Vibe</Text>
-
-            {/* "ME" with tighter spacing */}
-            <View style={styles.logoMeContainer}>
-              <Text style={styles.logoMeLetter}>M</Text>
-              <Text style={styles.logoMeLetter}>E</Text>
-            </View>
-          </View>
-
-          {/* Tagline */}
+        {/* Tagline below hero */}
+        <View style={styles.taglineContainer}>
           <Text style={styles.tagline}>Discover who's around your vibe</Text>
         </View>
 
@@ -552,6 +560,9 @@ const styles = StyleSheet.create({
   },
 
   // ========== TOP BADGE / LIVE INDICATOR ==========
+  topSpacer: {
+    height: 20,
+  },
   topBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -628,6 +639,75 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flex: 1,
     paddingBottom: 10,
+  },
+  
+  // ========== HERO SECTION ==========
+  heroSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  logoHeroContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoVibeHero: {
+    fontSize: 88,
+    fontWeight: '200',
+    color: COLORS.cream,
+    fontStyle: 'italic',
+    letterSpacing: -3,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 10,
+    ...Platform.select({
+      ios: {
+        fontFamily: 'Georgia',
+      },
+    }),
+  },
+  logoLineHero: {
+    width: 60,
+    height: 2.5,
+    borderRadius: 2,
+    marginTop: -10,
+    marginBottom: 8,
+  },
+  logoMeHeroContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoMeHeroLetter: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: COLORS.goldPrimary,
+    letterSpacing: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  logoMeHeroSpace: {
+    width: 14,
+  },
+  pinBelowLogo: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 100,
+    height: 100,
+    marginTop: 10,
+  },
+  pinImageSmall: {
+    width: 50,
+    height: 65,
+    zIndex: 10,
+  },
+  flexSpacer: {
+    flex: 0.3,
+  },
+  taglineContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
   },
 
   // Classic Location Pin Styles - Teardrop with rings
@@ -866,10 +946,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   tagline: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
     color: COLORS.champagne,
-    letterSpacing: 4,
+    letterSpacing: 3,
+    textTransform: 'uppercase',
     textShadowColor: 'rgba(0, 0, 0, 0.7)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,

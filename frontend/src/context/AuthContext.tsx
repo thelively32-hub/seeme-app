@@ -20,6 +20,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
   setVibe: (gender: string, lookingFor: string[], intention: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -72,6 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
   };
 
+  // Alias for signup
+  const register = signup;
+
   const setVibe = async (gender: string, lookingFor: string[], intention: string) => {
     const updatedUser = await api.setVibe(gender, lookingFor, intention);
     setUser(updatedUser);
@@ -99,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         signup,
+        register,
         setVibe,
         logout,
         refreshUser,
