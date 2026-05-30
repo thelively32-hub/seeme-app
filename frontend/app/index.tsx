@@ -1,536 +1,303 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Easing,
   Dimensions,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Video, ResizeMode } from 'expo-av';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../src/context/AuthContext';
-import BackgroundMedia from '../src/components/BackgroundMedia';
+import COLORS from '../src/theme/colors';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-// Video personalizado de SEE ME
-const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.mp4';
-const FALLBACK_IMAGE = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.jpg';
-
-// Premium Gold Color Palette - More vibrant & luxurious
-const COLORS = {
-  // Primary Golds - Warm yellow gold (#FFD400 style)
-  goldBright: '#FFD400',      // Vivid gold - highlights
-  goldPrimary: '#FFD700',     // Rich gold - main elements
-  goldLight: '#FFE566',       // Soft gold - accents
-  goldPremium: '#E8B923',     // Deep gold - shadows
-  goldGlow: 'rgba(255, 212, 0, 0.3)', // Subtle glow
-  
-  // Neutrals
-  cream: '#FFF8E7',           // Warm white
-  champagne: '#F5E6C8',       // Elegant cream
-  
-  // Background overlay
-  overlayDark: 'rgba(0, 0, 0, 0.55)', // Cinematic overlay
-  
-  // Live indicator
-  liveRed: '#FF3B30',         // Apple red for live
-  liveGlow: '#FF6B6B',        // Softer glow
-  
-  // Text
-  textDark: '#1A1A1A',
-  textLight: '#FFFFFF',
-  textMuted: 'rgba(255, 255, 255, 0.7)',
-  textSubtle: 'rgba(255, 255, 255, 0.5)',
-};
-
-// Animated Live Pulse Component - Like Instagram Live
-const LivePulse = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
-  return (
-    <View style={styles.livePulseContainer}>
-      {/* Outer pulse ring */}
-      <Animated.View
-        style={[
-          styles.livePulseOuter,
-          {
-            transform: [{ scale: pulseAnim }],
-            opacity: pulseAnim.interpolate({
-              inputRange: [1, 1.8],
-              outputRange: [0.6, 0],
-            }),
-          },
-        ]}
-      />
-      {/* Middle pulse ring */}
-      <Animated.View
-        style={[
-          styles.livePulseMiddle,
-          {
-            transform: [
-              {
-                scale: pulseAnim.interpolate({
-                  inputRange: [1, 1.8],
-                  outputRange: [1, 1.4],
-                }),
-              },
-            ],
-            opacity: pulseAnim.interpolate({
-              inputRange: [1, 1.8],
-              outputRange: [0.8, 0.2],
-            }),
-          },
-        ]}
-      />
-      {/* Core dot */}
-      <View style={styles.liveDotCore} />
-    </View>
-  );
-};
-
-// Classic Location Pin - Teardrop shape with concentric rings
-import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
-
-const PremiumLocationPin = ({ pulseAnim }: { pulseAnim: Animated.Value }) => {
-  return (
-    <View style={styles.pinContainer}>
-      {/* Concentric rings underneath - radar effect */}
-      <View style={styles.ringsContainer}>
-        <Animated.View
-          style={[
-            styles.ringOuter,
-            {
-              transform: [
-                {
-                  scale: pulseAnim.interpolate({
-                    inputRange: [1, 1.8],
-                    outputRange: [1, 1.3],
-                  }),
-                },
-              ],
-              opacity: pulseAnim.interpolate({
-                inputRange: [1, 1.8],
-                outputRange: [0.6, 0],
-              }),
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.ringMiddle,
-            {
-              transform: [
-                {
-                  scale: pulseAnim.interpolate({
-                    inputRange: [1, 1.8],
-                    outputRange: [1, 1.2],
-                  }),
-                },
-              ],
-              opacity: pulseAnim.interpolate({
-                inputRange: [1, 1.8],
-                outputRange: [0.8, 0.2],
-              }),
-            },
-          ]}
-        />
-        <View style={styles.ringInner} />
-      </View>
-
-      {/* Main Pin - Classic location pin outline style */}
-      <View style={styles.svgPinContainer}>
-        <Svg width={32} height={44} viewBox="0 0 32 44">
-          <Defs>
-            <SvgLinearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#FFE55C" />
-              <Stop offset="50%" stopColor="#FFD700" />
-              <Stop offset="100%" stopColor="#E6B800" />
-            </SvgLinearGradient>
-          </Defs>
-          {/* Pin outline shape */}
-          <Path
-            d="M16 2 
-               C8 2 2 8 2 16 
-               C2 24 16 40 16 40 
-               C16 40 30 24 30 16 
-               C30 8 24 2 16 2 Z"
-            fill="none"
-            stroke="url(#goldGradient)"
-            strokeWidth="2.5"
-          />
-          {/* Inner circle outline */}
-          <Circle 
-            cx="16" 
-            cy="15" 
-            r="6" 
-            fill="none" 
-            stroke="url(#goldGradient)" 
-            strokeWidth="2.5"
-          />
-          {/* Small shadow ellipse at bottom */}
-          <Path
-            d="M8 42 Q16 44 24 42"
-            fill="none"
-            stroke="url(#goldGradient)"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </Svg>
-      </View>
-    </View>
-  );
-};
-
-// Premium Button with Shine Effect
-const PremiumButton = ({
-  onPress,
-  title,
-  shineAnim,
-}: {
-  onPress: () => void;
-  title: string;
-  shineAnim: Animated.Value;
-}) => {
-  return (
-    <TouchableOpacity
-      style={styles.premiumButton}
-      onPress={onPress}
-      activeOpacity={0.9}
-    >
-      <LinearGradient
-        colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldPremium]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.premiumButtonGradient}
-      >
-        {/* Shine overlay animation */}
-        <Animated.View
-          style={[
-            styles.buttonShine,
-            {
-              transform: [
-                {
-                  translateX: shineAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-100, width + 100],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-        <Text style={styles.premiumButtonText}>{title}</Text>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-};
-
-export default function WelcomeScreen() {
+export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useAuth();
-
+  
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const logoScale = useRef(new Animated.Value(0.8)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const shineAnim = useRef(new Animated.Value(0)).current;
-  const logoScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  
+  // Radar pulse animations (3 waves)
+  const radar1 = useRef(new Animated.Value(0)).current;
+  const radar2 = useRef(new Animated.Value(0)).current;
+  const radar3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Main entrance animation
+    // Initial fade in
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
-        delay: 300,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
         duration: 800,
-        delay: 300,
-        easing: Easing.out(Easing.back(1.2)),
         useNativeDriver: true,
       }),
-      Animated.spring(logoScaleAnim, {
+      Animated.spring(logoScale, {
         toValue: 1,
-        delay: 400,
-        friction: 6,
-        tension: 40,
+        tension: 50,
+        friction: 7,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Live pulse animation - continuous
+    // Slow floating animation for pin (3 seconds)
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.8,
+        Animated.timing(floatAnim, {
+          toValue: -3,
           duration: 1500,
-          easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 0,
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 1500,
           useNativeDriver: true,
         }),
       ])
     ).start();
 
-    // Button shine animation - periodic
-    const shineLoop = () => {
-      Animated.sequence([
-        Animated.delay(3000),
-        Animated.timing(shineAnim, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(shineAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]).start(() => shineLoop());
+    // Slow radar pulse animation (4-5 seconds per cycle)
+    const startRadarAnimation = () => {
+      const animateWave = (anim: Animated.Value, delay: number) => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 4000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      };
+
+      animateWave(radar1, 0);
+      animateWave(radar2, 1300);
+      animateWave(radar3, 2600);
     };
-    shineLoop();
+
+    startRadarAnimation();
   }, []);
 
-  const handleCreateAccount = () => {
-    if (isAuthenticated) {
+  // Redirect authenticated users
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
       router.replace('/(tabs)/explore');
-    } else {
-      router.push('/(auth)/login');
     }
+  }, [isAuthenticated, isLoading]);
+
+  const handleCreateAccount = () => {
+    router.push('/(auth)/login');
   };
 
   const handleSignIn = () => {
-    if (isAuthenticated) {
-      router.replace('/(tabs)/explore');
-    } else {
-      router.push('/(auth)/login');
-    }
-  };
-
-  const handleTerms = () => {
-    router.push('/legal/terms');
-  };
-
-  const handlePrivacy = () => {
-    router.push('/legal/privacy');
+    router.push('/(auth)/login');
   };
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <BackgroundMedia
-          videoSource={VIDEO_URL}
-          imageSource={FALLBACK_IMAGE}
-          overlayOpacity={0.55}
+      <View style={styles.loadingContainer}>
+        <LinearGradient
+          colors={COLORS.gradients.darkBackground}
+          style={StyleSheet.absoluteFill}
         />
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Background Video with darker overlay */}
-      <BackgroundMedia
-        videoSource={VIDEO_URL}
-        imageSource={FALLBACK_IMAGE}
-        overlayOpacity={0.58}
-        overlayGradient={true}
+      {/* Background Video */}
+      <Video
+        source={{ uri: 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1773812258/See_me_intro_ready_hxj0xq.mp4' }}
+        style={StyleSheet.absoluteFill}
+        resizeMode={ResizeMode.COVER}
+        shouldPlay
+        isLooping
+        isMuted
       />
 
-      {/* Content */}
+      {/* Dark Overlay */}
+      <LinearGradient
+        colors={['rgba(5,5,5,0.6)', 'rgba(5,5,5,0.85)', 'rgba(5,5,5,0.95)']}
+        style={StyleSheet.absoluteFill}
+      />
+
       <Animated.View
         style={[
           styles.content,
           {
-            paddingTop: insets.top + 30,
+            paddingTop: insets.top + 20,
             paddingBottom: insets.bottom + 20,
             opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
           },
         ]}
       >
-        {/* Top Badge - LIVE indicator with more breathing room */}
-        <View style={styles.topBadge}>
-          <View style={styles.liveBadge}>
-            <LivePulse pulseAnim={pulseAnim} />
-            <Text style={styles.liveText}>LIVE</Text>
+        {/* Live Social Radar Badge */}
+        <View style={styles.liveBadge}>
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
           </View>
-          <Text style={styles.badgeText}>SOCIAL RADAR</Text>
+          <Text style={styles.liveText}>SOCIAL RADAR</Text>
         </View>
 
-        {/* Spacer for visual hierarchy */}
-        <View style={styles.topSpacer} />
-
-        {/* HERO SECTION - Brand Logo centered */}
-        <Animated.View
-          style={[
-            styles.heroSection,
-            {
-              transform: [{ scale: logoScaleAnim }],
-            },
-          ]}
-        >
-          {/* Logo centered with elegant typography */}
-          <View style={styles.logoHeroContainer}>
-            {/* Main Logo Text - "Vibe" */}
-            <Text style={styles.logoVibeHero}>Vibe</Text>
-            
-            {/* Decorative line */}
-            <LinearGradient
-              colors={[COLORS.goldBright, COLORS.goldPrimary, COLORS.goldBright]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.logoLineHero}
-            />
-            
-            {/* "M E" with elegant spacing */}
-            <View style={styles.logoMeHeroContainer}>
-              <Text style={styles.logoMeHeroLetter}>M</Text>
-              <View style={styles.logoMeHeroSpace} />
-              <Text style={styles.logoMeHeroLetter}>E</Text>
-            </View>
-          </View>
-          
-          {/* Location Pin below logo - smaller and elegant */}
-          <View style={styles.pinBelowLogo}>
-            {/* Animated ripple waves - elegant water ripples */}
-            <View style={styles.radarWavesContainer}>
-              <Animated.View
-                style={[
-                  styles.rippleWave,
-                  {
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [1, 1.8],
-                          outputRange: [0.4, 2.2],
-                        }),
-                      },
-                    ],
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.8],
-                      outputRange: [0.5, 0],
-                    }),
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.rippleWave,
-                  {
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [1, 1.8],
-                          outputRange: [0.5, 1.8],
-                        }),
-                      },
-                    ],
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.8],
-                      outputRange: [0.4, 0],
-                    }),
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.rippleWave,
-                  {
-                    transform: [
-                      {
-                        scale: pulseAnim.interpolate({
-                          inputRange: [1, 1.8],
-                          outputRange: [0.6, 1.4],
-                        }),
-                      },
-                    ],
-                    opacity: pulseAnim.interpolate({
-                      inputRange: [1, 1.8],
-                      outputRange: [0.3, 0],
-                    }),
-                  },
-                ]}
-              />
-            </View>
-            
-            {/* Pin Image with floating animation */}
-            <Animated.Image
-              source={require('../assets/images/location-pin.png')}
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          {/* Radar Waves */}
+          <View style={styles.radarContainer}>
+            <Animated.View
               style={[
-                styles.pinImageSmall,
+                styles.radarWave,
                 {
                   transform: [
-                    {
-                      scale: pulseAnim.interpolate({
-                        inputRange: [1, 1.8],
-                        outputRange: [1, 1.02],
-                      }),
-                    },
-                    {
-                      translateY: pulseAnim.interpolate({
-                        inputRange: [1, 1.4, 1.8],
-                        outputRange: [0, -3, 0],
-                      }),
-                    },
+                    { scale: radar1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 2.5],
+                      })
+                    }
+                  ],
+                  opacity: radar1.interpolate({
+                    inputRange: [0, 0.2, 1],
+                    outputRange: [0, 0.15, 0],
+                  }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.radarWave,
+                {
+                  transform: [
+                    { scale: radar2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 2.5],
+                      })
+                    }
+                  ],
+                  opacity: radar2.interpolate({
+                    inputRange: [0, 0.2, 1],
+                    outputRange: [0, 0.15, 0],
+                  }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.radarWave,
+                {
+                  transform: [
+                    { scale: radar3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 2.5],
+                      })
+                    }
+                  ],
+                  opacity: radar3.interpolate({
+                    inputRange: [0, 0.2, 1],
+                    outputRange: [0, 0.15, 0],
+                  }),
+                },
+              ]}
+            />
+
+            {/* Pin Icon with Glow */}
+            <Animated.View
+              style={[
+                styles.pinContainer,
+                {
+                  transform: [
+                    { translateY: floatAnim },
+                    { scale: logoScale },
                   ],
                 },
               ]}
-              resizeMode="contain"
-            />
+            >
+              {/* Glow Effect */}
+              <View style={styles.pinGlow} />
+              
+              {/* Pin Body */}
+              <LinearGradient
+                colors={[COLORS.gold.bright, COLORS.gold.primary, COLORS.gold.medium]}
+                style={styles.pinBody}
+              >
+                {/* Eye/Radar Icon */}
+                <View style={styles.pinEye}>
+                  <Ionicons name="eye" size={28} color={COLORS.background.primary} />
+                </View>
+              </LinearGradient>
+              
+              {/* Pin Tip */}
+              <View style={styles.pinTip} />
+            </Animated.View>
           </View>
-        </Animated.View>
 
-        {/* Tagline below hero */}
+          {/* Logo Text */}
+          <Animated.View style={[styles.logoTextContainer, { transform: [{ scale: logoScale }] }]}>
+            <Text style={styles.logoVibe}>Vibe</Text>
+            <View style={styles.logoLine} />
+            <Text style={styles.logoMe}>M E</Text>
+          </Animated.View>
+        </View>
+
+        {/* Tagline */}
         <View style={styles.taglineContainer}>
-          <Text style={styles.tagline}>Discover who's around your vibe</Text>
+          <Text style={styles.tagline}>DISCOVER WHO'S AROUND</Text>
+          <Text style={styles.tagline}>YOUR VIBE, RIGHT NOW</Text>
         </View>
 
         {/* Spacer */}
-        <View style={styles.flexSpacer} />
+        <View style={{ flex: 1 }} />
 
-        {/* Bottom Section */}
-        <View style={styles.bottomSection}>
-          {/* Premium CTA Button */}
-          <PremiumButton
+        {/* CTA Section */}
+        <View style={styles.ctaSection}>
+          {/* Create Account Button */}
+          <TouchableOpacity
+            style={styles.createButton}
             onPress={handleCreateAccount}
-            title="CREATE ACCOUNT"
-            shineAnim={shineAnim}
-          />
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={COLORS.gradients.goldButton}
+              style={styles.createButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.createButtonText}>CREATE ACCOUNT</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
           {/* Sign In Link */}
-          <View style={styles.signInRow}>
-            <Text style={styles.signInText}>Already have one? </Text>
-            <TouchableOpacity onPress={handleSignIn} activeOpacity={0.7}>
+          <View style={styles.signInContainer}>
+            <Text style={styles.signInText}>Already have an account? </Text>
+            <TouchableOpacity onPress={handleSignIn}>
               <Text style={styles.signInLink}>Sign in</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Legal Text */}
-          <Text style={styles.legalText}>
+          {/* Terms */}
+          <Text style={styles.terms}>
             By continuing you agree to our{' '}
-            <Text style={styles.legalLink} onPress={handleTerms}>
+            <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>
               Terms of Service
             </Text>
-            .{'\n'}See our{' '}
-            <Text style={styles.legalLink} onPress={handlePrivacy}>
+            {' '}and{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>
               Privacy Policy
             </Text>
-            .
           </Text>
         </View>
       </Animated.View>
@@ -541,359 +308,118 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: COLORS.background.primary,
   },
   loadingContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#FFD700',
-    fontSize: 18,
-    fontWeight: '600',
+    flex: 1,
   },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
 
-  // ========== TOP BADGE / LIVE INDICATOR ==========
-  topSpacer: {
-    height: 20,
-  },
-  topBadge: {
+  // Live Badge
+  liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    marginBottom: 20,
   },
-  liveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 59, 48, 0.3)',
-  },
-  livePulseContainer: {
-    width: 12,
-    height: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-  },
-  livePulseOuter: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.liveRed,
-  },
-  livePulseMiddle: {
-    position: 'absolute',
+  liveIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.liveGlow,
-  },
-  liveDotCore: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.liveRed,
+    backgroundColor: COLORS.live.red,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.liveRed,
+        shadowColor: COLORS.live.red,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  liveText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.liveRed,
-    letterSpacing: 1,
-  },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.cream,
-    letterSpacing: 3,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-
-  // ========== LOGO SECTION ==========
-  logoSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingBottom: 10,
-  },
-  
-  // ========== HERO SECTION ==========
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  logoHeroContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoVibeHero: {
-    fontSize: 88,
-    fontWeight: '200',
-    color: COLORS.cream,
-    fontStyle: 'italic',
-    letterSpacing: -3,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 10,
-    ...Platform.select({
-      ios: {
-        fontFamily: 'Georgia',
-      },
-    }),
-  },
-  logoLineHero: {
-    width: 60,
-    height: 2.5,
-    borderRadius: 2,
-    marginTop: -10,
-    marginBottom: 8,
-  },
-  logoMeHeroContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoMeHeroLetter: {
-    fontSize: 28,
-    fontWeight: '500',
-    color: COLORS.goldPrimary,
-    letterSpacing: 6,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  logoMeHeroSpace: {
-    width: 14,
-  },
-  pinBelowLogo: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: 100,
-    height: 100,
-    marginTop: 10,
-  },
-  pinImageSmall: {
-    width: 50,
-    height: 65,
-    zIndex: 10,
-  },
-  flexSpacer: {
-    flex: 0.3,
-  },
-  taglineContainer: {
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-
-  // Classic Location Pin Styles - Teardrop with rings
-  pinContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-    height: 160,
-    justifyContent: 'flex-end',
-  },
-  
-  // Concentric rings (radar effect)
-  ringsContainer: {
-    position: 'absolute',
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 100,
-    height: 40,
-  },
-  ringOuter: {
-    position: 'absolute',
-    width: 90,
-    height: 35,
-    borderRadius: 45,
-    borderWidth: 2,
-    borderColor: COLORS.goldPrimary,
-    backgroundColor: 'transparent',
-  },
-  ringMiddle: {
-    position: 'absolute',
-    width: 60,
-    height: 24,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: COLORS.goldPrimary,
-    backgroundColor: 'transparent',
-  },
-  ringInner: {
-    width: 30,
-    height: 12,
-    borderRadius: 15,
-    backgroundColor: COLORS.goldPrimary,
-    opacity: 0.7,
-  },
-  
-  // Teardrop pin
-  teardropContainer: {
-    alignItems: 'center',
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.goldBright,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.5,
-        shadowRadius: 15,
-      },
-      android: {
-        elevation: 15,
-      },
-    }),
-  },
-  svgPinContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  pinImageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  pinWithRadarContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    marginBottom: 8,
-    position: 'relative',
-    width: 120,
-    height: 120,
-  },
-  radarWavesContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
-  },
-  rippleWave: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: COLORS.goldPrimary,
-    backgroundColor: 'transparent',
-  },
-  radarWave: {
-    position: 'absolute',
-    borderRadius: 100,
-    borderWidth: 1.5,
-    borderColor: COLORS.goldPrimary,
-  },
-  radarWaveOuter: {
-    width: 110,
-    height: 110,
-  },
-  radarWaveMiddle: {
-    width: 85,
-    height: 85,
-  },
-  radarWaveInner: {
-    width: 60,
-    height: 60,
-  },
-  pinImage: {
-    width: 65,
-    height: 85,
-    zIndex: 10,
-  },
-  pinHead: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: COLORS.goldPrimary,
-    backgroundColor: '#0a0a0a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinHeadGradient: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  pinCenterCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#0a0a0a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinCenterDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: COLORS.goldPrimary,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.goldBright,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
         shadowRadius: 6,
       },
     }),
   },
-  // Triangle tail using CSS borders - perfectly centered
-  pinTail: {
-    width: 0,
-    height: 0,
-    marginTop: -6,
-    borderLeftWidth: 20,
-    borderRightWidth: 20,
-    borderTopWidth: 32,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: COLORS.goldPrimary,
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.live.red,
+  },
+  liveText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    letterSpacing: 3,
   },
 
-  // Logo Text Styles
+  // Hero Section
+  heroSection: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  radarContainer: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarWave: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 1.5,
+    borderColor: COLORS.gold.primary,
+  },
+  pinContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinGlow: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.gold.glow,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.gold.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 30,
+      },
+    }),
+  },
+  pinBody: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderBottomLeftRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '45deg' }],
+  },
+  pinEye: {
+    transform: [{ rotate: '-45deg' }],
+  },
+  pinTip: {
+    width: 0,
+    height: 0,
+    marginTop: -5,
+  },
+
+  // Logo
   logoTextContainer: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 30,
   },
   logoVibe: {
-    fontSize: 100,
-    fontWeight: '300',
-    color: COLORS.cream,
+    fontSize: 72,
+    fontWeight: '200',
+    color: COLORS.text.primary,
     fontStyle: 'italic',
     letterSpacing: -2,
-    textShadowColor: 'rgba(0, 0, 0, 0.6)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 15,
     ...Platform.select({
       ios: {
         fontFamily: 'Georgia',
@@ -901,146 +427,88 @@ const styles = StyleSheet.create({
     }),
   },
   logoLine: {
-    width: 70,
-    height: 3,
-    borderRadius: 2,
-    marginTop: -8,
-    marginBottom: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.goldBright,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 8,
-      },
-    }),
+    width: 50,
+    height: 2,
+    backgroundColor: COLORS.gold.primary,
+    marginVertical: 8,
+    borderRadius: 1,
   },
-  logoMeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoMeLetter: {
-    fontSize: 32,
+  logoMe: {
+    fontSize: 24,
     fontWeight: '600',
-    color: COLORS.goldPrimary,
-    letterSpacing: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.6)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
-  },
-  logoMeSpace: {
-    width: 16,
+    color: COLORS.gold.primary,
+    letterSpacing: 12,
   },
 
-  // Tagline Styles
+  // Tagline
   taglineContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 32,
-    gap: 12,
-  },
-  taglineLine: {
-    width: 24,
-    height: 1,
-    backgroundColor: COLORS.goldPrimary,
-    opacity: 0.5,
+    marginTop: 30,
   },
   tagline: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    color: COLORS.champagne,
+    color: COLORS.text.muted,
     letterSpacing: 3,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    lineHeight: 22,
   },
 
-  // ========== BOTTOM SECTION ==========
-  bottomSection: {
+  // CTA Section
+  ctaSection: {
     width: '100%',
     alignItems: 'center',
   },
-
-  // Premium Button Styles
-  premiumButton: {
-    width: '85%',
-    borderRadius: 25,
+  createButton: {
+    width: '100%',
+    borderRadius: 28,
     overflow: 'hidden',
-    marginBottom: 16,
-    alignSelf: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.goldBright,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 15,
+        shadowColor: COLORS.gold.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 12,
+        elevation: 8,
       },
     }),
   },
-  premiumButtonGradient: {
-    paddingVertical: 14,
+  createButtonGradient: {
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 25,
-    overflow: 'hidden',
   },
-  buttonShine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 60,
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    transform: [{ skewX: '-20deg' }],
-  },
-  premiumButtonText: {
-    fontSize: 14,
+  createButtonText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textDark,
+    color: COLORS.background.primary,
     letterSpacing: 2,
   },
-
-  // Sign In Styles
-  signInRow: {
+  signInContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: 20,
   },
   signInText: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.75)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    color: COLORS.text.secondary,
   },
   signInLink: {
     fontSize: 15,
-    color: COLORS.textLight,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: COLORS.text.primary,
     textDecorationLine: 'underline',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
-
-  // Legal Text Styles
-  legalText: {
+  terms: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.55)',
+    color: COLORS.text.muted,
     textAlign: 'center',
-    lineHeight: 20,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    marginTop: 20,
+    lineHeight: 18,
   },
-  legalLink: {
-    color: COLORS.champagne,
+  termsLink: {
+    color: COLORS.text.secondary,
     textDecorationLine: 'underline',
   },
 });
