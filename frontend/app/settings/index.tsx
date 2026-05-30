@@ -29,8 +29,15 @@ const showConfirmAlert = (
 ) => {
   if (Platform.OS === 'web') {
     // Use window.confirm for web
-    const confirmed = window.confirm(`${title}\n\n${message}`);
-    if (confirmed) {
+    try {
+      const confirmed = window.confirm(`${title}\n\n${message}`);
+      console.log('Confirm dialog result:', confirmed);
+      if (confirmed) {
+        onConfirm();
+      }
+    } catch (e) {
+      console.error('Confirm error:', e);
+      // Fallback: just execute
       onConfirm();
     }
   } else {
@@ -163,16 +170,36 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleLogout = () => {
-    showConfirmAlert(
-      'Cerrar Sesión',
-      '¿Estás seguro que quieres salir?',
-      async () => {
-        await logout();
-        router.replace('/');
-      },
-      'Salir'
-    );
+  const handleLogout = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Cerrar Sesión\n\n¿Estás seguro que quieres salir?');
+      if (confirmed) {
+        try {
+          console.log('Executing logout...');
+          await logout();
+          console.log('Logout successful, redirecting...');
+          router.replace('/');
+        } catch (e) {
+          console.error('Logout error:', e);
+        }
+      }
+    } else {
+      Alert.alert(
+        'Cerrar Sesión',
+        '¿Estás seguro que quieres salir?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Salir',
+            style: 'destructive',
+            onPress: async () => {
+              await logout();
+              router.replace('/');
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleDeleteAccount = () => {
