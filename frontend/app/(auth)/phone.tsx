@@ -15,8 +15,10 @@ import {
   Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import COLORS from '../../src/theme/colors';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
@@ -63,7 +65,6 @@ export default function PhoneScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
-  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -125,19 +126,25 @@ export default function PhoneScreen() {
     }
   };
 
-  const handlePhoneChange = (text: string) => {
-    // Only allow numbers
+  const formatPhone = (text: string) => {
     const cleaned = text.replace(/\D/g, '');
-    setPhone(cleaned);
+    if (cleaned.length <= 3) return cleaned;
+    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+  };
+
+  const handlePhoneChange = (text: string) => {
+    setPhone(formatPhone(text));
   };
 
   const handleContinue = async () => {
-    if (phone.length < 10) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
 
-    const fullPhone = `${selectedCountry.code}${phone}`;
+    const fullPhone = `${selectedCountry.code}${cleanPhone}`;
     setLoading(true);
 
     try {
@@ -177,182 +184,139 @@ export default function PhoneScreen() {
     Alert.alert('Error', message);
   };
 
-  const handleKeypadPress = (digit: string) => {
-    if (phone.length < 10) {
-      setPhone(prev => prev + digit);
-    }
-  };
-
-  const handleBackspace = () => {
-    setPhone(prev => prev.slice(0, -1));
-  };
-
-  const isValidPhone = phone.length >= 10;
+  const isValidPhone = phone.replace(/\D/g, '').length >= 10;
   const canContinue = isValidPhone && recaptchaReady && !loading;
-
-  // Format display phone number
-  const formatDisplayPhone = (num: string) => {
-    if (num.length === 0) return '';
-    if (num.length <= 3) return num;
-    if (num.length <= 6) return `${num.slice(0, 3)} ${num.slice(3)}`;
-    return `${num.slice(0, 3)} ${num.slice(3, 6)} ${num.slice(6)}`;
-  };
 
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.background.primary, COLORS.background.secondary]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <Animated.View
-          style={[
+        <ScrollView
+          contentContainerStyle={[
             styles.content,
-            {
-              paddingTop: insets.top + 10,
+            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={{
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {/* Back Button */}
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-          </TouchableOpacity>
-
-          {/* Title */}
-          <View style={styles.titleSection}>
-            <Text style={styles.title}>Can we get{'\n'}your number?</Text>
-          </View>
-
-          {/* Phone Input Section */}
-          <View style={styles.inputSection}>
-            {/* Country Selector */}
-            <TouchableOpacity
-              style={styles.countrySelector}
-              onPress={() => setShowCountryPicker(true)}
-            >
-              <Text style={styles.countryText}>
-                {selectedCountry.abbr} {selectedCountry.code}
-              </Text>
-              <Ionicons name="caret-down" size={12} color="#1A1A1A" />
+            }}
+          >
+            {/* Back Button */}
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
             </TouchableOpacity>
 
-            {/* Phone Number Display */}
-            <View style={styles.phoneInputContainer}>
-              <Text style={[
-                styles.phoneDisplay,
-                phone.length === 0 && styles.phoneDisplayPlaceholder
-              ]}>
-                {phone.length > 0 ? formatDisplayPhone(phone) : ''}
+            {/* Title Section */}
+            <View style={styles.titleSection}>
+              <Text style={styles.title}>What's your{'\n'}phone number?</Text>
+              <Text style={styles.subtitle}>
+                We'll send you a verification code to confirm it's you
               </Text>
-              <View style={styles.cursor} />
             </View>
-          </View>
 
-          {/* Divider line under inputs */}
-          <View style={styles.inputDividerContainer}>
-            <View style={styles.countryDivider} />
-            <View style={styles.phoneDivider} />
-          </View>
+            {/* Phone Input Section */}
+            <View style={styles.inputSection}>
+              {/* Country Selector */}
+              <TouchableOpacity
+                style={styles.countrySelector}
+                onPress={() => setShowCountryPicker(true)}
+              >
+                <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
+                <Text style={styles.countryCode}>{selectedCountry.code}</Text>
+                <Ionicons name="chevron-down" size={16} color={COLORS.text.tertiary} />
+              </TouchableOpacity>
 
-          {/* Terms Text */}
-          <View style={styles.termsSection}>
+              {/* Phone Input */}
+              <View style={styles.phoneInputContainer}>
+                <TextInput
+                  style={styles.phoneInput}
+                  placeholder="(555) 123-4567"
+                  placeholderTextColor={COLORS.text.muted}
+                  value={phone}
+                  onChangeText={handlePhoneChange}
+                  keyboardType="phone-pad"
+                  maxLength={14}
+                  autoFocus
+                  editable={!loading}
+                />
+                {phone.length > 0 && !loading && (
+                  <TouchableOpacity onPress={() => setPhone('')}>
+                    <View style={styles.clearButton}>
+                      <Ionicons name="close" size={16} color={COLORS.text.tertiary} />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Security Badge */}
+            <View style={styles.securityBadge}>
+              <Ionicons name="shield-checkmark" size={16} color={COLORS.gold.primary} />
+              <Text style={styles.securityText}>
+                Your number is protected and will never be shared
+              </Text>
+            </View>
+
+            {/* Terms Text */}
             <Text style={styles.termsText}>
-              By entering your number, you agree to get texts about your account, like verification codes, account alerts, reminders, and updates (e.g. Likes, matches, unread messages).
+              By entering your number, you agree to receive SMS messages for verification. Message and data rates may apply.
             </Text>
-            <Text style={styles.termsTextSecondary}>
-              Message frequency varies and data rates may apply. Reply STOP to cancel.
-            </Text>
-          </View>
 
-          {/* Next Button */}
-          <TouchableOpacity
-            style={[styles.nextButton, canContinue && styles.nextButtonActive]}
-            onPress={handleContinue}
-            disabled={!canContinue}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color={canContinue ? '#1A1A1A' : '#9CA3AF'} />
-            ) : (
-              <Text style={[styles.nextButtonText, canContinue && styles.nextButtonTextActive]}>
-                Next
-              </Text>
-            )}
-          </TouchableOpacity>
+            {/* Continue Button */}
+            <TouchableOpacity
+              style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
+              onPress={handleContinue}
+              disabled={!canContinue}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={canContinue ? ['#FFD700', '#FFC000', '#FFB300'] : ['#3A3A3A', '#2A2A2A']}
+                style={styles.continueButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {loading ? (
+                  <ActivityIndicator color={canContinue ? '#1A1A1A' : COLORS.text.muted} />
+                ) : !recaptchaReady ? (
+                  <Text style={styles.continueButtonTextDisabled}>Loading...</Text>
+                ) : (
+                  <Text style={[styles.continueButtonText, !canContinue && styles.continueButtonTextDisabled]}>
+                    Continue
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
 
-          {/* Custom Keypad */}
-          <View style={[styles.keypad, { paddingBottom: insets.bottom + 10 }]}>
-            <View style={styles.keypadRow}>
-              {[
-                { digit: '1', letters: '' },
-                { digit: '2', letters: 'ABC' },
-                { digit: '3', letters: 'DEF' },
-              ].map((key) => (
-                <TouchableOpacity
-                  key={key.digit}
-                  style={styles.keypadButton}
-                  onPress={() => handleKeypadPress(key.digit)}
-                  activeOpacity={0.6}
-                >
-                  <Text style={styles.keypadDigit}>{key.digit}</Text>
-                  {key.letters ? <Text style={styles.keypadLetters}>{key.letters}</Text> : null}
-                </TouchableOpacity>
-              ))}
+            {/* Or divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or sign in with</Text>
+              <View style={styles.dividerLine} />
             </View>
-            <View style={styles.keypadRow}>
-              {[
-                { digit: '4', letters: 'GHI' },
-                { digit: '5', letters: 'JKL' },
-                { digit: '6', letters: 'MNO' },
-              ].map((key) => (
-                <TouchableOpacity
-                  key={key.digit}
-                  style={styles.keypadButton}
-                  onPress={() => handleKeypadPress(key.digit)}
-                  activeOpacity={0.6}
-                >
-                  <Text style={styles.keypadDigit}>{key.digit}</Text>
-                  {key.letters ? <Text style={styles.keypadLetters}>{key.letters}</Text> : null}
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.keypadRow}>
-              {[
-                { digit: '7', letters: 'PQRS' },
-                { digit: '8', letters: 'TUV' },
-                { digit: '9', letters: 'WXYZ' },
-              ].map((key) => (
-                <TouchableOpacity
-                  key={key.digit}
-                  style={styles.keypadButton}
-                  onPress={() => handleKeypadPress(key.digit)}
-                  activeOpacity={0.6}
-                >
-                  <Text style={styles.keypadDigit}>{key.digit}</Text>
-                  {key.letters ? <Text style={styles.keypadLetters}>{key.letters}</Text> : null}
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.keypadRow}>
-              <View style={styles.keypadButtonEmpty} />
+
+            {/* Alternative sign in options */}
+            <View style={styles.alternativeOptions}>
               <TouchableOpacity
-                style={styles.keypadButton}
-                onPress={() => handleKeypadPress('0')}
-                activeOpacity={0.6}
+                style={styles.alternativeButton}
+                onPress={() => router.back()}
               >
-                <Text style={styles.keypadDigit}>0</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.keypadButtonBackspace}
-                onPress={handleBackspace}
-                activeOpacity={0.6}
-              >
-                <Ionicons name="backspace-outline" size={28} color="#1A1A1A" />
+                <Ionicons name="mail-outline" size={20} color={COLORS.text.primary} />
+                <Text style={styles.alternativeButtonText}>Email</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Country Picker Modal */}
@@ -363,10 +327,14 @@ export default function PhoneScreen() {
         onRequestClose={() => setShowCountryPicker(false)}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <LinearGradient
+            colors={[COLORS.background.primary, COLORS.background.secondary]}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Country</Text>
             <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-              <Ionicons name="close" size={28} color="#1A1A1A" />
+              <Ionicons name="close" size={28} color={COLORS.text.primary} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.countryList}>
@@ -386,7 +354,7 @@ export default function PhoneScreen() {
                 <Text style={styles.countryOptionName}>{country.name}</Text>
                 <Text style={styles.countryOptionCode}>{country.code}</Text>
                 {selectedCountry.code === country.code && (
-                  <Ionicons name="checkmark" size={22} color="#FFD700" />
+                  <Ionicons name="checkmark" size={22} color={COLORS.gold.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -400,13 +368,12 @@ export default function PhoneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   keyboardView: {
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
   },
   backButton: {
@@ -416,162 +383,165 @@ const styles = StyleSheet.create({
     marginLeft: -8,
   },
   titleSection: {
-    marginTop: 20,
+    marginTop: 24,
     marginBottom: 40,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#1A1A1A',
-    lineHeight: 42,
+    color: COLORS.text.primary,
+    lineHeight: 40,
     letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: COLORS.text.secondary,
+    marginTop: 12,
+    lineHeight: 24,
   },
   inputSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   countrySelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingBottom: 12,
+    backgroundColor: COLORS.background.card,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
   },
-  countryText: {
-    fontSize: 17,
-    fontWeight: '400',
-    color: '#1A1A1A',
+  countryFlag: {
+    fontSize: 20,
+  },
+  countryCode: {
+    fontSize: 16,
+    color: COLORS.text.primary,
+    fontWeight: '600',
   },
   phoneInputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 12,
-    minHeight: 40,
+    backgroundColor: COLORS.background.card,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border.gold,
   },
-  phoneDisplay: {
-    fontSize: 17,
-    color: '#1A1A1A',
-    fontWeight: '400',
-    letterSpacing: 1,
-  },
-  phoneDisplayPlaceholder: {
-    color: '#9CA3AF',
-  },
-  cursor: {
-    width: 2,
-    height: 24,
-    backgroundColor: '#FFD700',
-    marginLeft: 2,
-  },
-  inputDividerContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  countryDivider: {
-    width: 80,
-    height: 1,
-    backgroundColor: '#D1D5DB',
-  },
-  phoneDivider: {
+  phoneInput: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#D1D5DB',
+    fontSize: 18,
+    color: COLORS.text.primary,
+    paddingVertical: 16,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
-  termsSection: {
-    marginTop: 24,
+  clearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.background.cardHover,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  securityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 8,
+  },
+  securityText: {
+    fontSize: 13,
+    color: COLORS.text.muted,
   },
   termsText: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 22,
-  },
-  termsTextSecondary: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 22,
-    marginTop: 16,
-  },
-  nextButton: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 30,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 13,
+    color: COLORS.text.muted,
+    textAlign: 'center',
     marginTop: 24,
+    lineHeight: 20,
+    paddingHorizontal: 16,
   },
-  nextButtonActive: {
-    backgroundColor: '#FFD700',
-  },
-  nextButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  nextButtonTextActive: {
-    color: '#1A1A1A',
-  },
-  keypad: {
-    marginTop: 'auto',
-    backgroundColor: '#E8E8E8',
-    marginHorizontal: -24,
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    zIndex: 100,
-  },
-  keypadRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  keypadButton: {
-    width: 110,
-    height: 54,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 4,
+  continueButton: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    marginTop: 32,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowColor: COLORS.gold.bright,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 2,
+        elevation: 8,
       },
     }),
   },
-  keypadButtonEmpty: {
-    width: 110,
-    height: 54,
-    marginHorizontal: 4,
+  continueButtonDisabled: {
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  keypadButtonBackspace: {
-    width: 110,
-    height: 54,
+  continueButtonGradient: {
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 4,
   },
-  keypadDigit: {
-    fontSize: 28,
-    fontWeight: '400',
+  continueButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1A1A1A',
+    letterSpacing: 0.5,
   },
-  keypadLetters: {
-    fontSize: 10,
+  continueButtonTextDisabled: {
+    color: COLORS.text.muted,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 32,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border.light,
+  },
+  dividerText: {
+    color: COLORS.text.muted,
+    paddingHorizontal: 16,
+    fontSize: 14,
+  },
+  alternativeOptions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 16,
+  },
+  alternativeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background.card,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
+  },
+  alternativeButtonText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
-    letterSpacing: 2,
-    marginTop: 2,
+    color: COLORS.text.primary,
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -580,12 +550,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: COLORS.border.light,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: COLORS.text.primary,
   },
   countryList: {
     flex: 1,
@@ -596,11 +566,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.border.light,
     gap: 12,
   },
   countryOptionSelected: {
-    backgroundColor: '#FEF9C3',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
   },
   countryOptionFlag: {
     fontSize: 24,
@@ -608,12 +578,12 @@ const styles = StyleSheet.create({
   countryOptionName: {
     flex: 1,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: COLORS.text.primary,
     fontWeight: '500',
   },
   countryOptionCode: {
     fontSize: 15,
-    color: '#6B7280',
+    color: COLORS.text.secondary,
     marginRight: 8,
   },
 });
