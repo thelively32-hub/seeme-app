@@ -11,8 +11,6 @@ import {
   Easing,
   ActivityIndicator,
   Alert,
-  ScrollView,
-  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,16 +35,11 @@ const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : get
 const firebaseAuth = getAuth(firebaseApp);
 
 const COUNTRIES = [
-  { code: '+1', flag: '🇺🇸', name: 'United States', abbr: 'US' },
-  { code: '+34', flag: '🇪🇸', name: 'Spain', abbr: 'ES' },
-  { code: '+44', flag: '🇬🇧', name: 'United Kingdom', abbr: 'UK' },
-  { code: '+52', flag: '🇲🇽', name: 'Mexico', abbr: 'MX' },
-  { code: '+57', flag: '🇨🇴', name: 'Colombia', abbr: 'CO' },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina', abbr: 'AR' },
-  { code: '+55', flag: '🇧🇷', name: 'Brazil', abbr: 'BR' },
-  { code: '+33', flag: '🇫🇷', name: 'France', abbr: 'FR' },
-  { code: '+49', flag: '🇩🇪', name: 'Germany', abbr: 'DE' },
-  { code: '+39', flag: '🇮🇹', name: 'Italy', abbr: 'IT' },
+  { code: '+1', flag: '🇺🇸', name: 'US' },
+  { code: '+34', flag: '🇪🇸', name: 'ES' },
+  { code: '+44', flag: '🇬🇧', name: 'UK' },
+  { code: '+52', flag: '🇲🇽', name: 'MX' },
+  { code: '+57', flag: '🇨🇴', name: 'CO' },
 ];
 
 let globalConfirmationResult: any = null;
@@ -63,24 +56,15 @@ export default function PhoneScreen() {
   const [recaptchaReady, setRecaptchaReady] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
 
     if (Platform.OS === 'web') {
       initRecaptchaWeb();
@@ -97,15 +81,20 @@ export default function PhoneScreen() {
 
   const initRecaptchaWeb = async () => {
     try {
+      // Hide existing recaptcha containers
+      const existingBadge = document.querySelector('.grecaptcha-badge') as HTMLElement;
+      if (existingBadge) {
+        existingBadge.style.visibility = 'hidden';
+      }
+
       let container = document.getElementById('recaptcha-container');
       if (!container) {
         container = document.createElement('div');
         container.id = 'recaptcha-container';
-        container.style.position = 'fixed';
-        container.style.bottom = '10px';
-        container.style.left = '50%';
-        container.style.transform = 'translateX(-50%)';
-        container.style.zIndex = '9999';
+        container.style.position = 'absolute';
+        container.style.visibility = 'hidden';
+        container.style.opacity = '0';
+        container.style.pointerEvents = 'none';
         document.body.appendChild(container);
       }
 
@@ -119,6 +108,16 @@ export default function PhoneScreen() {
       });
 
       await recaptchaRef.current.render();
+      
+      // Hide the badge after render
+      setTimeout(() => {
+        const badge = document.querySelector('.grecaptcha-badge') as HTMLElement;
+        if (badge) {
+          badge.style.visibility = 'hidden';
+          badge.style.opacity = '0';
+        }
+      }, 100);
+      
       setRecaptchaReady(true);
     } catch (error) {
       console.error('reCAPTCHA init error:', error);
@@ -160,28 +159,16 @@ export default function PhoneScreen() {
       });
     } catch (error: any) {
       console.error('Phone auth error:', error);
-      handleAuthError(error);
+      let message = 'Failed to send code. Please try again.';
+      if (error.code === 'auth/invalid-phone-number') {
+        message = 'Invalid phone number.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Try later.';
+      }
+      Alert.alert('Error', message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAuthError = (error: any) => {
-    let message = 'Failed to send verification code. Please try again.';
-    if (error.code === 'auth/invalid-phone-number') {
-      message = 'Invalid phone number format. Please check and try again.';
-    } else if (error.code === 'auth/too-many-requests') {
-      message = 'Too many attempts. Please try again later.';
-    } else if (error.code === 'auth/quota-exceeded') {
-      message = 'SMS quota exceeded. Please try again later.';
-    } else if (error.code === 'auth/captcha-check-failed') {
-      message = 'reCAPTCHA verification failed. Please refresh and try again.';
-    } else if (error.code === 'auth/network-request-failed') {
-      message = 'Network error. Please check your connection and try again.';
-    } else if (error.message) {
-      message = error.message;
-    }
-    Alert.alert('Error', message);
   };
 
   const isValidPhone = phone.replace(/\D/g, '').length >= 10;
@@ -198,169 +185,97 @@ export default function PhoneScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
-          contentContainerStyle={[
+        <Animated.View
+          style={[
             styles.content,
-            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View
-            style={{
+            {
+              paddingTop: insets.top + 16,
+              paddingBottom: insets.bottom + 20,
               opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            }}
-          >
-            {/* Back Button */}
+            },
+          ]}
+        >
+          {/* Header */}
+          <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
             </TouchableOpacity>
-
-            {/* Title Section */}
-            <View style={styles.titleSection}>
-              <Text style={styles.title}>What's your{'\n'}phone number?</Text>
-              <Text style={styles.subtitle}>
-                We'll send you a verification code to confirm it's you
-              </Text>
-            </View>
-
-            {/* Phone Input Section */}
-            <View style={styles.inputSection}>
-              {/* Country Selector */}
-              <TouchableOpacity
-                style={styles.countrySelector}
-                onPress={() => setShowCountryPicker(true)}
-              >
-                <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-                <Text style={styles.countryCode}>{selectedCountry.code}</Text>
-                <Ionicons name="chevron-down" size={16} color={COLORS.text.tertiary} />
-              </TouchableOpacity>
-
-              {/* Phone Input */}
-              <View style={styles.phoneInputContainer}>
-                <TextInput
-                  style={styles.phoneInput}
-                  placeholder="(555) 123-4567"
-                  placeholderTextColor={COLORS.text.muted}
-                  value={phone}
-                  onChangeText={handlePhoneChange}
-                  keyboardType="phone-pad"
-                  maxLength={14}
-                  autoFocus
-                  editable={!loading}
-                />
-                {phone.length > 0 && !loading && (
-                  <TouchableOpacity onPress={() => setPhone('')}>
-                    <View style={styles.clearButton}>
-                      <Ionicons name="close" size={16} color={COLORS.text.tertiary} />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Security Badge */}
-            <View style={styles.securityBadge}>
-              <Ionicons name="shield-checkmark" size={16} color={COLORS.gold.primary} />
-              <Text style={styles.securityText}>
-                Your number is protected and will never be shared
-              </Text>
-            </View>
-
-            {/* Terms Text */}
-            <Text style={styles.termsText}>
-              By entering your number, you agree to receive SMS messages for verification. Message and data rates may apply.
-            </Text>
-
-            {/* Continue Button */}
-            <TouchableOpacity
-              style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-              onPress={handleContinue}
-              disabled={!canContinue}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={canContinue ? ['#FFD700', '#FFC000', '#FFB300'] : ['#3A3A3A', '#2A2A2A']}
-                style={styles.continueButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {loading ? (
-                  <ActivityIndicator color={canContinue ? '#1A1A1A' : COLORS.text.muted} />
-                ) : !recaptchaReady ? (
-                  <Text style={styles.continueButtonTextDisabled}>Loading...</Text>
-                ) : (
-                  <Text style={[styles.continueButtonText, !canContinue && styles.continueButtonTextDisabled]}>
-                    Continue
-                  </Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Or divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or sign in with</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Alternative sign in options */}
-            <View style={styles.alternativeOptions}>
-              <TouchableOpacity
-                style={styles.alternativeButton}
-                onPress={() => router.back()}
-              >
-                <Ionicons name="mail-outline" size={20} color={COLORS.text.primary} />
-                <Text style={styles.alternativeButtonText}>Email</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Country Picker Modal */}
-      <Modal
-        visible={showCountryPicker}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowCountryPicker(false)}
-      >
-        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-          <LinearGradient
-            colors={[COLORS.background.primary, COLORS.background.secondary]}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Country</Text>
-            <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-              <Ionicons name="close" size={28} color={COLORS.text.primary} />
-            </TouchableOpacity>
           </View>
-          <ScrollView style={styles.countryList}>
-            {COUNTRIES.map((country) => (
-              <TouchableOpacity
-                key={country.code}
-                style={[
-                  styles.countryOption,
-                  selectedCountry.code === country.code && styles.countryOptionSelected,
-                ]}
-                onPress={() => {
-                  setSelectedCountry(country);
-                  setShowCountryPicker(false);
-                }}
-              >
-                <Text style={styles.countryOptionFlag}>{country.flag}</Text>
-                <Text style={styles.countryOptionName}>{country.name}</Text>
-                <Text style={styles.countryOptionCode}>{country.code}</Text>
-                {selectedCountry.code === country.code && (
-                  <Ionicons name="checkmark" size={22} color={COLORS.gold.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
+
+          {/* Title */}
+          <Text style={styles.title}>Enter your{'\n'}phone number</Text>
+          <Text style={styles.subtitle}>We'll send you a verification code</Text>
+
+          {/* Input Row */}
+          <View style={styles.inputRow}>
+            <TouchableOpacity
+              style={styles.countryButton}
+              onPress={() => setShowCountryPicker(!showCountryPicker)}
+            >
+              <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
+              <Text style={styles.countryCode}>{selectedCountry.code}</Text>
+              <Ionicons name="chevron-down" size={14} color={COLORS.text.muted} />
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.phoneInput}
+              placeholder="(555) 123-4567"
+              placeholderTextColor={COLORS.text.muted}
+              value={phone}
+              onChangeText={handlePhoneChange}
+              keyboardType="phone-pad"
+              maxLength={14}
+              autoFocus
+            />
+          </View>
+
+          {/* Country Picker Dropdown */}
+          {showCountryPicker && (
+            <View style={styles.countryDropdown}>
+              {COUNTRIES.map((country) => (
+                <TouchableOpacity
+                  key={country.code}
+                  style={[
+                    styles.countryOption,
+                    selectedCountry.code === country.code && styles.countryOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedCountry(country);
+                    setShowCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryOptionText}>{country.name}</Text>
+                  <Text style={styles.countryOptionCode}>{country.code}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
+
+          {/* Continue Button */}
+          <TouchableOpacity
+            style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
+            onPress={handleContinue}
+            disabled={!canContinue}
+          >
+            {loading ? (
+              <ActivityIndicator color="#1A1A1A" />
+            ) : (
+              <Text style={[styles.continueText, !canContinue && styles.continueTextDisabled]}>
+                Continue
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Terms */}
+          <Text style={styles.terms}>
+            By continuing, you agree to receive SMS verification messages
+          </Text>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -373,8 +288,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: 24,
+  },
+  header: {
+    marginBottom: 32,
   },
   backButton: {
     width: 44,
@@ -382,208 +300,101 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: -8,
   },
-  titleSection: {
-    marginTop: 24,
-    marginBottom: 40,
-  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     color: COLORS.text.primary,
-    lineHeight: 40,
-    letterSpacing: -0.5,
+    marginBottom: 8,
+    lineHeight: 36,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text.secondary,
-    marginTop: 12,
-    lineHeight: 24,
+    marginBottom: 32,
   },
-  inputSection: {
+  inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
   },
-  countrySelector: {
+  countryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.background.card,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 6,
     borderWidth: 1,
     borderColor: COLORS.border.light,
   },
   countryFlag: {
-    fontSize: 20,
+    fontSize: 18,
   },
   countryCode: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text.primary,
     fontWeight: '600',
-  },
-  phoneInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background.card,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border.gold,
   },
   phoneInput: {
     flex: 1,
-    fontSize: 18,
-    color: COLORS.text.primary,
-    paddingVertical: 16,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  clearButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.background.cardHover,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  securityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    gap: 8,
-  },
-  securityText: {
-    fontSize: 13,
-    color: COLORS.text.muted,
-  },
-  termsText: {
-    fontSize: 13,
-    color: COLORS.text.muted,
-    textAlign: 'center',
-    marginTop: 24,
-    lineHeight: 20,
-    paddingHorizontal: 16,
-  },
-  continueButton: {
-    borderRadius: 30,
-    overflow: 'hidden',
-    marginTop: 32,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.gold.bright,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  continueButtonDisabled: {
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  continueButtonGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: 0.5,
-  },
-  continueButtonTextDisabled: {
-    color: COLORS.text.muted,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border.light,
-  },
-  dividerText: {
-    color: COLORS.text.muted,
-    paddingHorizontal: 16,
-    fontSize: 14,
-  },
-  alternativeOptions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-    gap: 16,
-  },
-  alternativeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.background.card,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    fontSize: 17,
+    color: COLORS.text.primary,
+    borderWidth: 1,
+    borderColor: COLORS.border.gold,
+  },
+  countryDropdown: {
+    marginTop: 8,
+    backgroundColor: COLORS.background.card,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border.light,
-  },
-  alternativeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.light,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-  },
-  countryList: {
-    flex: 1,
+    overflow: 'hidden',
   },
   countryOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.light,
-    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 10,
   },
   countryOptionSelected: {
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
   },
-  countryOptionFlag: {
-    fontSize: 24,
-  },
-  countryOptionName: {
+  countryOptionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text.primary,
-    fontWeight: '500',
   },
   countryOptionCode: {
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.text.secondary,
-    marginRight: 8,
+  },
+  continueButton: {
+    backgroundColor: '#FFD700',
+    paddingVertical: 16,
+    borderRadius: 28,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#333',
+  },
+  continueText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  continueTextDisabled: {
+    color: '#666',
+  },
+  terms: {
+    fontSize: 12,
+    color: COLORS.text.muted,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

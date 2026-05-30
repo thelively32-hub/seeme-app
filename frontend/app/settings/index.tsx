@@ -171,16 +171,13 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
-    // Execute logout directly without confirmation for better compatibility
     try {
-      console.log('Logging out...');
       await logout();
-      console.log('Logout complete, redirecting...');
-      router.replace('/');
+      // Use push instead of replace for better compatibility
+      router.push('/');
     } catch (e) {
       console.error('Logout error:', e);
-      // Force redirect even if logout fails
-      router.replace('/');
+      router.push('/');
     }
   };
 
