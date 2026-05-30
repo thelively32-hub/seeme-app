@@ -82,10 +82,16 @@ export default function EditProfileScreen() {
     }
   };
 
-  const handleSetVibe = (vibeId: string, message: string) => {
+  const handleSetVibe = async (vibeId: string, message: string) => {
     setCurrentVibe(vibeId);
     setShowVibeSelector(false);
-    // TODO: Save vibe to backend
+    try {
+      await api.updateDefaultVibe(vibeId);
+      await refreshUser();
+    } catch (error) {
+      console.error('Error saving vibe:', error);
+      Alert.alert('Error', 'No se pudo actualizar el vibe');
+    }
   };
 
   const selectedVibe = currentVibe ? getVibeById(currentVibe) : null;
