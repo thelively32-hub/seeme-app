@@ -344,7 +344,12 @@ export default function ExploreScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View>
-          <Text style={styles.headerTitle}>Explore</Text>
+          <View style={styles.headerTitleRow}>
+            <View style={styles.liveIndicatorHeader}>
+              <View style={styles.liveDotHeader} />
+            </View>
+            <Text style={styles.headerTitle}>SOCIAL RADAR</Text>
+          </View>
           <Text style={styles.headerSubtitle}>Discover the vibe around you</Text>
         </View>
       </View>
@@ -515,13 +520,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  liveIndicatorHeader: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 59, 48, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveDotHeader: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.live.red,
+  },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: COLORS.text.primary,
+    letterSpacing: 2,
   },
   headerSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.text.secondary,
     marginTop: 4,
   },

@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +18,8 @@ import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
 import TourTooltip from '../../src/components/TourTooltip';
+import { VibeScore } from '../../src/components/VibeScore';
+import { VibeChips } from '../../src/components/VibeChips';
 
 interface UserProfile {
   name: string;
@@ -187,6 +190,21 @@ export default function ProfileScreen() {
             <StatBadge value={stats?.places_visited || 0} label="Places" />
             <View style={styles.statsDivider} />
             <StatBadge value={stats?.current_streak || 0} label="Streak" />
+          </View>
+
+          {/* Vibe Score */}
+          <View style={styles.vibeScoreSection}>
+            <VibeScore score={87} size="medium" />
+          </View>
+
+          {/* My Vibes Chips */}
+          <View style={styles.vibeChipsSection}>
+            <Text style={styles.sectionTitle}>Mi Vibra</Text>
+            <VibeChips 
+              selectedVibes={['social', 'wine', 'house', 'travel']} 
+              editable={false}
+              maxDisplay={4}
+            />
           </View>
 
           {/* Edit Profile Button */}
@@ -370,6 +388,21 @@ const styles = StyleSheet.create({
     width: 1,
     height: 30,
     backgroundColor: COLORS.border.light,
+  },
+  vibeScoreSection: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  vibeChipsSection: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   editProfileButton: {
     paddingVertical: 12,
