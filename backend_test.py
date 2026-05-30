@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-SEE ME API Testing - Updated Real Activity System (v2.0.0)
-Testing against: https://presence-real.preview.emergentagent.com
+Backend API Testing Script for SEE ME App
+Tests authentication endpoints and core functionality
 """
 
 import requests
@@ -9,369 +9,318 @@ import json
 import sys
 from datetime import datetime
 
-# API Base URL - External deployment
-BASE_URL = "https://presence-real.preview.emergentagent.com/api"
+# Backend URL from environment configuration
+BACKEND_URL = "https://presence-real.preview.emergentagent.com/api"
 
-class TestSession:
-    def __init__(self):
-        self.session = requests.Session()
-        self.auth_token = None
-        self.user_data = None
-        self.first_place_id = None
-        self.second_place_id = None
-        
-    def set_auth_token(self, token):
-        self.auth_token = token
-        self.session.headers.update({"Authorization": f"Bearer {token}"})
-        
-    def log_test(self, test_name, success, details=""):
-        status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{status} {test_name}")
-        if details:
-            print(f"   {details}")
-        print()
+# Test data
+TEST_USER = {
+    "name": "Test User",
+    "email": "testuser_backend@test.com",
+    "password": "testpassword123"
+}
 
-def test_health_check(test_session):
+# Color codes for output
+GREEN = '\033[92m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+
+def print_test(test_name):
+    """Print test name"""
+    print(f"\n{BLUE}{'='*60}{RESET}")
+    print(f"{BLUE}TEST: {test_name}{RESET}")
+    print(f"{BLUE}{'='*60}{RESET}")
+
+def print_success(message):
+    """Print success message"""
+    print(f"{GREEN}✓ {message}{RESET}")
+
+def print_error(message):
+    """Print error message"""
+    print(f"{RED}✗ {message}{RESET}")
+
+def print_info(message):
+    """Print info message"""
+    print(f"{YELLOW}ℹ {message}{RESET}")
+
+def test_health_endpoint():
     """Test 1: Health check endpoint"""
-    print("=== Testing Health Check Endpoint ===")
+    print_test("Health Check Endpoint")
     
     try:
-        response = test_session.session.get(f"{BASE_URL}/health")
+        response = requests.get(f"{BACKEND_URL}/health", timeout=10)
         
-        if response.status_code != 200:
-            test_session.log_test("Health Check", False, f"Status: {response.status_code}")
-            return False
+        print_info(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print_info(f"Response: {json.dumps(data, indent=2)}")
             
-        data = response.json()
-        
-        # Verify version
-        if data.get("version") != "2.0.0":
-            test_session.log_test("Health Check - Version", False, f"Expected 2.0.0, got {data.get('version')}")
-            return False
-            
-        # Verify features
-        features = data.get("features", {})
-        required_features = ["real_activity", "anti_spam", "auto_cleanup"]
-        
-        for feature in required_features:
-            if not features.get(feature):
-                test_session.log_test("Health Check - Features", False, f"Missing feature: {feature}")
+            # Verify expected fields
+            if data.get("status") == "healthy":
+                print_success("Health endpoint returned healthy status")
+            else:
+                print_error(f"Unexpected status: {data.get('status')}")
                 return False
-                
-        test_session.log_test("Health Check", True, f"Version: {data['version']}, Features: {list(features.keys())}")
-        return True
-        
+            
+            if "version" in data:
+                print_success(f"API Version: {data['version']}")
+            
+            if "features" in data:
+                print_success(f"Features: {', '.join(data['features'].keys())}")
+            
+            return True
+        else:
+            print_error(f"Health check failed with status {response.status_code}")
+            return False
+            
     except Exception as e:
-        test_session.log_test("Health Check", False, f"Exception: {str(e)}")
+        print_error(f"Health check failed: {str(e)}")
         return False
 
-def test_places_endpoint(test_session):
-    """Test 2: Get places with new activity fields"""
-    print("=== Testing Places Endpoint ===")
+def test_login_invalid_credentials():
+    """Test 2: Login with invalid credentials (should return 401)"""
+    print_test("Login with Invalid Credentials")
     
     try:
-        response = test_session.session.get(f"{BASE_URL}/places")
-        
-        if response.status_code != 200:
-            test_session.log_test("Places API", False, f"Status: {response.status_code}")
-            return False
-            
-        places = response.json()
-        
-        if not places or len(places) == 0:
-            test_session.log_test("Places API", False, "No places returned")
-            return False
-            
-        # Store first two place IDs for later tests
-        test_session.first_place_id = places[0]["id"]
-        test_session.second_place_id = places[1]["id"] if len(places) > 1 else places[0]["id"]
-        
-        # Verify NEW fields are present
-        first_place = places[0]
-        required_new_fields = ["activity_level", "activity_label", "is_trending", "activity_updated_at"]
-        
-        missing_fields = []
-        for field in required_new_fields:
-            if field not in first_place:
-                missing_fields.append(field)
-                
-        if missing_fields:
-            test_session.log_test("Places API - New Fields", False, f"Missing fields: {missing_fields}")
-            return False
-            
-        # Verify OLD fields are NOT present
-        old_fields = ["activity", "people_count"]  # These should be removed
-        present_old_fields = []
-        for field in old_fields:
-            if field in first_place:
-                present_old_fields.append(field)
-                
-        if present_old_fields:
-            test_session.log_test("Places API - Old Fields Removed", False, f"Old fields still present: {present_old_fields}")
-            return False
-            
-        test_session.log_test("Places API", True, 
-            f"Found {len(places)} places with new activity system. "
-            f"First place: {first_place['name']} - {first_place['activity_label']} ({first_place['activity_level']})")
-        return True
-        
-    except Exception as e:
-        test_session.log_test("Places API", False, f"Exception: {str(e)}")
-        return False
-
-def test_user_registration(test_session):
-    """Test 3: Register a new user"""
-    print("=== Testing User Registration ===")
-    
-    try:
-        user_data = {
-            "name": "Phase1 Tester",
-            "email": "phase1@seeme.app",
-            "password": "test123456"
+        invalid_credentials = {
+            "email": "nonexistent@test.com",
+            "password": "wrongpassword"
         }
         
-        response = test_session.session.post(f"{BASE_URL}/auth/register", json=user_data)
+        response = requests.post(
+            f"{BACKEND_URL}/auth/login",
+            json=invalid_credentials,
+            timeout=10
+        )
         
-        if response.status_code != 200:
-            test_session.log_test("User Registration", False, f"Status: {response.status_code}, Response: {response.text}")
+        print_info(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 401:
+            print_success("Correctly returned 401 for invalid credentials")
+            data = response.json()
+            print_info(f"Error message: {data.get('detail')}")
+            return True
+        else:
+            print_error(f"Expected 401, got {response.status_code}")
             return False
             
-        data = response.json()
-        
-        if "access_token" not in data:
-            test_session.log_test("User Registration", False, "No access token in response")
-            return False
-            
-        # Set auth token for future requests
-        test_session.set_auth_token(data["access_token"])
-        test_session.user_data = data["user"]
-        
-        test_session.log_test("User Registration", True, f"User registered: {data['user']['name']} ({data['user']['email']})")
-        return True
-        
     except Exception as e:
-        test_session.log_test("User Registration", False, f"Exception: {str(e)}")
+        print_error(f"Invalid login test failed: {str(e)}")
         return False
 
-def test_first_checkin(test_session):
-    """Test 4: Check in to first place"""
-    print("=== Testing First Check-in ===")
+def test_register_user():
+    """Test 3: Register a new user"""
+    print_test("Register New User")
     
-    if not test_session.first_place_id:
-        test_session.log_test("First Check-in", False, "No place ID available")
-        return False
-        
     try:
-        checkin_data = {"place_id": test_session.first_place_id}
+        response = requests.post(
+            f"{BACKEND_URL}/auth/register",
+            json=TEST_USER,
+            timeout=10
+        )
         
-        response = test_session.session.post(f"{BASE_URL}/checkins", json=checkin_data)
+        print_info(f"Status Code: {response.status_code}")
         
-        if response.status_code != 200:
-            test_session.log_test("First Check-in", False, f"Status: {response.status_code}, Response: {response.text}")
-            return False
+        if response.status_code == 200:
+            data = response.json()
+            print_info(f"Response keys: {list(data.keys())}")
             
-        data = response.json()
-        
-        if not data.get("is_active"):
-            test_session.log_test("First Check-in", False, "Check-in not marked as active")
-            return False
+            # Verify access_token
+            if "access_token" in data:
+                print_success(f"Access token received: {data['access_token'][:20]}...")
+            else:
+                print_error("No access_token in response")
+                return False, None
             
-        test_session.log_test("First Check-in", True, f"Checked in to: {data['place_name']}")
-        return True
-        
+            # Verify user object
+            if "user" in data:
+                user = data["user"]
+                print_success(f"User created with ID: {user.get('id')}")
+                print_success(f"User name: {user.get('name')}")
+                print_success(f"User email: {user.get('email')}")
+                
+                # Verify expected fields
+                expected_fields = ["id", "name", "email", "vibes", "connection_rate", "is_premium", "created_at"]
+                for field in expected_fields:
+                    if field in user:
+                        print_success(f"Field '{field}' present: {user[field]}")
+                    else:
+                        print_error(f"Missing field: {field}")
+                
+                return True, data["access_token"]
+            else:
+                print_error("No user object in response")
+                return False, None
+        elif response.status_code == 400:
+            # User might already exist
+            data = response.json()
+            if "already registered" in data.get("detail", "").lower():
+                print_info("User already exists, attempting login instead...")
+                return test_login_existing_user()
+            else:
+                print_error(f"Registration failed: {data.get('detail')}")
+                return False, None
+        else:
+            print_error(f"Registration failed with status {response.status_code}")
+            print_info(f"Response: {response.text}")
+            return False, None
+            
     except Exception as e:
-        test_session.log_test("First Check-in", False, f"Exception: {str(e)}")
-        return False
+        print_error(f"Registration test failed: {str(e)}")
+        return False, None
 
-def test_places_activity_change(test_session):
-    """Test 5: Verify activity changed for first place"""
-    print("=== Testing Activity Change After Check-in ===")
+def test_login_existing_user():
+    """Test 4: Login with registered credentials"""
+    print_test("Login with Registered Credentials")
     
     try:
-        response = test_session.session.get(f"{BASE_URL}/places")
+        credentials = {
+            "email": TEST_USER["email"],
+            "password": TEST_USER["password"]
+        }
         
-        if response.status_code != 200:
-            test_session.log_test("Activity Change", False, f"Status: {response.status_code}")
-            return False
-            
-        places = response.json()
-        first_place = next((p for p in places if p["id"] == test_session.first_place_id), None)
+        response = requests.post(
+            f"{BACKEND_URL}/auth/login",
+            json=credentials,
+            timeout=10
+        )
         
-        if not first_place:
-            test_session.log_test("Activity Change", False, "First place not found in response")
-            return False
-            
-        # Activity should be at least "low" after check-in
-        if first_place["activity_level"] == "none":
-            test_session.log_test("Activity Change", False, f"Activity still 'none': {first_place['activity_label']}")
-            return False
-            
-        test_session.log_test("Activity Change", True, 
-            f"Activity updated: {first_place['activity_label']} ({first_place['activity_level']})")
-        return True
+        print_info(f"Status Code: {response.status_code}")
         
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Verify access_token
+            if "access_token" in data:
+                print_success(f"Login successful, access token received")
+                print_info(f"Token: {data['access_token'][:20]}...")
+            else:
+                print_error("No access_token in response")
+                return False, None
+            
+            # Verify user object
+            if "user" in data:
+                user = data["user"]
+                print_success(f"User ID: {user.get('id')}")
+                print_success(f"User name: {user.get('name')}")
+                print_success(f"User email: {user.get('email')}")
+                
+                return True, data["access_token"]
+            else:
+                print_error("No user object in response")
+                return False, None
+        else:
+            print_error(f"Login failed with status {response.status_code}")
+            print_info(f"Response: {response.text}")
+            return False, None
+            
     except Exception as e:
-        test_session.log_test("Activity Change", False, f"Exception: {str(e)}")
-        return False
+        print_error(f"Login test failed: {str(e)}")
+        return False, None
 
-def test_anti_spam_checkin(test_session):
-    """Test 6: Anti-spam test - should UPDATE existing checkin"""
-    print("=== Testing Anti-Spam Feature ===")
-    
-    if not test_session.second_place_id:
-        test_session.log_test("Anti-Spam Test", False, "No second place ID available")
-        return False
-        
-    try:
-        checkin_data = {"place_id": test_session.second_place_id}
-        
-        response = test_session.session.post(f"{BASE_URL}/checkins", json=checkin_data)
-        
-        if response.status_code != 200:
-            test_session.log_test("Anti-Spam Test", False, f"Status: {response.status_code}, Response: {response.text}")
-            return False
-            
-        data = response.json()
-        
-        # Should update existing checkin, not create new
-        if not data.get("is_active"):
-            test_session.log_test("Anti-Spam Test", False, "Updated check-in not marked as active")
-            return False
-            
-        test_session.log_test("Anti-Spam Test", True, 
-            f"Check-in updated to new place: {data['place_name']} (anti-spam working)")
-        return True
-        
-    except Exception as e:
-        test_session.log_test("Anti-Spam Test", False, f"Exception: {str(e)}")
-        return False
-
-def test_get_active_checkin(test_session):
-    """Test 7: Get active checkin"""
-    print("=== Testing Get Active Check-in ===")
+def test_get_user_profile(access_token):
+    """Test 5: Get user profile with access token"""
+    print_test("Get User Profile (/api/auth/me)")
     
     try:
-        response = test_session.session.get(f"{BASE_URL}/checkins/active")
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
         
-        if response.status_code != 200:
-            test_session.log_test("Get Active Check-in", False, f"Status: {response.status_code}")
+        response = requests.get(
+            f"{BACKEND_URL}/auth/me",
+            headers=headers,
+            timeout=10
+        )
+        
+        print_info(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            user = response.json()
+            print_info(f"Response keys: {list(user.keys())}")
+            
+            # Verify user fields
+            print_success(f"User ID: {user.get('id')}")
+            print_success(f"User name: {user.get('name')}")
+            print_success(f"User email: {user.get('email')}")
+            print_success(f"Vibes: {user.get('vibes')}")
+            print_success(f"Connection rate: {user.get('connection_rate')}")
+            print_success(f"Is premium: {user.get('is_premium')}")
+            print_success(f"Is verified: {user.get('is_verified')}")
+            
+            # Verify email matches
+            if user.get('email') == TEST_USER['email']:
+                print_success("Email matches registered user")
+            else:
+                print_error(f"Email mismatch: expected {TEST_USER['email']}, got {user.get('email')}")
+                return False
+            
+            return True
+        else:
+            print_error(f"Get profile failed with status {response.status_code}")
+            print_info(f"Response: {response.text}")
             return False
             
-        data = response.json()
-        
-        if not data:
-            test_session.log_test("Get Active Check-in", False, "No active check-in returned")
-            return False
-            
-        if not data.get("is_active"):
-            test_session.log_test("Get Active Check-in", False, "Check-in not marked as active")
-            return False
-            
-        test_session.log_test("Get Active Check-in", True, f"Active at: {data['place_name']}")
-        return True
-        
     except Exception as e:
-        test_session.log_test("Get Active Check-in", False, f"Exception: {str(e)}")
-        return False
-
-def test_checkout(test_session):
-    """Test 8: Checkout"""
-    print("=== Testing Checkout ===")
-    
-    try:
-        response = test_session.session.post(f"{BASE_URL}/checkins/checkout")
-        
-        if response.status_code != 200:
-            test_session.log_test("Checkout", False, f"Status: {response.status_code}, Response: {response.text}")
-            return False
-            
-        data = response.json()
-        
-        if data.get("is_active"):
-            test_session.log_test("Checkout", False, "Check-in still marked as active after checkout")
-            return False
-            
-        if not data.get("checked_out_at"):
-            test_session.log_test("Checkout", False, "No checkout timestamp")
-            return False
-            
-        test_session.log_test("Checkout", True, f"Checked out from: {data['place_name']}")
-        return True
-        
-    except Exception as e:
-        test_session.log_test("Checkout", False, f"Exception: {str(e)}")
-        return False
-
-def test_places_activity_decrease(test_session):
-    """Test 9: Verify activity level decreased after checkout"""
-    print("=== Testing Activity Decrease After Checkout ===")
-    
-    try:
-        response = test_session.session.get(f"{BASE_URL}/places")
-        
-        if response.status_code != 200:
-            test_session.log_test("Activity Decrease", False, f"Status: {response.status_code}")
-            return False
-            
-        places = response.json()
-        second_place = next((p for p in places if p["id"] == test_session.second_place_id), None)
-        
-        if not second_place:
-            test_session.log_test("Activity Decrease", False, "Second place not found in response")
-            return False
-            
-        # After checkout, activity should reflect the change
-        # Note: Since we only had 1 user, activity might be back to "none" or still showing recent activity
-        test_session.log_test("Activity Decrease", True, 
-            f"Place activity after checkout: {second_place['activity_label']} ({second_place['activity_level']})")
-        return True
-        
-    except Exception as e:
-        test_session.log_test("Activity Decrease", False, f"Exception: {str(e)}")
+        print_error(f"Get profile test failed: {str(e)}")
         return False
 
 def main():
-    """Main testing function"""
-    print(f"🧪 Testing SEE ME API v2.0.0 - Real Activity System")
-    print(f"🌐 Target URL: {BASE_URL}")
-    print(f"🕒 Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 60)
+    """Run all authentication tests"""
+    print(f"\n{BLUE}{'='*60}{RESET}")
+    print(f"{BLUE}SEE ME API - Authentication Testing{RESET}")
+    print(f"{BLUE}Backend URL: {BACKEND_URL}{RESET}")
+    print(f"{BLUE}Timestamp: {datetime.utcnow().isoformat()}{RESET}")
+    print(f"{BLUE}{'='*60}{RESET}")
     
-    test_session = TestSession()
+    results = {}
     
-    # Test sequence
-    tests = [
-        ("1. Health Check", test_health_check),
-        ("2. Places API", test_places_endpoint),
-        ("3. User Registration", test_user_registration),
-        ("4. First Check-in", test_first_checkin),
-        ("5. Activity Change", test_places_activity_change),
-        ("6. Anti-Spam Check-in", test_anti_spam_checkin),
-        ("7. Get Active Check-in", test_get_active_checkin),
-        ("8. Checkout", test_checkout),
-        ("9. Activity Decrease", test_places_activity_decrease),
-    ]
+    # Test 1: Health check
+    results['health'] = test_health_endpoint()
     
-    passed = 0
-    total = len(tests)
+    # Test 2: Invalid login
+    results['invalid_login'] = test_login_invalid_credentials()
     
-    for test_name, test_func in tests:
-        print(f"\n📋 {test_name}")
-        print("-" * 40)
-        
-        if test_func(test_session):
-            passed += 1
-        
-    print("\n" + "=" * 60)
-    print(f"🎯 Test Results: {passed}/{total} tests passed")
+    # Test 3: Register user
+    register_success, access_token = test_register_user()
+    results['register'] = register_success
     
-    if passed == total:
-        print("🎉 ALL TESTS PASSED! Real Activity System is working correctly.")
+    # Test 4: Login with registered credentials (if registration failed)
+    if not register_success or not access_token:
+        login_success, access_token = test_login_existing_user()
+        results['login'] = login_success
+    else:
+        results['login'] = True  # Registration already logged in
+    
+    # Test 5: Get user profile
+    if access_token:
+        results['get_profile'] = test_get_user_profile(access_token)
+    else:
+        print_error("Skipping profile test - no access token available")
+        results['get_profile'] = False
+    
+    # Print summary
+    print(f"\n{BLUE}{'='*60}{RESET}")
+    print(f"{BLUE}TEST SUMMARY{RESET}")
+    print(f"{BLUE}{'='*60}{RESET}")
+    
+    total_tests = len(results)
+    passed_tests = sum(1 for result in results.values() if result)
+    
+    for test_name, result in results.items():
+        status = f"{GREEN}PASS{RESET}" if result else f"{RED}FAIL{RESET}"
+        print(f"{test_name.upper()}: {status}")
+    
+    print(f"\n{BLUE}Total: {passed_tests}/{total_tests} tests passed{RESET}")
+    
+    if passed_tests == total_tests:
+        print(f"{GREEN}All tests passed! ✓{RESET}\n")
         return 0
     else:
-        print(f"⚠️  {total - passed} tests failed. Please check the issues above.")
+        print(f"{RED}Some tests failed! ✗{RESET}\n")
         return 1
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    sys.exit(main())

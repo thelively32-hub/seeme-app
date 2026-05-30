@@ -4,7 +4,8 @@ import api from '../services/api';
 interface User {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
+  phone_number: string | null;
   age: number | null;
   gender: string | null;
   looking_for: string[] | null;

@@ -149,7 +149,8 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: str
     name: str
-    email: str
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
     looking_for: Optional[List[str]] = None
@@ -667,7 +668,8 @@ def user_to_response(user: dict) -> UserResponse:
     return UserResponse(
         id=str(user["_id"]),
         name=user["name"],
-        email=user["email"],
+        email=user.get("email"),
+        phone_number=user.get("phone_number"),
         age=user.get("age"),
         gender=user.get("gender"),
         looking_for=user.get("looking_for"),
@@ -870,16 +872,41 @@ class FirebaseAuthResponse(BaseModel):
 @app.post("/api/auth/firebase", response_model=FirebaseAuthResponse, tags=["Auth"])
 async def firebase_phone_auth(auth_data: FirebaseAuthRequest):
     """Authenticate user via Firebase Phone Auth"""
+    firebase_uid = None
+    phone_number = auth_data.phone_number
+    
     try:
-        # Verify the Firebase ID token
+        # Try to verify the Firebase ID token using Admin SDK
         decoded_token = firebase_auth.verify_id_token(auth_data.id_token)
         firebase_uid = decoded_token['uid']
         phone_number = decoded_token.get('phone_number') or auth_data.phone_number
         
     except firebase_admin.exceptions.FirebaseError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Firebase token: {str(e)}")
+        # If Admin SDK fails, try alternative verification via Firebase REST API
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                # Verify token using Firebase Auth REST API
+                verify_url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={FIREBASE_CONFIG.get('apiKey', '')}"
+                response = await client.post(verify_url, json={"idToken": auth_data.id_token})
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("users") and len(data["users"]) > 0:
+                        user_data = data["users"][0]
+                        firebase_uid = user_data.get("localId")
+                        phone_number = user_data.get("phoneNumber") or auth_data.phone_number
+                    else:
+                        raise HTTPException(status_code=401, detail="No user found for this token")
+                else:
+                    raise HTTPException(status_code=401, detail=f"Firebase token verification failed: {response.text}")
+        except httpx.RequestError as http_err:
+            raise HTTPException(status_code=401, detail=f"Token verification request failed: {str(http_err)}")
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Token verification failed: {str(e)}")
+    
+    if not firebase_uid:
+        raise HTTPException(status_code=401, detail="Could not extract Firebase UID from token")
     
     # Check if user exists by Firebase UID or phone number
     user = await users_collection.find_one({
