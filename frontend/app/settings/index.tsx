@@ -171,34 +171,16 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm('Cerrar Sesión\n\n¿Estás seguro que quieres salir?');
-      if (confirmed) {
-        try {
-          console.log('Executing logout...');
-          await logout();
-          console.log('Logout successful, redirecting...');
-          router.replace('/');
-        } catch (e) {
-          console.error('Logout error:', e);
-        }
-      }
-    } else {
-      Alert.alert(
-        'Cerrar Sesión',
-        '¿Estás seguro que quieres salir?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Salir',
-            style: 'destructive',
-            onPress: async () => {
-              await logout();
-              router.replace('/');
-            },
-          },
-        ]
-      );
+    // Execute logout directly without confirmation for better compatibility
+    try {
+      console.log('Logging out...');
+      await logout();
+      console.log('Logout complete, redirecting...');
+      router.replace('/');
+    } catch (e) {
+      console.error('Logout error:', e);
+      // Force redirect even if logout fails
+      router.replace('/');
     }
   };
 
