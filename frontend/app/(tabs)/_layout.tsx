@@ -1,9 +1,10 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import COLORS from '../../src/theme/colors';
 
 export default function TabsLayout() {
@@ -14,19 +15,28 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: COLORS.background.primary,
+          backgroundColor: 'rgba(5, 5, 5, 0.95)',
           borderTopColor: COLORS.border.light,
           borderTopWidth: 1,
-          height: 65 + insets.bottom,
-          paddingBottom: insets.bottom + 5,
-          paddingTop: 10,
+          height: 70 + insets.bottom,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 12,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+            },
+          }),
         },
         tabBarActiveTintColor: COLORS.gold.primary,
         tabBarInactiveTintColor: COLORS.text.muted,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600',
-          marginTop: 2,
+          marginTop: 4,
+          letterSpacing: 0.3,
         },
       }}
     >
@@ -39,35 +49,17 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: 'Radar',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Ionicons 
-                name={focused ? 'compass' : 'compass-outline'} 
-                size={24} 
-                color={color} 
-              />
-              {focused && <View style={[styles.activeIndicator, { backgroundColor: color }]} />}
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: '',
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.mapButtonContainer}>
-              <LinearGradient
-                colors={COLORS.gradients.goldButton as [string, string, string]}
-                style={styles.mapButton}
-              >
+              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
                 <Ionicons 
-                  name="location" 
-                  size={28} 
-                  color={COLORS.text.dark} 
+                  name="radio-outline"
+                  size={22} 
+                  color={color} 
                 />
-              </LinearGradient>
+              </View>
+              {focused && <View style={styles.glowDot} />}
             </View>
           ),
         }}
@@ -78,12 +70,37 @@ export default function TabsLayout() {
           title: 'Vibes',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Ionicons 
-                name={focused ? 'heart' : 'heart-outline'} 
-                size={24} 
-                color={color} 
-              />
-              {focused && <View style={[styles.activeIndicator, { backgroundColor: color }]} />}
+              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
+                <Ionicons 
+                  name={focused ? 'pulse' : 'pulse-outline'} 
+                  size={22} 
+                  color={color} 
+                />
+              </View>
+              {focused && <View style={styles.glowDot} />}
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: '',
+          tabBarIcon: ({ focused }) => (
+            <View style={styles.centerButtonContainer}>
+              <LinearGradient
+                colors={COLORS.gradients.goldButton as [string, string, string]}
+                style={styles.centerButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons 
+                  name="locate" 
+                  size={26} 
+                  color={COLORS.background.primary} 
+                />
+              </LinearGradient>
+              {focused && <View style={styles.centerGlow} />}
             </View>
           ),
         }}
@@ -91,23 +108,19 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="invitations"
         options={{
-          title: 'Planes',
+          title: 'Plans',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Ionicons 
-                name={focused ? 'megaphone' : 'megaphone-outline'} 
-                size={24} 
-                color={color} 
-              />
-              {focused && <View style={[styles.activeIndicator, { backgroundColor: color }]} />}
+              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
+                <Ionicons 
+                  name={focused ? 'calendar' : 'calendar-outline'} 
+                  size={22} 
+                  color={color} 
+                />
+              </View>
+              {focused && <View style={styles.glowDot} />}
             </View>
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="radar"
-        options={{
-          href: null, // Hide radar, replaced by vibes
         }}
       />
       <Tabs.Screen
@@ -116,14 +129,22 @@ export default function TabsLayout() {
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Ionicons 
-                name={focused ? 'person' : 'person-outline'} 
-                size={24} 
-                color={color} 
-              />
-              {focused && <View style={[styles.activeIndicator, { backgroundColor: color }]} />}
+              <View style={[styles.iconWrapper, focused && styles.iconWrapperActive]}>
+                <Ionicons 
+                  name={focused ? 'person' : 'person-outline'} 
+                  size={22} 
+                  color={color} 
+                />
+              </View>
+              {focused && <View style={styles.glowDot} />}
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="radar"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
@@ -134,34 +155,66 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 50,
+    height: 32,
   },
-  activeIndicator: {
+  iconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 40,
+    height: 32,
+    borderRadius: 12,
+  },
+  iconWrapperActive: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+  },
+  glowDot: {
+    position: 'absolute',
+    bottom: -8,
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginTop: 4,
-  },
-  mapButtonContainer: {
-    marginBottom: 25,
+    backgroundColor: COLORS.gold.primary,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.gold.bright,
+        shadowColor: COLORS.gold.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
+      },
+    }),
+  },
+  centerButtonContainer: {
+    marginBottom: 28,
+    alignItems: 'center',
+  },
+  centerButton: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: COLORS.background.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.gold.primary,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
       },
       android: {
         elevation: 10,
       },
     }),
   },
-  mapButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.background.primary,
+  centerGlow: {
+    position: 'absolute',
+    bottom: -4,
+    width: 20,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.gold.primary,
+    opacity: 0.6,
   },
 });
