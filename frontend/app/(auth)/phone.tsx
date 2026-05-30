@@ -11,12 +11,12 @@ import {
   Easing,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import COLORS from '../../src/theme/colors';
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
@@ -35,12 +35,16 @@ const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : get
 const firebaseAuth = getAuth(firebaseApp);
 
 const COUNTRIES = [
-  { code: '+1', flag: '🇺🇸', name: 'USA' },
-  { code: '+34', flag: '🇪🇸', name: 'Spain' },
-  { code: '+44', flag: '🇬🇧', name: 'UK' },
-  { code: '+52', flag: '🇲🇽', name: 'Mexico' },
-  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
-  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+  { code: '+1', flag: '🇺🇸', name: 'United States', abbr: 'US' },
+  { code: '+34', flag: '🇪🇸', name: 'Spain', abbr: 'ES' },
+  { code: '+44', flag: '🇬🇧', name: 'United Kingdom', abbr: 'UK' },
+  { code: '+52', flag: '🇲🇽', name: 'Mexico', abbr: 'MX' },
+  { code: '+57', flag: '🇨🇴', name: 'Colombia', abbr: 'CO' },
+  { code: '+54', flag: '🇦🇷', name: 'Argentina', abbr: 'AR' },
+  { code: '+55', flag: '🇧🇷', name: 'Brazil', abbr: 'BR' },
+  { code: '+33', flag: '🇫🇷', name: 'France', abbr: 'FR' },
+  { code: '+49', flag: '🇩🇪', name: 'Germany', abbr: 'DE' },
+  { code: '+39', flag: '🇮🇹', name: 'Italy', abbr: 'IT' },
 ];
 
 let globalConfirmationResult: any = null;
@@ -55,11 +59,11 @@ export default function PhoneScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -121,29 +125,19 @@ export default function PhoneScreen() {
     }
   };
 
-  const formatPhone = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
-
   const handlePhoneChange = (text: string) => {
-    setPhone(formatPhone(text));
+    // Only allow numbers
+    const cleaned = text.replace(/\D/g, '');
+    setPhone(cleaned);
   };
 
   const handleContinue = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
+    if (phone.length < 10) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
-    if (!termsAccepted) {
-      Alert.alert('Error', 'Please accept the terms to continue');
-      return;
-    }
 
-    const fullPhone = `${selectedCountry.code}${cleanPhone}`;
+    const fullPhone = `${selectedCountry.code}${phone}`;
     setLoading(true);
 
     try {
@@ -183,16 +177,29 @@ export default function PhoneScreen() {
     Alert.alert('Error', message);
   };
 
-  const isValidPhone = phone.replace(/\D/g, '').length >= 10;
-  const canContinue = isValidPhone && termsAccepted && recaptchaReady && !loading;
+  const handleKeypadPress = (digit: string) => {
+    if (phone.length < 10) {
+      setPhone(prev => prev + digit);
+    }
+  };
+
+  const handleBackspace = () => {
+    setPhone(prev => prev.slice(0, -1));
+  };
+
+  const isValidPhone = phone.length >= 10;
+  const canContinue = isValidPhone && recaptchaReady && !loading;
+
+  // Format display phone number
+  const formatDisplayPhone = (num: string) => {
+    if (num.length === 0) return '';
+    if (num.length <= 3) return num;
+    if (num.length <= 6) return `${num.slice(0, 3)} ${num.slice(3)}`;
+    return `${num.slice(0, 3)} ${num.slice(3, 6)} ${num.slice(6)}`;
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[COLORS.background.primary, COLORS.background.secondary]}
-        style={StyleSheet.absoluteFill}
-      />
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -201,188 +208,412 @@ export default function PhoneScreen() {
           style={[
             styles.content,
             {
-              paddingTop: insets.top + 20,
-              paddingBottom: insets.bottom + 20,
+              paddingTop: insets.top + 10,
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
             },
           ]}
         >
+          {/* Back Button */}
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
+            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
           </TouchableOpacity>
 
+          {/* Title */}
           <View style={styles.titleSection}>
-            <Text style={styles.title}>What's your{"\n"}phone number?</Text>
-            <Text style={styles.subtitle}>
-              We'll send you a verification code to confirm it's you
-            </Text>
+            <Text style={styles.title}>Can we get{'\n'}your number?</Text>
           </View>
 
+          {/* Phone Input Section */}
           <View style={styles.inputSection}>
+            {/* Country Selector */}
             <TouchableOpacity
               style={styles.countrySelector}
-              onPress={() => setShowCountryPicker(!showCountryPicker)}
+              onPress={() => setShowCountryPicker(true)}
             >
-              <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-              <Text style={styles.countryCode}>{selectedCountry.code}</Text>
-              <Ionicons name="chevron-down" size={16} color={COLORS.text.tertiary} />
+              <Text style={styles.countryText}>
+                {selectedCountry.abbr} {selectedCountry.code}
+              </Text>
+              <Ionicons name="caret-down" size={12} color="#1A1A1A" />
             </TouchableOpacity>
 
+            {/* Phone Number Display */}
             <View style={styles.phoneInputContainer}>
-              <TextInput
-                style={styles.phoneInput}
-                placeholder="(555) 123-4567"
-                placeholderTextColor={COLORS.text.muted}
-                value={phone}
-                onChangeText={handlePhoneChange}
-                keyboardType="phone-pad"
-                maxLength={14}
-                autoFocus
-                editable={!loading}
-              />
-              {phone.length > 0 && !loading && (
-                <TouchableOpacity onPress={() => setPhone('')}>
-                  <View style={styles.clearButton}>
-                    <Ionicons name="close" size={16} color={COLORS.text.tertiary} />
-                  </View>
-                </TouchableOpacity>
-              )}
+              <Text style={[
+                styles.phoneDisplay,
+                phone.length === 0 && styles.phoneDisplayPlaceholder
+              ]}>
+                {phone.length > 0 ? formatDisplayPhone(phone) : ''}
+              </Text>
+              <View style={styles.cursor} />
             </View>
           </View>
 
-          {showCountryPicker && (
-            <View style={styles.countryPicker}>
-              {COUNTRIES.map((country) => (
+          {/* Divider line under inputs */}
+          <View style={styles.inputDividerContainer}>
+            <View style={styles.countryDivider} />
+            <View style={styles.phoneDivider} />
+          </View>
+
+          {/* Terms Text */}
+          <View style={styles.termsSection}>
+            <Text style={styles.termsText}>
+              By entering your number, you agree to get texts about your account, like verification codes, account alerts, reminders, and updates (e.g. Likes, matches, unread messages).
+            </Text>
+            <Text style={styles.termsTextSecondary}>
+              Message frequency varies and data rates may apply. Reply STOP to cancel.
+            </Text>
+          </View>
+
+          {/* Next Button */}
+          <TouchableOpacity
+            style={[styles.nextButton, canContinue && styles.nextButtonActive]}
+            onPress={handleContinue}
+            disabled={!canContinue}
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color={canContinue ? '#1A1A1A' : '#9CA3AF'} />
+            ) : (
+              <Text style={[styles.nextButtonText, canContinue && styles.nextButtonTextActive]}>
+                Next
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Custom Keypad */}
+          <View style={[styles.keypad, { paddingBottom: insets.bottom + 10 }]}>
+            <View style={styles.keypadRow}>
+              {[
+                { digit: '1', letters: '' },
+                { digit: '2', letters: 'ABC' },
+                { digit: '3', letters: 'DEF' },
+              ].map((key) => (
                 <TouchableOpacity
-                  key={country.code}
-                  style={[
-                    styles.countryOption,
-                    selectedCountry.code === country.code && styles.countryOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedCountry(country);
-                    setShowCountryPicker(false);
-                  }}
+                  key={key.digit}
+                  style={styles.keypadButton}
+                  onPress={() => handleKeypadPress(key.digit)}
+                  activeOpacity={0.6}
                 >
-                  <Text style={styles.countryOptionFlag}>{country.flag}</Text>
-                  <Text style={styles.countryOptionName}>{country.name}</Text>
-                  <Text style={styles.countryOptionCode}>{country.code}</Text>
+                  <Text style={styles.keypadDigit}>{key.digit}</Text>
+                  {key.letters ? <Text style={styles.keypadLetters}>{key.letters}</Text> : null}
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-
-          <View style={styles.securityInfo}>
-            <Ionicons name="shield-checkmark" size={16} color={COLORS.gold.primary} />
-            <Text style={styles.securityText}>
-              {Platform.OS === 'web' ? 'Protected by Google reCAPTCHA' : 'Secured by Firebase'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.termsCheckboxContainer}
-            onPress={() => setTermsAccepted(!termsAccepted)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-              {termsAccepted && (
-                <Ionicons name="checkmark" size={16} color={COLORS.text.dark} />
-              )}
+            <View style={styles.keypadRow}>
+              {[
+                { digit: '4', letters: 'GHI' },
+                { digit: '5', letters: 'JKL' },
+                { digit: '6', letters: 'MNO' },
+              ].map((key) => (
+                <TouchableOpacity
+                  key={key.digit}
+                  style={styles.keypadButton}
+                  onPress={() => handleKeypadPress(key.digit)}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.keypadDigit}>{key.digit}</Text>
+                  {key.letters ? <Text style={styles.keypadLetters}>{key.letters}</Text> : null}
+                </TouchableOpacity>
+              ))}
             </View>
-            <Text style={styles.termsText}>
-              I accept the{' '}
-              <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>Terms of Service</Text>
-              {' '}and{' '}
-              <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>Privacy Policy</Text>
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.spacer} />
-
-          <TouchableOpacity
-            style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-            onPress={handleContinue}
-            disabled={!canContinue}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={canContinue ? COLORS.gradients.goldButton : ['#3A3A3A', '#2A2A2A']}
-              style={styles.continueButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.text.muted} />
-              ) : !recaptchaReady ? (
-                <Text style={styles.continueButtonTextDisabled}>Loading...</Text>
-              ) : (
-                <Text style={[styles.continueButtonText, !canContinue && styles.continueButtonTextDisabled]}>
-                  Continue
-                </Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.bottomSecurityInfo}>
-            <Ionicons name="shield-checkmark" size={14} color={COLORS.gold.primary} />
-            <Text style={styles.bottomSecurityText}>
-              {Platform.OS === 'web' ? 'Protected by Google reCAPTCHA' : 'Secured by Firebase'}
-            </Text>
+            <View style={styles.keypadRow}>
+              {[
+                { digit: '7', letters: 'PQRS' },
+                { digit: '8', letters: 'TUV' },
+                { digit: '9', letters: 'WXYZ' },
+              ].map((key) => (
+                <TouchableOpacity
+                  key={key.digit}
+                  style={styles.keypadButton}
+                  onPress={() => handleKeypadPress(key.digit)}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.keypadDigit}>{key.digit}</Text>
+                  {key.letters ? <Text style={styles.keypadLetters}>{key.letters}</Text> : null}
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.keypadRow}>
+              <View style={styles.keypadButtonEmpty} />
+              <TouchableOpacity
+                style={styles.keypadButton}
+                onPress={() => handleKeypadPress('0')}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.keypadDigit}>0</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.keypadButtonBackspace}
+                onPress={handleBackspace}
+                activeOpacity={0.6}
+              >
+                <Ionicons name="backspace-outline" size={28} color="#1A1A1A" />
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
+
+      {/* Country Picker Modal */}
+      <Modal
+        visible={showCountryPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Country</Text>
+            <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+              <Ionicons name="close" size={28} color="#1A1A1A" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.countryList}>
+            {COUNTRIES.map((country) => (
+              <TouchableOpacity
+                key={country.code}
+                style={[
+                  styles.countryOption,
+                  selectedCountry.code === country.code && styles.countryOptionSelected,
+                ]}
+                onPress={() => {
+                  setSelectedCountry(country);
+                  setShowCountryPicker(false);
+                }}
+              >
+                <Text style={styles.countryOptionFlag}>{country.flag}</Text>
+                <Text style={styles.countryOptionName}>{country.name}</Text>
+                <Text style={styles.countryOptionCode}>{country.code}</Text>
+                {selectedCountry.code === country.code && (
+                  <Ionicons name="checkmark" size={22} color="#FFD700" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  keyboardView: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: 24 },
-  backButton: { width: 44, height: 44, justifyContent: 'center', marginLeft: -8 },
-  titleSection: { marginTop: 24, marginBottom: 40 },
-  title: { fontSize: 32, fontWeight: '700', color: COLORS.text.primary, lineHeight: 40, letterSpacing: -0.5 },
-  subtitle: { fontSize: 16, color: COLORS.text.secondary, marginTop: 12, lineHeight: 24 },
-  inputSection: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    marginLeft: -8,
+  },
+  titleSection: {
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    lineHeight: 42,
+    letterSpacing: -0.5,
+  },
+  inputSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   countrySelector: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background.card,
-    paddingHorizontal: 14, paddingVertical: 16, borderRadius: 16, gap: 8,
-    borderWidth: 1, borderColor: COLORS.border.light,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingBottom: 12,
   },
-  countryFlag: { fontSize: 20 },
-  countryCode: { fontSize: 16, color: COLORS.text.primary, fontWeight: '600' },
+  countryText: {
+    fontSize: 17,
+    fontWeight: '400',
+    color: '#1A1A1A',
+  },
   phoneInputContainer: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background.card,
-    paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border.gold,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 12,
+    minHeight: 40,
   },
-  phoneInput: { flex: 1, fontSize: 18, color: COLORS.text.primary, paddingVertical: 16, fontWeight: '500', letterSpacing: 0.5 },
-  clearButton: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.background.cardHover, alignItems: 'center', justifyContent: 'center' },
-  countryPicker: { marginTop: 12, backgroundColor: COLORS.background.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border.light, overflow: 'hidden' },
-  countryOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
-  countryOptionSelected: { backgroundColor: COLORS.background.cardHover },
-  countryOptionFlag: { fontSize: 20 },
-  countryOptionName: { flex: 1, fontSize: 16, color: COLORS.text.primary },
-  countryOptionCode: { fontSize: 14, color: COLORS.text.tertiary },
-  securityInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, gap: 8 },
-  securityText: { fontSize: 13, color: COLORS.text.muted },
-  termsCheckboxContainer: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 24, gap: 12, paddingRight: 16 },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: COLORS.border.gold, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
-  checkboxChecked: { backgroundColor: COLORS.gold.primary, borderColor: COLORS.gold.primary },
-  spacer: { flex: 1 },
-  continueButton: {
-    borderRadius: 30, overflow: 'hidden', marginBottom: 16,
+  phoneDisplay: {
+    fontSize: 17,
+    color: '#1A1A1A',
+    fontWeight: '400',
+    letterSpacing: 1,
+  },
+  phoneDisplayPlaceholder: {
+    color: '#9CA3AF',
+  },
+  cursor: {
+    width: 2,
+    height: 24,
+    backgroundColor: '#FFD700',
+    marginLeft: 2,
+  },
+  inputDividerContainer: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  countryDivider: {
+    width: 80,
+    height: 1,
+    backgroundColor: '#D1D5DB',
+  },
+  phoneDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#D1D5DB',
+  },
+  termsSection: {
+    marginTop: 24,
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 22,
+  },
+  termsTextSecondary: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 22,
+    marginTop: 16,
+  },
+  nextButton: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 30,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  nextButtonActive: {
+    backgroundColor: '#FFD700',
+  },
+  nextButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  nextButtonTextActive: {
+    color: '#1A1A1A',
+  },
+  keypad: {
+    marginTop: 'auto',
+    backgroundColor: '#E8E8E8',
+    marginHorizontal: -24,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    zIndex: 100,
+  },
+  keypadRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  keypadButton: {
+    width: 110,
+    height: 54,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
     ...Platform.select({
-      ios: { shadowColor: COLORS.gold.bright, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12 },
-      android: { elevation: 8 },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
     }),
   },
-  continueButtonDisabled: { shadowOpacity: 0, elevation: 0 },
-  continueButtonGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
-  continueButtonText: { fontSize: 17, fontWeight: '700', color: COLORS.text.dark, letterSpacing: 0.5 },
-  continueButtonTextDisabled: { color: COLORS.text.muted },
-  termsText: { flex: 1, fontSize: 14, color: COLORS.text.secondary, lineHeight: 22 },
-  termsLink: { color: COLORS.gold.primary, fontWeight: '600' },
-  bottomSecurityInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, gap: 6 },
-  bottomSecurityText: { fontSize: 12, color: COLORS.text.muted },
+  keypadButtonEmpty: {
+    width: 110,
+    height: 54,
+    marginHorizontal: 4,
+  },
+  keypadButtonBackspace: {
+    width: 110,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  keypadDigit: {
+    fontSize: 28,
+    fontWeight: '400',
+    color: '#1A1A1A',
+  },
+  keypadLetters: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  countryList: {
+    flex: 1,
+  },
+  countryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 12,
+  },
+  countryOptionSelected: {
+    backgroundColor: '#FEF9C3',
+  },
+  countryOptionFlag: {
+    fontSize: 24,
+  },
+  countryOptionName: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1A1A1A',
+    fontWeight: '500',
+  },
+  countryOptionCode: {
+    fontSize: 15,
+    color: '#6B7280',
+    marginRight: 8,
+  },
 });
