@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +18,29 @@ import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
 import { useTour } from '../../src/context/TourContext';
+
+// Cross-platform alert helper
+const showConfirmAlert = (
+  title: string,
+  message: string,
+  onConfirm: () => void,
+  confirmText: string = 'OK',
+  cancelText: string = 'Cancelar'
+) => {
+  if (Platform.OS === 'web') {
+    // Use window.confirm for web
+    const confirmed = window.confirm(`${title}\n\n${message}`);
+    if (confirmed) {
+      onConfirm();
+    }
+  } else {
+    // Use Alert.alert for native
+    Alert.alert(title, message, [
+      { text: cancelText, style: 'cancel' },
+      { text: confirmText, style: 'destructive', onPress: onConfirm },
+    ]);
+  }
+};
 
 const SettingRow = ({
   icon,
@@ -140,46 +164,34 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    showConfirmAlert(
       'Cerrar Sesión',
       '¿Estás seguro que quieres salir?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/');
-          },
-        },
-      ]
+      async () => {
+        await logout();
+        router.replace('/');
+      },
+      'Salir'
     );
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showConfirmAlert(
       'Eliminar Cuenta',
       '¿Estás seguro? Esta acción no se puede deshacer. Todos tus datos serán eliminados permanentemente.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              await api.deleteAccount();
-              await logout();
-              router.replace('/');
-            } catch (e) {
-              Alert.alert('Error', 'No se pudo eliminar la cuenta');
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setDeleting(true);
+        try {
+          await api.deleteAccount();
+          await logout();
+          router.replace('/');
+        } catch (e) {
+          Alert.alert('Error', 'No se pudo eliminar la cuenta');
+        } finally {
+          setDeleting(false);
+        }
+      },
+      'Eliminar'
     );
   };
 
