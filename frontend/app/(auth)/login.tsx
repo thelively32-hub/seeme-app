@@ -234,56 +234,64 @@ export default function LoginScreen() {
 
       {/* Auth Options */}
       <View style={styles.optionsList}>
-        {/* Google */}
+        {/* Google - Professional Style */}
         <TouchableOpacity 
-          style={styles.optionButton}
+          style={styles.socialButton}
           onPress={handleGoogleSignIn}
           disabled={!request || socialLoading !== null}
           activeOpacity={0.8}
         >
-          <View style={[styles.optionIconContainer, { backgroundColor: '#fff' }]}>
-            {socialLoading === 'google' ? (
-              <ActivityIndicator size="small" color="#4285F4" />
-            ) : (
-              <Ionicons name="logo-google" size={24} color="#4285F4" />
-            )}
-          </View>
-          <Text style={styles.optionText}>Continue with Google</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
+          {socialLoading === 'google' ? (
+            <ActivityIndicator size="small" color="#4285F4" />
+          ) : (
+            <>
+              <View style={styles.googleIconContainer}>
+                <Text style={styles.googleG}>G</Text>
+              </View>
+              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            </>
+          )}
         </TouchableOpacity>
 
-        {/* Apple - Only show on iOS */}
-        {(Platform.OS === 'ios' && appleAuthAvailable) && (
+        {/* Apple - Show on all platforms with appropriate styling */}
+        {(Platform.OS === 'ios' && appleAuthAvailable) ? (
           <TouchableOpacity 
-            style={styles.optionButton}
+            style={styles.appleButton}
             onPress={handleAppleSignIn}
             disabled={socialLoading !== null}
             activeOpacity={0.8}
           >
-            <View style={[styles.optionIconContainer, { backgroundColor: '#fff' }]}>
-              {socialLoading === 'apple' ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <Ionicons name="logo-apple" size={24} color="#000" />
-              )}
-            </View>
-            <Text style={styles.optionText}>Continue with Apple</Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
+            {socialLoading === 'apple' ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={22} color="#fff" />
+                <Text style={styles.appleButtonText}>Continue with Apple</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={styles.appleButton}
+            onPress={() => Alert.alert('Apple Sign-In', 'Apple Sign-In is only available on iOS devices')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="logo-apple" size={22} color="#fff" />
+            <Text style={styles.appleButtonText}>Continue with Apple</Text>
           </TouchableOpacity>
         )}
 
         {/* Phone */}
         <TouchableOpacity 
-          style={styles.optionButton}
+          style={styles.phoneButton}
           onPress={handlePhoneSignIn}
           disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
-          <View style={[styles.optionIconContainer, { backgroundColor: COLORS.gold.primary }]}>
-            <Ionicons name="call" size={24} color={COLORS.text.dark} />
+          <View style={styles.phoneIconContainer}>
+            <Ionicons name="call" size={20} color="#1A1A1A" />
           </View>
-          <Text style={styles.optionText}>Continue with Phone</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
+          <Text style={styles.phoneButtonText}>Continue with Phone</Text>
         </TouchableOpacity>
 
         {/* Divider */}
@@ -295,33 +303,30 @@ export default function LoginScreen() {
 
         {/* Email Login */}
         <TouchableOpacity 
-          style={styles.optionButton}
+          style={styles.emailButton}
           onPress={() => { resetForm(); setMode('email-login'); }}
           disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
-          <View style={[styles.optionIconContainer, { backgroundColor: COLORS.background.cardHover }]}>
-            <Ionicons name="mail" size={24} color={COLORS.gold.primary} />
-          </View>
-          <Text style={styles.optionText}>Sign in with Email</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} />
+          <Ionicons name="mail-outline" size={22} color={COLORS.text.primary} />
+          <Text style={styles.emailButtonText}>Sign in with Email</Text>
         </TouchableOpacity>
 
-        {/* Email Signup */}
+        {/* Create Account - Gold gradient */}
         <TouchableOpacity 
-          style={[styles.optionButton, styles.signupButton]}
+          style={styles.createAccountButton}
           onPress={() => { resetForm(); setMode('email-signup'); }}
           disabled={socialLoading !== null}
-          activeOpacity={0.8}
+          activeOpacity={0.9}
         >
           <LinearGradient
-            colors={COLORS.gradients.goldButton}
-            style={styles.signupGradient}
+            colors={['#FFD700', '#FFC000', '#FFB300']}
+            style={styles.createAccountGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Ionicons name="person-add" size={20} color={COLORS.text.dark} />
-            <Text style={styles.signupButtonText}>Create New Account</Text>
+            <Ionicons name="person-add-outline" size={20} color="#1A1A1A" />
+            <Text style={styles.createAccountText}>Create New Account</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -570,29 +575,90 @@ const styles = StyleSheet.create({
   optionsList: {
     gap: 12,
   },
-  optionButton: {
+  
+  // Google Button - White with colored G
+  socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background.card,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+      web: {
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      },
+    }),
   },
-  optionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  googleIconContainer: {
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
   },
-  optionText: {
-    flex: 1,
+  googleG: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4285F4',
+  },
+  socialButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#1A1A1A',
   },
+  
+  // Apple Button - Black
+  appleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  appleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  
+  // Phone Button - Gold/Yellow
+  phoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFD700',
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  phoneIconContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  
+  // Divider
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -608,23 +674,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 14,
   },
-  signupButton: {
-    padding: 0,
-    borderWidth: 0,
-    overflow: 'hidden',
-  },
-  signupGradient: {
+  
+  // Email Button - Outline style
+  emailButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 18,
+    backgroundColor: 'transparent',
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: COLORS.border.light,
+  },
+  emailButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  
+  // Create Account Button - Gold gradient
+  createAccountButton: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  createAccountGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     gap: 10,
   },
-  signupButtonText: {
+  createAccountText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.text.dark,
+    color: '#1A1A1A',
   },
+  
+  // Terms
   termsText: {
     fontSize: 13,
     color: COLORS.text.muted,
