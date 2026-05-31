@@ -19,12 +19,110 @@ import { router } from 'expo-router';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
+import Svg, { Path, Circle, G, Defs, ClipPath, Rect } from 'react-native-svg';
 
 import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Official Google "G" Logo Component
+const GoogleLogo = ({ size = 20 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <Path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <Path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      fill="#FBBC05"
+    />
+    <Path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335"
+    />
+  </Svg>
+);
+
+// Vibe Me Pin Logo Component
+const VibeMePinLogo = ({ size = 80 }: { size?: number }) => (
+  <View style={[pinLogoStyles.container, { width: size, height: size * 1.25 }]}>
+    <LinearGradient
+      colors={['#FFD700', '#F5B800', '#D4A000']}
+      style={[pinLogoStyles.pinBody, { width: size, height: size }]}
+    >
+      {/* Inner circle with eye */}
+      <View style={[pinLogoStyles.innerCircle, { width: size * 0.6, height: size * 0.6, borderRadius: size * 0.3 }]}>
+        <View style={[pinLogoStyles.eyeOuter, { width: size * 0.45, height: size * 0.3, borderRadius: size * 0.15 }]}>
+          <View style={[pinLogoStyles.eyePupil, { width: size * 0.18, height: size * 0.18, borderRadius: size * 0.09 }]}>
+            <View style={[pinLogoStyles.eyeHighlight, { width: size * 0.06, height: size * 0.06, borderRadius: size * 0.03 }]} />
+          </View>
+        </View>
+      </View>
+    </LinearGradient>
+    {/* Pin pointer */}
+    <View style={[pinLogoStyles.pinPointer, { 
+      borderLeftWidth: size * 0.2, 
+      borderRightWidth: size * 0.2, 
+      borderTopWidth: size * 0.25,
+      marginTop: -size * 0.1,
+    }]} />
+  </View>
+);
+
+const pinLogoStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+  },
+  pinBody: {
+    borderRadius: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  innerCircle: {
+    backgroundColor: '#1A1500',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyeOuter: {
+    backgroundColor: '#FFD700',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyePupil: {
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 3,
+  },
+  eyeHighlight: {
+    backgroundColor: '#FFD700',
+  },
+  pinPointer: {
+    width: 0,
+    height: 0,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#D4A000',
+    borderStyle: 'solid',
+  },
+});
 
 type AuthMode = 'options' | 'email-login' | 'email-signup';
 
@@ -204,21 +302,14 @@ export default function LoginScreen() {
   // Main options screen
   const renderOptions = () => (
     <Animated.View style={[styles.optionsContainer, { opacity: fadeAnim }]}>
-      {/* Header */}
+      {/* Header with Pin Logo */}
       <View style={styles.header}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoPinContainer}>
-            <LinearGradient
-              colors={COLORS.gradients.goldButton}
-              style={styles.logoPin}
-            >
-              <Ionicons name="eye" size={24} color={COLORS.background.primary} />
-            </LinearGradient>
-          </View>
-          <View style={styles.logoTextWrapper}>
-            <Text style={styles.logoVibe}>Vibe</Text>
-            <Text style={styles.logoMe}>ME</Text>
+        <VibeMePinLogo size={70} />
+        <View style={styles.logoTextWrapper}>
+          <Text style={styles.logoVibe}>Vibe</Text>
+          <View style={styles.logoMeRow}>
+            <View style={styles.logoLine} />
+            <Text style={styles.logoMe}>M E</Text>
           </View>
         </View>
         <Text style={styles.subtitle}>Únete a la vibra</Text>
@@ -226,7 +317,7 @@ export default function LoginScreen() {
 
       {/* Auth Buttons */}
       <View style={styles.authButtons}>
-        {/* Google */}
+        {/* Google - with official logo */}
         <TouchableOpacity
           style={styles.socialButton}
           onPress={handleGoogleSignIn}
@@ -234,18 +325,16 @@ export default function LoginScreen() {
           activeOpacity={0.8}
         >
           {socialLoading === 'google' ? (
-            <ActivityIndicator size="small" color={COLORS.text.primary} />
+            <ActivityIndicator size="small" color="#000" />
           ) : (
             <>
-              <View style={styles.googleIcon}>
-                <Text style={styles.googleG}>G</Text>
-              </View>
+              <GoogleLogo size={20} />
               <Text style={styles.socialButtonText}>Continue with Google</Text>
             </>
           )}
         </TouchableOpacity>
 
-        {/* Apple */}
+        {/* Apple - black button */}
         <TouchableOpacity
           style={styles.appleButton}
           onPress={handleAppleSignIn}
@@ -262,22 +351,15 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Phone */}
+        {/* Phone - gold button */}
         <TouchableOpacity
           style={styles.phoneButton}
           onPress={handlePhoneSignIn}
           disabled={socialLoading !== null}
           activeOpacity={0.9}
         >
-          <LinearGradient
-            colors={COLORS.gradients.goldButton}
-            style={styles.phoneButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Ionicons name="call" size={18} color={COLORS.background.primary} />
-            <Text style={styles.phoneButtonText}>Continue with phone</Text>
-          </LinearGradient>
+          <Ionicons name="call" size={18} color="#000" />
+          <Text style={styles.phoneButtonText}>Continue with phone</Text>
         </TouchableOpacity>
 
         {/* Divider */}
@@ -287,29 +369,33 @@ export default function LoginScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Email */}
+        {/* Email - outline button */}
         <TouchableOpacity
           style={styles.emailButton}
           onPress={() => { resetForm(); setMode('email-login'); }}
           disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
-          <Ionicons name="mail-outline" size={18} color={COLORS.text.primary} />
+          <Ionicons name="mail-outline" size={18} color="#fff" />
           <Text style={styles.emailButtonText}>Continue with email</Text>
         </TouchableOpacity>
       </View>
 
       {/* Terms */}
-      <Text style={styles.terms}>
-        Al crear una cuenta, aceptas nuestros{'\n'}
-        <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>
-          Términos de Servicio
+      <View style={styles.termsContainer}>
+        <Text style={styles.terms}>
+          Al crear una cuenta, aceptas nuestros
         </Text>
-        {' '}y{' '}
-        <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>
-          Política de Privacidad
-        </Text>
-      </Text>
+        <View style={styles.termsLinks}>
+          <TouchableOpacity onPress={() => router.push('/legal/terms')}>
+            <Text style={styles.termsLink}>Términos de Servicio</Text>
+          </TouchableOpacity>
+          <Text style={styles.terms}> y </Text>
+          <TouchableOpacity onPress={() => router.push('/legal/privacy')}>
+            <Text style={styles.termsLink}>Política de Privacidad</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </Animated.View>
   );
 
@@ -317,7 +403,7 @@ export default function LoginScreen() {
   const renderEmailForm = () => (
     <View style={styles.formContainer}>
       <TouchableOpacity style={styles.backButton} onPress={() => setMode('options')}>
-        <Ionicons name="chevron-back" size={28} color={COLORS.text.primary} />
+        <Ionicons name="chevron-back" size={28} color="#fff" />
       </TouchableOpacity>
 
       <Text style={styles.formTitle}>
@@ -331,11 +417,11 @@ export default function LoginScreen() {
 
       {mode === 'email-signup' && (
         <View style={styles.inputContainer}>
-          <Ionicons name="person-outline" size={20} color={COLORS.text.muted} />
+          <Ionicons name="person-outline" size={20} color="rgba(255,255,255,0.5)" />
           <TextInput
             style={styles.input}
             placeholder="Your name"
-            placeholderTextColor={COLORS.text.muted}
+            placeholderTextColor="rgba(255,255,255,0.4)"
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
@@ -344,11 +430,11 @@ export default function LoginScreen() {
       )}
 
       <View style={styles.inputContainer}>
-        <Ionicons name="mail-outline" size={20} color={COLORS.text.muted} />
+        <Ionicons name="mail-outline" size={20} color="rgba(255,255,255,0.5)" />
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor={COLORS.text.muted}
+          placeholderTextColor="rgba(255,255,255,0.4)"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -357,11 +443,11 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.inputContainer}>
-        <Ionicons name="lock-closed-outline" size={20} color={COLORS.text.muted} />
+        <Ionicons name="lock-closed-outline" size={20} color="rgba(255,255,255,0.5)" />
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor={COLORS.text.muted}
+          placeholderTextColor="rgba(255,255,255,0.4)"
           value={password}
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
@@ -370,7 +456,7 @@ export default function LoginScreen() {
           <Ionicons
             name={showPassword ? 'eye-off-outline' : 'eye-outline'}
             size={20}
-            color={COLORS.text.muted}
+            color="rgba(255,255,255,0.5)"
           />
         </TouchableOpacity>
       </View>
@@ -387,20 +473,13 @@ export default function LoginScreen() {
         disabled={loading}
         activeOpacity={0.9}
       >
-        <LinearGradient
-          colors={COLORS.gradients.goldButton}
-          style={styles.submitButtonGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-        >
-          {loading ? (
-            <ActivityIndicator color={COLORS.background.primary} />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {mode === 'email-login' ? 'Sign In' : 'Create Account'}
-            </Text>
-          )}
-        </LinearGradient>
+        {loading ? (
+          <ActivityIndicator color="#000" />
+        ) : (
+          <Text style={styles.submitButtonText}>
+            {mode === 'email-login' ? 'Sign In' : 'Create Account'}
+          </Text>
+        )}
       </TouchableOpacity>
 
       <View style={styles.switchMode}>
@@ -423,11 +502,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={COLORS.gradients.darkBackground}
-        style={StyleSheet.absoluteFill}
-      />
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -450,115 +524,87 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0A0A0A',
   },
   keyboardView: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
 
   // Options Screen
   optionsContainer: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoPinContainer: {
-    marginBottom: 12,
-  },
-  logoPin: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderBottomLeftRadius: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '45deg' }],
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.gold.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-      },
-    }),
+    marginBottom: 40,
+    marginTop: 20,
   },
   logoTextWrapper: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
+    alignItems: 'center',
+    marginTop: 16,
   },
   logoVibe: {
-    fontSize: 42,
-    fontWeight: '200',
-    color: COLORS.text.primary,
+    fontSize: 48,
+    fontWeight: '300',
+    color: '#fff',
     fontStyle: 'italic',
-    letterSpacing: -1,
-    ...Platform.select({
-      ios: { fontFamily: 'Georgia' },
-    }),
+    letterSpacing: 2,
+  },
+  logoMeRow: {
+    alignItems: 'center',
+    marginTop: -4,
+  },
+  logoLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: '#FFD700',
+    marginBottom: 6,
   },
   logoMe: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.gold.primary,
-    letterSpacing: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFD700',
+    letterSpacing: 8,
   },
   subtitle: {
     fontSize: 15,
-    color: COLORS.text.secondary,
-    marginTop: 8,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 16,
   },
 
   // Auth Buttons
   authButtons: {
-    gap: 12,
+    gap: 14,
   },
   socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.glass.background,
-    borderWidth: 1,
-    borderColor: COLORS.glass.border,
-    borderRadius: 28,
-    paddingVertical: 14,
-    gap: 10,
-  },
-  googleIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
     backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleG: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4285F4',
+    borderRadius: 12,
+    paddingVertical: 15,
+    gap: 12,
   },
   socialButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#000',
   },
   appleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#000',
-    borderRadius: 28,
-    paddingVertical: 14,
-    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    paddingVertical: 15,
+    gap: 12,
   },
   appleButtonText: {
     fontSize: 15,
@@ -566,28 +612,29 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   phoneButton: {
-    borderRadius: 28,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.gold.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-    }),
-  },
-  phoneButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 10,
+    backgroundColor: '#FFD700',
+    borderRadius: 12,
+    paddingVertical: 15,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   phoneButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.background.primary,
+    color: '#000',
   },
   divider: {
     flexDirection: 'row',
@@ -597,10 +644,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.border.light,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   dividerText: {
-    color: COLORS.text.muted,
+    color: 'rgba(255,255,255,0.4)',
     paddingHorizontal: 16,
     fontSize: 13,
   },
@@ -610,26 +657,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: COLORS.border.light,
-    borderRadius: 28,
-    paddingVertical: 14,
-    gap: 10,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 12,
+    paddingVertical: 15,
+    gap: 12,
   },
   emailButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.text.primary,
+    color: '#fff',
+  },
+
+  // Terms
+  termsContainer: {
+    alignItems: 'center',
+    marginTop: 32,
+    paddingBottom: 16,
   },
   terms: {
     fontSize: 12,
-    color: COLORS.text.muted,
+    color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
-    marginTop: 32,
-    lineHeight: 18,
+  },
+  termsLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 2,
   },
   termsLink: {
-    color: COLORS.gold.primary,
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#FFD700',
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 
   // Form
@@ -646,37 +706,37 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: COLORS.text.primary,
+    color: '#fff',
     marginBottom: 8,
   },
   formSubtitle: {
     fontSize: 15,
-    color: COLORS.text.secondary,
+    color: 'rgba(255,255,255,0.6)',
     marginBottom: 32,
   },
   errorText: {
-    color: COLORS.accent.error,
+    color: '#FF4D4F',
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
     padding: 12,
     borderRadius: 12,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.glass.background,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
     paddingHorizontal: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: COLORS.border.light,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   input: {
     flex: 1,
     height: 52,
-    color: COLORS.text.primary,
+    color: '#fff',
     fontSize: 15,
     marginLeft: 12,
   },
@@ -685,31 +745,32 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgotPasswordText: {
-    color: COLORS.gold.primary,
+    color: '#FFD700',
     fontSize: 13,
     fontWeight: '600',
   },
   submitButton: {
-    borderRadius: 28,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.gold.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-    }),
-  },
-  submitButtonGradient: {
+    backgroundColor: '#FFD700',
+    borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FFD700',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.background.primary,
+    color: '#000',
   },
   switchMode: {
     flexDirection: 'row',
@@ -717,11 +778,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   switchModeText: {
-    color: COLORS.text.secondary,
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
   },
   switchModeLink: {
-    color: COLORS.gold.primary,
+    color: '#FFD700',
     fontSize: 14,
     fontWeight: '600',
   },
