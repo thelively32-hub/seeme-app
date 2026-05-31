@@ -18,7 +18,6 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.luisgarcia.vibeme",
       "buildNumber": "2",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Vibe Me needs your location to verify check-ins at places",
         "NSLocationAlwaysUsageDescription": "Vibe Me uses your location to show nearby places and activity",
