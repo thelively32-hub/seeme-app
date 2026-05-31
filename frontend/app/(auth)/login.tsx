@@ -302,13 +302,11 @@ export default function LoginScreen() {
   // Main options screen
   const renderOptions = () => (
     <Animated.View style={[styles.optionsContainer, { opacity: fadeAnim }]}>
-      {/* Header with Pin Logo */}
+      {/* Header - Solo texto, sin pin */}
       <View style={styles.header}>
-        <VibeMePinLogo size={70} />
         <View style={styles.logoTextWrapper}>
           <Text style={styles.logoVibe}>Vibe</Text>
           <View style={styles.logoMeRow}>
-            <View style={styles.logoLine} />
             <Text style={styles.logoMe}>M E</Text>
           </View>
         </View>
@@ -317,7 +315,7 @@ export default function LoginScreen() {
 
       {/* Auth Buttons */}
       <View style={styles.authButtons}>
-        {/* Google - with official logo */}
+        {/* Google - white rounded button */}
         <TouchableOpacity
           style={styles.socialButton}
           onPress={handleGoogleSignIn}
@@ -334,31 +332,31 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Apple - black button */}
+        {/* Apple - white rounded button */}
         <TouchableOpacity
-          style={styles.appleButton}
+          style={styles.socialButton}
           onPress={handleAppleSignIn}
           disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
           {socialLoading === 'apple' ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color="#000" />
           ) : (
             <>
-              <Ionicons name="logo-apple" size={20} color="#fff" />
-              <Text style={styles.appleButtonText}>Continue with Apple</Text>
+              <Ionicons name="logo-apple" size={20} color="#000" />
+              <Text style={styles.socialButtonText}>Continue with Apple</Text>
             </>
           )}
         </TouchableOpacity>
 
-        {/* Phone - gold button */}
+        {/* Phone - purple outline button */}
         <TouchableOpacity
           style={styles.phoneButton}
           onPress={handlePhoneSignIn}
           disabled={socialLoading !== null}
           activeOpacity={0.9}
         >
-          <Ionicons name="call" size={18} color="#000" />
+          <Ionicons name="call" size={18} color="#9B59B6" />
           <Text style={styles.phoneButtonText}>Continue with phone</Text>
         </TouchableOpacity>
 
@@ -369,14 +367,14 @@ export default function LoginScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Email - outline button */}
+        {/* Email - dark outline button */}
         <TouchableOpacity
           style={styles.emailButton}
           onPress={() => { resetForm(); setMode('email-login'); }}
           disabled={socialLoading !== null}
           activeOpacity={0.8}
         >
-          <Ionicons name="mail-outline" size={18} color="#fff" />
+          <Ionicons name="mail-outline" size={18} color="rgba(255,255,255,0.6)" />
           <Text style={styles.emailButtonText}>Continue with email</Text>
         </TouchableOpacity>
       </View>
@@ -586,8 +584,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingVertical: 15,
+    borderRadius: 30,
+    paddingVertical: 16,
     gap: 12,
   },
   socialButtonText: {
@@ -595,46 +593,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
   },
-  appleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 12,
-    paddingVertical: 15,
-    gap: 12,
-  },
-  appleButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
   phoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFD700',
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#9B59B6',
+    borderRadius: 30,
     paddingVertical: 15,
     gap: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#FFD700',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
   },
   phoneButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: '#fff',
   },
   divider: {
     flexDirection: 'row',
@@ -657,15 +630,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 12,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 30,
     paddingVertical: 15,
     gap: 12,
   },
   emailButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: 'rgba(255,255,255,0.6)',
   },
 
   // Terms
