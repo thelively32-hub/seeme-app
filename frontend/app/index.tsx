@@ -16,6 +16,31 @@ import { useAuth } from '../src/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
+const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1748612258/See_me_intro_ready_hxj0xq.mp4';
+
+// Web Video Component
+const WebVideo = () => {
+  if (Platform.OS !== 'web') return null;
+  
+  return (
+    <video
+      autoPlay
+      loop
+      muted
+      playsInline
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+      }}
+    >
+      <source src={VIDEO_URL} type="video/mp4" />
+    </video>
+  );
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -92,20 +117,23 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background Video with Poster Image */}
-      <Video
-        source={{ uri: 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1748612258/See_me_intro_ready_hxj0xq.mp4' }}
-        style={StyleSheet.absoluteFill}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay
-        isLooping
-        isMuted
-        posterSource={{ uri: 'https://res.cloudinary.com/dxgtxlgyr/video/upload/so_0/v1748612258/See_me_intro_ready_hxj0xq.jpg' }}
-        usePoster={true}
-        posterStyle={StyleSheet.absoluteFill}
-        onLoad={() => setVideoLoaded(true)}
-        onError={(e) => console.log('Video error:', e)}
-      />
+      {/* Background Video - Platform specific */}
+      <View style={styles.videoContainer}>
+        {Platform.OS === 'web' ? (
+          <WebVideo />
+        ) : (
+          <Video
+            source={{ uri: VIDEO_URL }}
+            style={styles.backgroundVideo}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping
+            isMuted
+            onLoad={() => setVideoLoaded(true)}
+            onError={(e) => console.log('Video error:', e)}
+          />
+        )}
+      </View>
 
       {/* Dark Gradient Overlay */}
       <LinearGradient
@@ -369,5 +397,18 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     textDecorationLine: 'underline',
+  },
+  videoContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  backgroundVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
 });
