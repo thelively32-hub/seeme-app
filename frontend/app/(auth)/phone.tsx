@@ -147,16 +147,37 @@ export default function PhoneScreen() {
     setLoading(true);
 
     try {
-      const confirmation = await signInWithPhoneNumber(
-        firebaseAuth,
-        fullPhone,
-        recaptchaRef.current!
-      );
-      globalConfirmationResult = confirmation;
-      router.push({
-        pathname: '/(auth)/verify',
-        params: { phone: fullPhone }
-      });
+      if (Platform.OS === 'web' && recaptchaRef.current) {
+        // Web: Use reCAPTCHA
+        const confirmation = await signInWithPhoneNumber(
+          firebaseAuth,
+          fullPhone,
+          recaptchaRef.current
+        );
+        globalConfirmationResult = confirmation;
+        router.push({
+          pathname: '/(auth)/verify',
+          params: { phone: fullPhone }
+        });
+      } else {
+        // iOS/Android: Use backend API for phone auth
+        const response = await fetch('https://seeme-app-production.up.railway.app/api/auth/phone/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: fullPhone })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          router.push({
+            pathname: '/(auth)/verify',
+            params: { phone: fullPhone, useBackend: 'true' }
+          });
+        } else {
+          throw new Error(data.detail || 'Failed to send code');
+        }
+      }
     } catch (error: any) {
       console.error('Phone auth error:', error);
       let message = 'Failed to send code. Please try again.';
@@ -164,6 +185,8 @@ export default function PhoneScreen() {
         message = 'Invalid phone number.';
       } else if (error.code === 'auth/too-many-requests') {
         message = 'Too many attempts. Try later.';
+      } else if (error.message) {
+        message = error.message;
       }
       Alert.alert('Error', message);
     } finally {
