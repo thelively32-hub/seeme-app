@@ -106,7 +106,7 @@ security = HTTPBearer()
 # MongoDB connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(MONGO_URL)
-db = client.seeme_db
+db = client[os.getenv('DB_NAME', 'seeme_db')]
 
 # Collections
 users_collection = db.users
