@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.luisgarcia.vibeme",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Vibe Me needs your location to verify check-ins at places",
         "NSLocationAlwaysUsageDescription": "Vibe Me uses your location to show nearby places and activity",
@@ -27,6 +27,13 @@
           "location",
           "fetch",
           "remote-notification"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.5904630206-dg5klianoqk3b89brb0h4vf91aqslrnh"
+            ]
+          }
         ]
       }
     },

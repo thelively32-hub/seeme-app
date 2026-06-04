@@ -144,9 +144,7 @@ export default function LoginScreen() {
 
   // Google Auth
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: '5904630206-YOUR_EXPO_CLIENT_ID.apps.googleusercontent.com',
-    iosClientId: '5904630206-YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: '5904630206-YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+    iosClientId: '5904630206-dg5klianoqk3b89brb0h4vf91aqslrnh.apps.googleusercontent.com',
     webClientId: '5904630206-6m5oeud9l96i10a69lfjkl3l2r77q1md.apps.googleusercontent.com',
   });
 
