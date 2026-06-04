@@ -147,8 +147,11 @@ export default function PhoneScreen() {
     setLoading(true);
 
     try {
-      if (Platform.OS === 'web' && recaptchaRef.current) {
+      if (Platform.OS === 'web') {
         // Web: Use reCAPTCHA
+        if (!recaptchaRef.current) {
+          throw new Error('reCAPTCHA not initialized');
+        }
         const confirmation = await signInWithPhoneNumber(
           firebaseAuth,
           fullPhone,
@@ -160,31 +163,27 @@ export default function PhoneScreen() {
           params: { phone: fullPhone }
         });
       } else {
-        // iOS/Android: Use backend API for phone auth
-        const response = await fetch('https://seeme-app-production.up.railway.app/api/auth/phone/send-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone_number: fullPhone })
+        // iOS/Android: Use Firebase directly (APNs handles verification)
+        // For native apps with APNs configured, Firebase handles the flow
+        const confirmation = await signInWithPhoneNumber(
+          firebaseAuth,
+          fullPhone
+        );
+        globalConfirmationResult = confirmation;
+        router.push({
+          pathname: '/(auth)/verify',
+          params: { phone: fullPhone }
         });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          router.push({
-            pathname: '/(auth)/verify',
-            params: { phone: fullPhone, useBackend: 'true' }
-          });
-        } else {
-          throw new Error(data.detail || 'Failed to send code');
-        }
       }
     } catch (error: any) {
       console.error('Phone auth error:', error);
       let message = 'Failed to send code. Please try again.';
       if (error.code === 'auth/invalid-phone-number') {
-        message = 'Invalid phone number.';
+        message = 'Invalid phone number format.';
       } else if (error.code === 'auth/too-many-requests') {
-        message = 'Too many attempts. Try later.';
+        message = 'Too many attempts. Please try again later.';
+      } else if (error.code === 'auth/missing-client-identifier') {
+        message = 'Phone authentication requires app verification. Please try again.';
       } else if (error.message) {
         message = error.message;
       }
