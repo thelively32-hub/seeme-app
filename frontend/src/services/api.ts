@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://seeme-app-production.up.railway.app';
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://presence-real.preview.emergentagent.com';
 
 const TOKEN_KEY = 'seeme_auth_token';
 const USER_KEY = 'seeme_user';
