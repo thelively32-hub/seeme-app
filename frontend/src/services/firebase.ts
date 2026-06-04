@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth as getFirebaseAuth, signOut, Auth } from 'firebase/auth';
 
 // Firebase configuration
 export const firebaseConfig = {
@@ -10,29 +11,18 @@ export const firebaseConfig = {
   appId: "1:5904630206:web:feecd66c5bcb713586f9ef"
 };
 
-// Get the appropriate auth instance based on platform
-export const getAuth = () => {
-  if (Platform.OS === 'web') {
-    const { initializeApp, getApps, getApp } = require('firebase/app');
-    const { getAuth: getWebAuth } = require('firebase/auth');
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    return getWebAuth(app);
-  } else {
-    const auth = require('@react-native-firebase/auth').default;
-    return auth();
-  }
+// Initialize Firebase app
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Get the auth instance
+export const getAuth = (): Auth => {
+  return getFirebaseAuth(app);
 };
 
 // Sign out from Firebase
 export const signOutFirebase = async () => {
-  if (Platform.OS === 'web') {
-    const { signOut } = require('firebase/auth');
-    const auth = getAuth();
-    await signOut(auth);
-  } else {
-    const auth = require('@react-native-firebase/auth').default;
-    await auth().signOut();
-  }
+  const auth = getAuth();
+  await signOut(auth);
 };
 
 // Get current user
