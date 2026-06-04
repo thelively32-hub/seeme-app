@@ -230,7 +230,9 @@ export default function LoginScreen() {
         ],
       });
       
-      await api.socialAuth('apple', {
+      console.log('Apple credential received:', credential.user);
+      
+      const result = await api.socialAuth('apple', {
         apple_id: credential.user,
         email: credential.email || undefined,
         name: credential.fullName?.givenName 
