@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://seeme-app-production.up.railway.app"
+      },
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
@@ -17,6 +20,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://seeme-app-production.up.railway.app"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -25,6 +31,9 @@
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://seeme-app-production.up.railway.app"
+      },
       "android": {
         "buildType": "apk"
       },
