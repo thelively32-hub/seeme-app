@@ -49,80 +49,17 @@ const GoogleLogo = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
-// Vibe Me Pin Logo Component
+// Vibe Me Pin Logo Component — single seamless SVG shape, no drop shadow
 const VibeMePinLogo = ({ size = 80 }: { size?: number }) => (
-  <View style={[pinLogoStyles.container, { width: size, height: size * 1.25 }]}>
-    <LinearGradient
-      colors={['#FFD700', '#F5B800', '#D4A000']}
-      style={[pinLogoStyles.pinBody, { width: size, height: size }]}
-    >
-      {/* Inner circle with eye */}
-      <View style={[pinLogoStyles.innerCircle, { width: size * 0.6, height: size * 0.6, borderRadius: size * 0.3 }]}>
-        <View style={[pinLogoStyles.eyeOuter, { width: size * 0.45, height: size * 0.3, borderRadius: size * 0.15 }]}>
-          <View style={[pinLogoStyles.eyePupil, { width: size * 0.18, height: size * 0.18, borderRadius: size * 0.09 }]}>
-            <View style={[pinLogoStyles.eyeHighlight, { width: size * 0.06, height: size * 0.06, borderRadius: size * 0.03 }]} />
-          </View>
-        </View>
-      </View>
-    </LinearGradient>
-    {/* Pin pointer */}
-    <View style={[pinLogoStyles.pinPointer, { 
-      borderLeftWidth: size * 0.2, 
-      borderRightWidth: size * 0.2, 
-      borderTopWidth: size * 0.25,
-      marginTop: -size * 0.1,
-    }]} />
-  </View>
+  <Svg width={size} height={size * 1.15} viewBox="0 0 200 230">
+    <Path
+      d="M 100 10 C 50 10 10 50 10 100 C 10 145 60 175 95 215 C 97.5 218 102.5 218 105 215 C 140 175 190 145 190 100 C 190 50 150 10 100 10 Z"
+      fill="#FFD700"
+    />
+    <Circle cx="100" cy="95" r="38" fill="#1A1500" />
+    <Circle cx="100" cy="95" r="14" fill="#FFD700" />
+  </Svg>
 );
-
-const pinLogoStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-  },
-  pinBody: {
-    borderRadius: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#FFD700',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 10,
-      },
-    }),
-  },
-  innerCircle: {
-    backgroundColor: '#1A1500',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eyeOuter: {
-    backgroundColor: '#FFD700',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eyePupil: {
-    backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 3,
-  },
-  eyeHighlight: {
-    backgroundColor: '#FFD700',
-  },
-  pinPointer: {
-    width: 0,
-    height: 0,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#D4A000',
-    borderStyle: 'solid',
-  },
-});
 
 type AuthMode = 'options' | 'email-login' | 'email-signup';
 
