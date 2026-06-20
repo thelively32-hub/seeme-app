@@ -40,7 +40,7 @@ export default function PrivacyPolicyScreen() {
 
         <Text style={styles.sectionTitle}>1. Información que Recopilamos</Text>
         <Text style={styles.paragraph}>
-          SEE ME recopila la siguiente información para proporcionar nuestros servicios:
+          Vibe Me recopila la siguiente información para proporcionar nuestros servicios:
         </Text>
         <Text style={styles.bullet}>• <Text style={styles.bold}>Número de teléfono:</Text> Para verificar tu identidad y crear tu cuenta.</Text>
         <Text style={styles.bullet}>• <Text style={styles.bold}>Información de perfil:</Text> Nombre, edad, género, fotos y preferencias que proporcionas voluntariamente.</Text>
@@ -103,7 +103,7 @@ export default function PrivacyPolicyScreen() {
 
         <Text style={styles.sectionTitle}>8. Menores de Edad</Text>
         <Text style={styles.paragraph}>
-          SEE ME está diseñado para usuarios mayores de 18 años. No recopilamos intencionalmente información de menores.
+          Vibe Me está diseñado para usuarios mayores de 18 años. No recopilamos intencionalmente información de menores.
         </Text>
 
         <Text style={styles.sectionTitle}>9. Cambios a esta Política</Text>

@@ -40,12 +40,12 @@ export default function TermsScreen() {
 
         <Text style={styles.sectionTitle}>1. Aceptación de los Términos</Text>
         <Text style={styles.paragraph}>
-          Al usar SEE ME, aceptas estos términos de servicio. Si no estás de acuerdo, no uses la aplicación.
+          Al usar Vibe Me, aceptas estos términos de servicio. Si no estás de acuerdo, no uses la aplicación.
         </Text>
 
         <Text style={styles.sectionTitle}>2. Elegibilidad</Text>
         <Text style={styles.paragraph}>
-          Para usar SEE ME debes:
+          Para usar Vibe Me debes:
         </Text>
         <Text style={styles.bullet}>• Tener al menos 18 años de edad</Text>
         <Text style={styles.bullet}>• No estar prohibido de usar el servicio</Text>
@@ -61,7 +61,7 @@ export default function TermsScreen() {
 
         <Text style={styles.sectionTitle}>4. Conducta del Usuario</Text>
         <Text style={styles.paragraph}>
-          Al usar SEE ME, te comprometes a NO:
+          Al usar Vibe Me, te comprometes a NO:
         </Text>
         <Text style={styles.bullet}>• Acosar, amenazar o intimidar a otros usuarios</Text>
         <Text style={styles.bullet}>• Publicar contenido ilegal, ofensivo o inapropiado</Text>
@@ -89,7 +89,7 @@ export default function TermsScreen() {
 
         <Text style={styles.sectionTitle}>7. Ubicación y Presencia</Text>
         <Text style={styles.paragraph}>
-          SEE ME usa tu ubicación para mostrar tu presencia en lugares. Al hacer check-in, otros usuarios podrán ver que estás en ese lugar.
+          Vibe Me usa tu ubicación para mostrar tu presencia en lugares. Al hacer check-in, otros usuarios podrán ver que estás en ese lugar.
         </Text>
         <Text style={styles.paragraph}>
           Puedes usar el Modo Fantasma (Premium) para navegar de forma invisible.
@@ -97,7 +97,7 @@ export default function TermsScreen() {
 
         <Text style={styles.sectionTitle}>8. Suscripciones Premium</Text>
         <Text style={styles.paragraph}>
-          SEE ME ofrece suscripciones de pago con beneficios adicionales:
+          Vibe Me ofrece suscripciones de pago con beneficios adicionales:
         </Text>
         <Text style={styles.bullet}>• Las suscripciones se renuevan automáticamente</Text>
         <Text style={styles.bullet}>• Puedes cancelar en cualquier momento desde la configuración de tu tienda de aplicaciones</Text>
@@ -116,7 +116,7 @@ export default function TermsScreen() {
 
         <Text style={styles.sectionTitle}>10. Limitación de Responsabilidad</Text>
         <Text style={styles.paragraph}>
-          SEE ME se proporciona "tal cual". No garantizamos:
+          Vibe Me se proporciona "tal cual". No garantizamos:
         </Text>
         <Text style={styles.bullet}>• Que encontrarás conexiones</Text>
         <Text style={styles.bullet}>• La veracidad de la información de otros usuarios</Text>

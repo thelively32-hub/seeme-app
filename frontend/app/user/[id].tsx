@@ -183,7 +183,7 @@ export default function UserProfileScreen() {
     if (!id) return;
     try {
       await api.reportUser(id, reason);
-      Alert.alert('Reporte enviado', 'Gracias por ayudarnos a mantener SEE ME seguro.');
+      Alert.alert('Reporte enviado', 'Gracias por ayudarnos a mantener Vibe Me seguro.');
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.detail || 'No se pudo enviar el reporte');
     }

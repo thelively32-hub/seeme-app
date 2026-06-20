@@ -71,7 +71,7 @@ const PLANS: Plan[] = [
     name: 'Premium',
     price: '$9.99',
     period: '/mes',
-    description: 'Desbloquea todo el potencial de SEE ME',
+    description: 'Desbloquea todo el potencial de Vibe Me',
     popular: true,
     features: [
       { text: 'Todo lo del plan Básico', included: true },

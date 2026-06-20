@@ -43,8 +43,8 @@ export default function BusinessDetailScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `¡Únete a ${business?.name} en SEE ME! Escanea el código QR cuando llegues para hacer check-in.`,
-        title: `${business?.name} en SEE ME`,
+        message: `¡Únete a ${business?.name} en Vibe Me! Escanea el código QR cuando llegues para hacer check-in.`,
+        title: `${business?.name} en Vibe Me`,
       });
     } catch (error) {
       console.error('Share failed:', error);
@@ -128,7 +128,7 @@ export default function BusinessDetailScreen() {
                 getRef={(ref) => (qrRef.current = ref)}
               />
             </View>
-            <Text style={styles.qrLabel}>SEE ME Partner</Text>
+            <Text style={styles.qrLabel}>Vibe Me Partner</Text>
           </View>
         </View>
 
@@ -153,7 +153,7 @@ export default function BusinessDetailScreen() {
             </View>
             <View style={styles.instructionContent}>
               <Text style={styles.instructionText}>
-                Los usuarios de SEE ME lo escanearán al llegar para hacer check-in
+                Los usuarios de Vibe Me lo escanearán al llegar para hacer check-in
               </Text>
             </View>
           </View>

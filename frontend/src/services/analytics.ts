@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { getAnalytics, logEvent, setUserId, setUserProperties, isSupported } from 'firebase/analytics';
 import { firebaseApp } from './firebase';
 
-// Analytics events for SEE ME app
+// Analytics events for Vibe Me app
 export const ANALYTICS_EVENTS = {
   // Auth events
   SIGN_UP: 'sign_up',

@@ -19,7 +19,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'explore_welcome',
     screen: 'explore',
     target: 'explore_header',
-    title: '¡Bienvenido a SEE ME! 👋',
+    title: '¡Bienvenido a Vibe Me! 👋',
     description: 'Descubre personas cerca de ti en tiempo real. Aquí verás los lugares más populares de tu zona.',
     position: 'bottom',
   },
@@ -45,7 +45,7 @@ export const TOUR_STEPS: TourStep[] = [
     screen: 'vibes',
     target: 'vibes_header',
     title: 'Tus Vibes 💫',
-    description: 'Aquí verás los Vibes que envías y recibes. Los Vibes son la forma única de SEE ME para conectar.',
+    description: 'Aquí verás los Vibes que envías y recibes. Los Vibes son la forma única de Vibe Me para conectar.',
     position: 'bottom',
   },
   {

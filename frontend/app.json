@@ -57,6 +57,8 @@
     },
     "plugins": [
       "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
       [
         "expo-build-properties",
         {
@@ -84,7 +86,8 @@
       "expo-camera",
       "expo-image-picker",
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      "./plugins/withFirebaseFix.js"
     ],
     "experiments": {
       "typedRoutes": true

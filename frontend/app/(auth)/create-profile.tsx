@@ -124,7 +124,7 @@ export default function CreateProfileScreen() {
     } else if (step === 2) {
       const age = calculateAge(birthdate);
       if (age < 18) {
-        setError('You must be 18 or older to use See Me');
+        setError('You must be 18 or older to use Vibe Me');
         return;
       }
       if (age > 100 || birthdate.length < 10) {
@@ -162,7 +162,7 @@ export default function CreateProfileScreen() {
           <>
             <Text style={styles.title}>What's your name?</Text>
             <Text style={styles.subtitle}>
-              This is how you'll appear on See Me
+              This is how you'll appear on Vibe Me
             </Text>
             <View style={styles.inputContainer}>
               <TextInput

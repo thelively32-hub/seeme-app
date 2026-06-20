@@ -67,7 +67,7 @@ export default function BusinessModeScreen() {
             <Ionicons name="business" size={32} color={COLORS.gold.primary} />
             <Text style={styles.infoBannerTitle}>¿Tienes un local?</Text>
             <Text style={styles.infoBannerText}>
-              Genera un código QR único para tu negocio y permite que los usuarios de SEE ME hagan check-in automáticamente al llegar.
+              Genera un código QR único para tu negocio y permite que los usuarios de Vibe Me hagan check-in automáticamente al llegar.
             </Text>
           </LinearGradient>
         </View>
@@ -132,7 +132,7 @@ export default function BusinessModeScreen() {
             </View>
             <View style={styles.benefitInfo}>
               <Text style={styles.benefitTitle}>Atrae más clientes</Text>
-              <Text style={styles.benefitText}>Los usuarios de SEE ME verán tu local y podrán hacer check-in fácilmente</Text>
+              <Text style={styles.benefitText}>Los usuarios de Vibe Me verán tu local y podrán hacer check-in fácilmente</Text>
             </View>
           </View>
 
@@ -142,7 +142,7 @@ export default function BusinessModeScreen() {
             </View>
             <View style={styles.benefitInfo}>
               <Text style={styles.benefitTitle}>Visibilidad en la app</Text>
-              <Text style={styles.benefitText}>Tu local aparecerá destacado como partner oficial de SEE ME</Text>
+              <Text style={styles.benefitText}>Tu local aparecerá destacado como partner oficial de Vibe Me</Text>
             </View>
           </View>
 

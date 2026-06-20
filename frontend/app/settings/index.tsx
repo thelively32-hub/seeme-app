@@ -246,7 +246,7 @@ export default function SettingsScreen() {
           <SettingRow
             icon="diamond-outline"
             iconColor={COLORS.gold.primary}
-            label="SEE ME Premium"
+            label="Vibe Me Premium"
             value="Desbloquea todo"
             onPress={() => router.push('/settings/subscription')}
           />
@@ -426,7 +426,7 @@ export default function SettingsScreen() {
 
         {/* Version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>See Me v1.0.0</Text>
+          <Text style={styles.versionText}>Vibe Me v1.0.0</Text>
           <Text style={styles.madeWithText}>Made with 💛 for connecting people</Text>
         </View>
       </ScrollView>

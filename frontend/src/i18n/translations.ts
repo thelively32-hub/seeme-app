@@ -49,7 +49,7 @@ export const translations = {
     // Onboarding
     onboarding: {
       setYourVibe: 'Set Your Vibe',
-      vibeDescription: 'SEE ME helps you discover social spaces where people are open to connect — no pressure, just real moments.',
+      vibeDescription: 'Vibe Me helps you discover social spaces where people are open to connect — no pressure, just real moments.',
       yourGender: 'Your gender',
       openToMeet: 'Open to meet',
       yourSocialVibe: 'Your social vibe',
@@ -224,7 +224,7 @@ export const translations = {
     // Onboarding
     onboarding: {
       setYourVibe: 'Define Tu Vibe',
-      vibeDescription: 'SEE ME te ayuda a descubrir espacios sociales donde la gente está abierta a conectar — sin presión, solo momentos reales.',
+      vibeDescription: 'Vibe Me te ayuda a descubrir espacios sociales donde la gente está abierta a conectar — sin presión, solo momentos reales.',
       yourGender: 'Tu género',
       openToMeet: 'Abierto a conocer',
       yourSocialVibe: 'Tu vibe social',

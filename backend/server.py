@@ -730,7 +730,7 @@ async def lifespan(app: FastAPI):
 # ============== APP ==============
 
 app = FastAPI(
-    title="SEE ME API",
+    title="Vibe Me API",
     description="Real-time social presence platform API",
     version="2.0.0",
     lifespan=lifespan
@@ -2735,7 +2735,7 @@ async def report_user(
     )
     
     return {
-        "message": "Report submitted successfully. Thank you for keeping SEE ME safe.",
+        "message": "Report submitted successfully. Thank you for keeping Vibe Me safe.",
         "status": "pending"
     }
 
@@ -2897,7 +2897,7 @@ async def share_date_location(
     Returns formatted message to share via SMS/WhatsApp.
     """
     user_id = str(current_user["_id"])
-    user_name = current_user.get("name", "A SEE ME user")
+    user_name = current_user.get("name", "A Vibe Me user")
     
     # Get current check-in if any
     checkin = await checkins_collection.find_one({
@@ -2913,7 +2913,7 @@ async def share_date_location(
     now = datetime.utcnow()
     expected_end = now + timedelta(hours=share_data.duration_hours)
     
-    share_message = f"""🛡️ SEE ME Safety Check
+    share_message = f"""🛡️ Vibe Me Safety Check
 
 {user_name} is meeting someone at:
 📍 {location_info}
@@ -2925,7 +2925,7 @@ Expected duration: {share_data.duration_hours} hours
 
 If you don't hear from them by {expected_end.strftime('%I:%M %p')}, please check in.
 
-- Sent via SEE ME App"""
+- Sent via Vibe Me App"""
     
     return {
         "message": share_message,
@@ -3555,7 +3555,7 @@ async def qr_checkin(
     if not qr_data.qr_data.startswith("seeme://place/"):
         raise HTTPException(
             status_code=400, 
-            detail="Invalid QR code. This doesn't look like a SEE ME QR code."
+            detail="Invalid QR code. This doesn't look like a Vibe Me QR code."
         )
     
     place_id = qr_data.qr_data.replace("seeme://place/", "")
@@ -3656,7 +3656,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "SEE ME API",
+        "service": "Vibe Me API",
         "version": "2.2.0",
         "timestamp": datetime.utcnow().isoformat(),
         "features": {

@@ -46,11 +46,11 @@ export default function ScannerScreen() {
     setProcessing(true);
 
     try {
-      // Check if it's a valid SEE ME QR
+      // Check if it's a valid Vibe Me QR
       if (!data.startsWith('seeme://place/')) {
         Alert.alert(
           'Código inválido',
-          'Este no es un código QR de SEE ME.',
+          'Este no es un código QR de Vibe Me.',
           [{ text: 'OK', onPress: () => setScanned(false) }]
         );
         setProcessing(false);
@@ -214,7 +214,7 @@ export default function ScannerScreen() {
           <View style={styles.infoCard}>
             <Ionicons name="information-circle" size={24} color={COLORS.gold.primary} />
             <Text style={styles.infoText}>
-              Escanea el código QR de un local partner de SEE ME para hacer check-in automáticamente
+              Escanea el código QR de un local partner de Vibe Me para hacer check-in automáticamente
             </Text>
           </View>
         </View>

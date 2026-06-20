@@ -1,4 +1,4 @@
-// SEE ME - Vibe System
+// Vibe Me - Vibe System
 // Los Vibes son el lenguaje único de la app para comunicar intenciones
 
 export interface VibeType {
@@ -12,7 +12,7 @@ export interface VibeType {
   color: string;          // Color temático
 }
 
-// 18 Vibes oficiales de SEE ME
+// 18 Vibes oficiales de Vibe Me
 export const VIBES: VibeType[] = [
   // === INTENTIONS (Intenciones) ===
   {

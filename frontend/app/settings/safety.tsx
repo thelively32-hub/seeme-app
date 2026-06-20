@@ -81,12 +81,12 @@ export default function SafetyScreen() {
   };
 
   const handleShareLocation = async () => {
-    const message = `Estoy usando SEE ME para conocer gente. Te aviso por si necesitas contactarme. - Enviado desde SEE ME`;
+    const message = `Estoy usando Vibe Me para conocer gente. Te aviso por si necesitas contactarme. - Enviado desde Vibe Me`;
     
     try {
       await Share.share({
         message,
-        title: 'SEE ME - Compartir ubicacion',
+        title: 'Vibe Me - Compartir ubicacion',
       });
     } catch (error) {
       console.error('Share error:', error);

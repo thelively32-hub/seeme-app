@@ -272,7 +272,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* App Version */}
-        <Text style={styles.versionText}>See Me v1.0.0</Text>
+        <Text style={styles.versionText}>Vibe Me v1.0.0</Text>
       </ScrollView>
 
       {/* Tour Tooltip */}
