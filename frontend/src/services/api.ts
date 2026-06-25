@@ -90,7 +90,22 @@ class ApiService {
         headers,
       });
 
-      const data = await response.json();
+      // Safe JSON parse — backend may return HTML on 500 errors
+      let data: any;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`);
+        }
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`Unexpected server response: ${text.substring(0, 200)}`);
+        }
+      }
 
       if (!response.ok) {
         // Handle different error formats
