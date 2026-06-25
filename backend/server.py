@@ -708,7 +708,13 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create indexes and seed data
-    await users_collection.create_index("email", unique=True)
+    # Drop old non-sparse email index if it exists, then recreate as sparse
+    # This allows phone-only users (email: null) to coexist in the collection
+    try:
+        await users_collection.drop_index("email_1")
+    except Exception:
+        pass  # Index didn't exist, that's fine
+    await users_collection.create_index("email", unique=True, sparse=True)
     await places_collection.create_index([("latitude", 1), ("longitude", 1)])
     await checkins_collection.create_index([("user_id", 1), ("is_active", 1)])
     await checkins_collection.create_index([("place_id", 1), ("is_active", 1)])
