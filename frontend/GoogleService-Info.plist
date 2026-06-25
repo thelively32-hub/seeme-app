@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>5904630206-dg5klianoqk3b89brb0h4vf91aqslrnh.apps.googleusercontent.com</string>
+	<string>5904630206-7cii0sgf4ojp9m23ba4rv6nlivm8krc9.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.5904630206-dg5klianoqk3b89brb0h4vf91aqslrnh</string>
+	<string>com.googleusercontent.apps.5904630206-7cii0sgf4ojp9m23ba4rv6nlivm8krc9</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>5904630206-f3m6liorm4i12b5bla4fo3ss4l9m3tsq.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.luisgarcia.vibeme</string>
+	<string>com.luisgarcia.seeme</string>
 	<key>PROJECT_ID</key>
 	<string>see-me-app-5e487</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:5904630206:ios:bfca8046791a94cf86f9ef</string>
+	<string>1:5904630206:ios:e406025c5213a79786f9ef</string>
 </dict>
 </plist>
