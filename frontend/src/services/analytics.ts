@@ -1,5 +1,16 @@
 import { Platform } from 'react-native';
-import { getAnalytics, logEvent, setUserId, setUserProperties, isSupported } from 'firebase/analytics';
+
+// Firebase Analytics only works on web - skip on native to prevent crash
+const isWeb = Platform.OS === 'web';
+let getAnalytics: any, logEvent: any, setUserId: any, setUserProperties: any, isSupported: any;
+if (isWeb) {
+  const firebaseAnalytics = require('firebase/analytics');
+  getAnalytics = firebaseAnalytics.getAnalytics;
+  logEvent = firebaseAnalytics.logEvent;
+  setUserId = firebaseAnalytics.setUserId;
+  setUserProperties = firebaseAnalytics.setUserProperties;
+  isSupported = firebaseAnalytics.isSupported;
+}
 import { firebaseApp } from './firebase';
 
 // Analytics events for Vibe Me app
