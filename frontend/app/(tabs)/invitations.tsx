@@ -488,9 +488,11 @@ export default function InvitationsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [myInvitations, setMyInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'full' | 'half'>('all');
+  const [activeTab, setActiveTab] = useState<'invitations' | 'my_events'>('invitations');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingInvitation, setEditingInvitation] = useState<Invitation | null>(null);
 
@@ -500,8 +502,12 @@ export default function InvitationsScreen() {
   const loadInvitations = useCallback(async () => {
     try {
       const paymentType = filter === 'all' ? undefined : filter;
-      const data = await api.getInvitations(paymentType, 50);
+      const [data, myData] = await Promise.all([
+        api.getInvitations(paymentType, 50),
+        api.getMyInvitations(),
+      ]);
       setInvitations(data);
+      setMyInvitations(myData || []);
     } catch (error) {
       console.error('Error loading invitations:', error);
     } finally {
@@ -598,30 +604,32 @@ export default function InvitationsScreen() {
       />
 
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <View>
-          <Text style={styles.headerTitle}>Invitaciones</Text>
-          <Text style={styles.headerSubtitle}>¿Quién para...?</Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.myInvitationsButton}
-          onPress={() => router.push('/invitation/my-invitations')}
-        >
-          <Ionicons name="list" size={20} color={COLORS.gold.primary} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>INVITATIONS</Text>
       </View>
 
-      <View style={styles.filters}>
-        {(['all', 'full', 'half'] as const).map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterButton, filter === f && styles.filterButtonActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === 'all' ? 'Todas' : f === 'full' ? 'Yo invito' : '50/50'}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Main tabs */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'invitations' && styles.tabActive]}
+          onPress={() => setActiveTab('invitations')}
+        >
+          <Text style={[styles.tabText, activeTab === 'invitations' && styles.tabTextActive]}>
+            Nearby
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'my_events' && styles.tabActive]}
+          onPress={() => setActiveTab('my_events')}
+        >
+          <Text style={[styles.tabText, activeTab === 'my_events' && styles.tabTextActive]}>
+            My Events
+          </Text>
+          {myInvitations.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{myInvitations.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -636,27 +644,56 @@ export default function InvitationsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {invitations.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="megaphone-outline" size={64} color={COLORS.text.muted} />
-            <Text style={styles.emptyTitle}>No hay invitaciones</Text>
-            <Text style={styles.emptySubtitle}>
-              Sé el primero en publicar un plan
-            </Text>
-          </View>
+        {activeTab === 'invitations' ? (
+          invitations.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="megaphone-outline" size={64} color={COLORS.text.muted} />
+              <Text style={styles.emptyTitle}>No hay invitaciones</Text>
+              <Text style={styles.emptySubtitle}>Sé el primero en publicar un plan</Text>
+            </View>
+          ) : (
+            invitations.map((invitation) => (
+              <InvitationCard
+                key={invitation.id}
+                invitation={invitation}
+                onPress={() => handleViewInvitation(invitation)}
+                onRespond={() => handleRespond(invitation)}
+                onEdit={() => handleEdit(invitation)}
+                onDelete={() => handleDelete(invitation)}
+                isOwner={invitation.user_id === userId}
+                isPremium={isPremium}
+              />
+            ))
+          )
         ) : (
-          invitations.map((invitation) => (
-            <InvitationCard
-              key={invitation.id}
-              invitation={invitation}
-              onPress={() => handleViewInvitation(invitation)}
-              onRespond={() => handleRespond(invitation)}
-              onEdit={() => handleEdit(invitation)}
-              onDelete={() => handleDelete(invitation)}
-              isOwner={invitation.user_id === userId}
-              isPremium={isPremium}
-            />
-          ))
+          myInvitations.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={64} color={COLORS.text.muted} />
+              <Text style={styles.emptyTitle}>No tienes eventos</Text>
+              <Text style={styles.emptySubtitle}>
+                Toca el botón + para crear tu primer evento
+              </Text>
+              <TouchableOpacity
+                style={styles.createFirstBtn}
+                onPress={() => { setEditingInvitation(null); setShowCreateModal(true); }}
+              >
+                <Text style={styles.createFirstBtnText}>Crear evento</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            myInvitations.map((invitation) => (
+              <InvitationCard
+                key={invitation.id}
+                invitation={invitation}
+                onPress={() => handleViewInvitation(invitation)}
+                onRespond={() => handleRespond(invitation)}
+                onEdit={() => handleEdit(invitation)}
+                onDelete={() => handleDelete(invitation)}
+                isOwner={true}
+                isPremium={isPremium}
+              />
+            ))
+          )
         )}
       </ScrollView>
 
@@ -696,8 +733,71 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.gold.primary,
+    letterSpacing: 3,
+  },
+  tabRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  tabActive: {
+    backgroundColor: COLORS.gold.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+  },
+  tabTextActive: {
+    color: '#000',
+    fontWeight: '700',
+  },
+  tabBadge: {
+    backgroundColor: '#000',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.gold.primary,
+  },
+  createFirstBtn: {
+    marginTop: 20,
+    backgroundColor: COLORS.gold.primary,
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  createFirstBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000',
+  },
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 16,
