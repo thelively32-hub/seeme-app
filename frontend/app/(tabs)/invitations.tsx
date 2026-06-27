@@ -798,14 +798,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
   },
+  myInvitationsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.background.card,
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border.light,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.text.primary,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
   },
   headerSubtitle: {
     fontSize: 14,
