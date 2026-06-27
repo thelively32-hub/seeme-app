@@ -335,6 +335,10 @@ class ApiService {
   // ============== VIBE SYSTEM ==============
   
   // Get users at a specific place
+  async getPredefinedVibeMessages(lang: string = 'en') {
+    return this.request(`/api/vibes/predefined-messages?lang=${lang}`);
+  }
+
   async getUsersAtPlace(placeId: string) {
     return this.request(`/api/places/${placeId}/users`);
   }

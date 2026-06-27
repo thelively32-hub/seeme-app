@@ -245,7 +245,8 @@ class CheckInAttemptLog(BaseModel):
 class VibeSend(BaseModel):
     """Model for sending a vibe to another user"""
     to_user_id: str
-    message: str = Field(default="Hey! 👋", max_length=100)
+    message: str = Field(default="Hey! 👋", max_length=60)
+    predefined_key: Optional[str] = Field(default=None)  # Key of predefined message chosen
     vibe_type: str = Field(default="wave", pattern="^(wave|wink|coffee|drink|dance|custom)$")
     place_id: Optional[str] = None  # Where they saw them
 
@@ -1944,44 +1945,36 @@ async def send_vibe(
     target_user = await users_collection.find_one({"_id": ObjectId(vibe.to_user_id)})
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Check rate limits for basic users
+
+    # Check if target user has blocked the sender
+    block = await blocks_collection.find_one({
+        "blocker_id": vibe.to_user_id,
+        "blocked_user_id": user_id
+    })
+    if block:
+        raise HTTPException(status_code=403, detail="You cannot send a vibe to this user")
+
+    # Per-person vibe limit for free users: max 3 vibes to the same person ever
     if not is_premium:
-        # Count vibes sent in last 24 hours
-        day_ago = now - timedelta(hours=24)
-        vibes_today = await vibes_collection.count_documents({
+        vibes_to_person = await vibes_collection.count_documents({
             "from_user_id": user_id,
-            "created_at": {"$gt": day_ago}
+            "to_user_id": vibe.to_user_id
         })
-        
-        if vibes_today >= 5:
+        if vibes_to_person >= 3:
             raise HTTPException(
-                status_code=429, 
-                detail="Daily vibe limit reached (5). Upgrade to Premium for unlimited vibes!"
+                status_code=429,
+                detail="You've reached the limit of 3 vibes to this person. Upgrade to Premium for unlimited vibes!"
             )
-        
-        # Check 2-hour cooldown
-        two_hours_ago = now - timedelta(hours=2)
-        recent_vibe = await vibes_collection.find_one({
-            "from_user_id": user_id,
-            "created_at": {"$gt": two_hours_ago}
-        })
-        
-        if recent_vibe:
-            raise HTTPException(
-                status_code=429, 
-                detail="Please wait 2 hours between vibes. Upgrade to Premium for no limits!"
-            )
-    
-    # Check if already sent vibe to this user (not expired)
+
+    # Check if there's already a pending vibe to this user (not expired)
     existing_vibe = await vibes_collection.find_one({
         "from_user_id": user_id,
         "to_user_id": vibe.to_user_id,
+        "status": "pending",
         "expires_at": {"$gt": now}
     })
-    
     if existing_vibe:
-        raise HTTPException(status_code=400, detail="You already sent a vibe to this person")
+        raise HTTPException(status_code=400, detail="You already have a pending vibe with this person")
     
     # Get place name if place_id provided
     place_name = None
@@ -2206,32 +2199,44 @@ async def get_vibe_stats(
     day_ago = now - timedelta(hours=24)
     
     # Count vibes sent today
-    vibes_today = await vibes_collection.count_documents({
+    vibes_sent_total = await vibes_collection.count_documents({
         "from_user_id": user_id,
-        "created_at": {"$gt": day_ago}
     })
-    
-    # Get last vibe time for cooldown
-    last_vibe = await vibes_collection.find_one(
-        {"from_user_id": user_id},
-        sort=[("created_at", -1)]
-    )
-    
-    # Calculate next available vibe time for basic users
-    next_vibe_at = None
-    if not is_premium and last_vibe:
-        cooldown_end = last_vibe["created_at"] + timedelta(hours=2)
-        if cooldown_end > now:
-            next_vibe_at = cooldown_end
-    
+
     return {
         "is_premium": is_premium,
-        "vibes_sent_today": vibes_today,
-        "vibes_remaining": "unlimited" if is_premium else max(0, 5 - vibes_today),
-        "daily_limit": "unlimited" if is_premium else 5,
-        "next_vibe_at": next_vibe_at,
-        "cooldown_hours": 0 if is_premium else 2
+        "vibes_sent_total": vibes_sent_total,
+        "per_person_limit": "unlimited" if is_premium else 3,
+        "limit_type": "per_person",
     }
+
+
+# ============== PREDEFINED VIBE MESSAGES ==============
+
+PREDEFINED_VIBE_MESSAGES = {
+    "en": [
+        {"key": "drink",    "text": "Grab a drink? 🍻",     "type": "drink"},
+        {"key": "meet",     "text": "Wants to meet ✨",      "type": "wave"},
+        {"key": "join",     "text": "Join us! 🔥",           "type": "dance"},
+        {"key": "coffee",   "text": "Coffee? ☕",            "type": "coffee"},
+        {"key": "vibe",     "text": "Good vibe 💛",          "type": "wink"},
+        {"key": "chat",     "text": "Let's talk 💬",         "type": "wave"},
+    ],
+    "es": [
+        {"key": "drink",    "text": "¿Una copa? 🍻",         "type": "drink"},
+        {"key": "meet",     "text": "Quiero conocerte ✨",   "type": "wave"},
+        {"key": "join",     "text": "¡Únete! 🔥",            "type": "dance"},
+        {"key": "coffee",   "text": "¿Un café? ☕",          "type": "coffee"},
+        {"key": "vibe",     "text": "Buena vibra 💛",        "type": "wink"},
+        {"key": "chat",     "text": "Hablamos 💬",           "type": "wave"},
+    ],
+}
+
+@app.get("/api/vibes/predefined-messages", tags=["Vibes"])
+async def get_predefined_messages(lang: str = "en"):
+    """Get predefined vibe messages in the requested language"""
+    messages = PREDEFINED_VIBE_MESSAGES.get(lang, PREDEFINED_VIBE_MESSAGES["en"])
+    return {"messages": messages, "max_custom_length": 60}
 
 
 # ============== CHAT ENDPOINTS ==============
