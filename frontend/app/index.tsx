@@ -118,10 +118,7 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={['#000', '#0a0a0a']}
-          style={StyleSheet.absoluteFill}
-        />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000' }]} />
       </View>
     );
   }
@@ -150,16 +147,8 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Dark Gradient Overlay */}
-      <LinearGradient
-        colors={[
-          'rgba(0,0,0,0.3)',
-          'rgba(0,0,0,0.4)',
-          'rgba(0,0,0,0.85)',
-        ]}
-        locations={[0, 0.5, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+      {/* Dark Overlay - using plain View instead of LinearGradient for iOS 26 compatibility */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
 
       <Animated.View
         style={[
