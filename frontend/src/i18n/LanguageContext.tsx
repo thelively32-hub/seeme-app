@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { getLocales } from 'expo-localization';
 import { translations, Language, TranslationKeys } from './translations';
 
 interface LanguageContextType {
@@ -13,28 +14,30 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 const LANGUAGE_KEY = '@seeme_language';
 
-// Get device language without expo-localization
+// Supported languages
+const SUPPORTED: Language[] = ['en', 'es'];
+
+// Get device language on any platform
 const getDeviceLanguage = (): Language => {
   try {
-    let deviceLang = 'en';
-    
+    let baseLang = 'en';
+
     if (Platform.OS === 'web') {
-      // For web, use browser language
       if (typeof navigator !== 'undefined') {
-        deviceLang = navigator.language || (navigator as any).userLanguage || 'en';
+        baseLang = (navigator.language || (navigator as any).userLanguage || 'en')
+          .split('-')[0]
+          .toLowerCase();
+      }
+    } else {
+      // iOS / Android — use expo-localization
+      const locales = getLocales();
+      if (locales && locales.length > 0) {
+        baseLang = locales[0].languageCode?.toLowerCase() || 'en';
       }
     }
-    // For native, we'll just use the saved preference or default to English
-    // The user can change it in settings
-    
-    // Extract the base language code (e.g., 'es-MX' -> 'es')
-    const baseLang = deviceLang.split('-')[0].toLowerCase();
-    
-    // Return the language if supported, otherwise default to English
-    if (baseLang === 'es') return 'es';
-    return 'en';
+
+    return SUPPORTED.includes(baseLang as Language) ? (baseLang as Language) : 'en';
   } catch (e) {
-    console.log('Error detecting device language:', e);
     return 'en';
   }
 };
