@@ -58,7 +58,6 @@
     },
     "plugins": [
       "expo-router",
-      "react-native-video",
       [
         "expo-build-properties",
         {
