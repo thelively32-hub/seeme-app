@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Video, ResizeMode } from 'expo-av';
+import Video from 'react-native-video';
 import { useAuth } from '../src/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -123,11 +123,16 @@ export default function HomeScreen() {
         {Platform.OS === 'web' ? (
           <WebVideo />
         ) : (
-          <ImageBackground
-            source={{ uri: 'https://res.cloudinary.com/dxgtxlgyr/image/upload/v1748612258/See_me_intro_ready_hxj0xq.jpg' }}
+          <Video
+            source={{ uri: VIDEO_URL }}
             style={styles.backgroundVideo}
             resizeMode="cover"
-            onError={() => {}} // Silent fallback - dark gradient covers it anyway
+            repeat
+            muted
+            playInBackground={false}
+            onLoad={() => setVideoLoaded(true)}
+            onError={(e) => console.log('Video error:', e)}
+            ignoreSilentSwitch="obey"
           />
         )}
       </View>
