@@ -31,13 +31,10 @@ const firebaseConfig = {
   measurementId: "G-7BBQ01WKLX"
 };
 
-// Web SDK is only initialized/used on Platform.OS === 'web'.
-// Native (iOS/Android) uses @react-native-firebase/auth instead, which
-// verifies silently via APNs / Play Integrity and needs no reCAPTCHA.
-const firebaseApp = Platform.OS === 'web'
-  ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApp())
-  : null;
-const firebaseAuth = Platform.OS === 'web' ? getAuth(firebaseApp!) : null;
+// Web SDK is initialized for all platforms.
+// On native, Firebase uses its REST API for phone auth (no reCAPTCHA needed).
+const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const firebaseAuth = getAuth(firebaseApp);
 
 const COUNTRIES = [
   { code: '+1', flag: '🇺🇸', name: 'US' },
@@ -74,7 +71,8 @@ export default function PhoneScreen() {
     if (Platform.OS === 'web') {
       initRecaptchaWeb();
     } else {
-      // Native: @react-native-firebase/auth needs no reCAPTCHA setup
+      // On native, Firebase web SDK will handle verification
+      // reCAPTCHA is not needed for native phone auth flow
       setRecaptchaReady(true);
     }
 
@@ -169,12 +167,16 @@ export default function PhoneScreen() {
           params: { phone: fullPhone }
         });
       } else {
-        // iOS/Android: Use @react-native-firebase/auth.
-        // This verifies the app silently via APNs (iOS) / Play Integrity
-        // (Android) — no reCAPTCHA needed, and it's what actually delivers
-        // the SMS reliably on native devices.
-        const nativeAuth = require('@react-native-firebase/auth').default;
-        const confirmation = await nativeAuth().signInWithPhoneNumber(fullPhone);
+        // iOS/Android: Use Firebase web SDK signInWithPhoneNumber
+        // Firebase handles phone verification via its REST API
+        // The user will see a reCAPTCHA challenge if silent verification fails
+        if (!firebaseAuth) {
+          throw new Error('Firebase auth not initialized');
+        }
+        const confirmation = await signInWithPhoneNumber(
+          firebaseAuth,
+          fullPhone
+        );
         globalConfirmationResult = confirmation;
         router.push({
           pathname: '/(auth)/verify',

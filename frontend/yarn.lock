@@ -2306,20 +2306,6 @@
   dependencies:
     invariant "^2.2.4"
 
-"@react-native-firebase/app@^24.1.1":
-  version "24.1.1"
-  resolved "https://registry.yarnpkg.com/@react-native-firebase/app/-/app-24.1.1.tgz#9b66d5f85aca5fcfad01b882f9ce4d2a1199bb0a"
-  integrity sha512-NKCUgBeilQvchHQeKwB6RuE3Ne2AZMlClXjJBVySkCAF2FNO73ML2brqrAyegRkuVswtqHsB6wAgypmP82WnnA==
-  dependencies:
-    firebase "12.14.0"
-
-"@react-native-firebase/auth@^24.1.1":
-  version "24.1.1"
-  resolved "https://registry.yarnpkg.com/@react-native-firebase/auth/-/auth-24.1.1.tgz#2140b4d3b96dafb4c1332cf07de5216bb6514382"
-  integrity sha512-7sYshSmLOcaHnEO3zT5OBA6/zLgO+SXQTwlvSDAWpzWq+FBKC9gLjd8zX/Z6AysqhdvjLNBQyRuEESdwCbtDuA==
-  dependencies:
-    plist "^3.1.0"
-
 "@react-native/assets-registry@0.81.5":
   version "0.81.5"
   resolved "https://registry.yarnpkg.com/@react-native/assets-registry/-/assets-registry-0.81.5.tgz#d22c924fa6f6d4a463c5af34ce91f38756c0fa7d"
@@ -4807,7 +4793,7 @@ find-up@^5.0.0:
     locate-path "^6.0.0"
     path-exists "^4.0.0"
 
-firebase@12.14.0, firebase@^12.11.0:
+firebase@^12.11.0:
   version "12.14.0"
   resolved "https://registry.yarnpkg.com/firebase/-/firebase-12.14.0.tgz#79b383ea11697692a4bee0ff59c7dde25078b073"
   integrity sha512-aEZ/lniDR1hOCYpx/x/V8Nrrqq9pepKDNkqP/4WGZFC69gTv6F59Z4/54W/SUP4L/hFlrRNmWj35aweQq+IHow==
@@ -6841,7 +6827,7 @@ pirates@^4.0.1, pirates@^4.0.4:
   resolved "https://registry.yarnpkg.com/pirates/-/pirates-4.0.7.tgz#643b4a18c4257c8a65104b73f3049ce9a0a15e22"
   integrity sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==
 
-plist@^3.0.5, plist@^3.1.0:
+plist@^3.0.5:
   version "3.1.1"
   resolved "https://registry.yarnpkg.com/plist/-/plist-3.1.1.tgz#fa6099e1e3cf6ea180258ebe6378ea3878c2c841"
   integrity sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA==
