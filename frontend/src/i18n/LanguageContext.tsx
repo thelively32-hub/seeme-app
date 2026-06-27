@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import { getLocales } from 'expo-localization';
+import { Platform, NativeModules } from 'react-native';
 import { translations, Language, TranslationKeys } from './translations';
 
 interface LanguageContextType {
@@ -13,31 +12,38 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 const LANGUAGE_KEY = '@seeme_language';
-
-// Supported languages
 const SUPPORTED: Language[] = ['en', 'es'];
 
-// Get device language on any platform
+// Detect device language without expo-localization
+// Uses Intl API (Hermes built-in) or native locale string
 const getDeviceLanguage = (): Language => {
   try {
     let baseLang = 'en';
 
     if (Platform.OS === 'web') {
       if (typeof navigator !== 'undefined') {
-        baseLang = (navigator.language || (navigator as any).userLanguage || 'en')
-          .split('-')[0]
-          .toLowerCase();
+        baseLang = (navigator.language || 'en').split('-')[0].toLowerCase();
       }
     } else {
-      // iOS / Android — use expo-localization
-      const locales = getLocales();
-      if (locales && locales.length > 0) {
-        baseLang = locales[0].languageCode?.toLowerCase() || 'en';
+      // iOS: NativeModules.SettingsManager or Intl
+      // Android: NativeModules.I18nManager
+      // Both: Intl.DateTimeFormat works in Hermes
+      if (typeof Intl !== 'undefined') {
+        const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+        baseLang = locale.split('-')[0].toLowerCase();
+      } else if (Platform.OS === 'ios') {
+        const locale = NativeModules.SettingsManager?.settings?.AppleLocale
+          || NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
+          || 'en';
+        baseLang = locale.split('_')[0].split('-')[0].toLowerCase();
+      } else {
+        const locale = NativeModules.I18nManager?.localeIdentifier || 'en';
+        baseLang = locale.split('_')[0].toLowerCase();
       }
     }
 
     return SUPPORTED.includes(baseLang as Language) ? (baseLang as Language) : 'en';
-  } catch (e) {
+  } catch {
     return 'en';
   }
 };
