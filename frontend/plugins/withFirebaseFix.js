@@ -20,11 +20,15 @@ const firebaseFixCode = `
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+      config.build_settings['SWIFT_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
     end
   end
   
   installer.pods_project.build_configuration_list.build_configurations.each do |configuration|
     configuration.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    configuration.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+    configuration.build_settings['SWIFT_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
   end
   # ===== END FIREBASE FIX =====
 `;
