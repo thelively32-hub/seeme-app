@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -122,15 +123,11 @@ export default function HomeScreen() {
         {Platform.OS === 'web' ? (
           <WebVideo />
         ) : (
-          <Video
-            source={{ uri: VIDEO_URL }}
+          <ImageBackground
+            source={{ uri: 'https://res.cloudinary.com/dxgtxlgyr/image/upload/v1748612258/See_me_intro_ready_hxj0xq.jpg' }}
             style={styles.backgroundVideo}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay
-            isLooping
-            isMuted
-            onLoad={() => setVideoLoaded(true)}
-            onError={(e) => console.log('Video error:', e)}
+            resizeMode="cover"
+            onError={() => {}} // Silent fallback - dark gradient covers it anyway
           />
         )}
       </View>
