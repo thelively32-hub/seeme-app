@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.luisgarcia.seeme",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -90,6 +90,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "jsEngine": "jsc"
   }
 }
