@@ -11,9 +11,17 @@ config.cacheStores = [
   new FileStore({ root: path.join(root, 'cache') }),
 ];
 
+// Redirect expo-linear-gradient to a plain View shim on native to avoid
+// iOS 26 CoreGraphics crash (_blt_shade_samples_noise in UIBlurEffect/shading)
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  'expo-linear-gradient': path.resolve(__dirname, 'src/components/LinearGradientShim.tsx'),
+};
 
-// // Exclude unnecessary directories from file watching
-// config.watchFolders = [__dirname];
+// Reduce the number of workers to decrease resource usage
+config.maxWorkers = 2;
+
+module.exports = config;
 // config.resolver.blacklistRE = /(.*)\/(__tests__|android|ios|build|dist|.git|node_modules\/.*\/android|node_modules\/.*\/ios|node_modules\/.*\/windows|node_modules\/.*\/macos)(\/.*)?$/;
 
 // // Alternative: use a more aggressive exclusion pattern
