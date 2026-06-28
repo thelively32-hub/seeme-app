@@ -3,8 +3,6 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, View, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import COLORS from '../../src/theme/colors';
 
 export default function TabsLayout() {
@@ -88,18 +86,15 @@ export default function TabsLayout() {
           title: '',
           tabBarIcon: ({ focused }) => (
             <View style={styles.centerButtonContainer}>
-              <LinearGradient
-                colors={COLORS.gradients.goldButton as [string, string, string]}
-                style={styles.centerButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <View
+                style={[styles.centerButton, { backgroundColor: COLORS.gold.primary }]}
               >
                 <Ionicons 
                   name="locate" 
                   size={26} 
                   color={COLORS.background.primary} 
                 />
-              </LinearGradient>
+              </View>
               {focused && <View style={styles.centerGlow} />}
             </View>
           ),

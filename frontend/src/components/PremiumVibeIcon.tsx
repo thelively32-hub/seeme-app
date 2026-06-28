@@ -8,7 +8,7 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+
 import COLORS from '../theme/colors';
 import { VibeType } from '../constants/vibes';
 
