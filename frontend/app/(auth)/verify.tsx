@@ -156,19 +156,20 @@ export default function VerifyScreen() {
     } catch (e: any) {
       console.error('Verification error:', e);
       
-      let errorMessage = 'Invalid verification code. Please try again.';
+      let errorMessage = 'Verification failed. Please try again.';
       
       if (e.code === 'auth/invalid-verification-code') {
-        errorMessage = 'Invalid verification code. Please check and try again.';
+        errorMessage = 'Invalid code. Please check and try again.';
       } else if (e.code === 'auth/code-expired') {
-        errorMessage = 'Verification code expired. Please request a new code.';
-      } else if (e.code === 'auth/session-expired') {
+        errorMessage = 'Code expired. Please request a new one.';
+      } else if (e.code === 'auth/session-expired' || e.code === 'auth/invalid-verification-id') {
         errorMessage = 'Session expired. Please go back and try again.';
-      } else if (e.code === 'auth/invalid-verification-id') {
-        errorMessage = 'Session expired. Please go back and request a new code.';
-      } else if (e.message) {
-        errorMessage = e.message;
+      } else if (e.message?.includes('Invalid verification code') || e.message?.includes('INVALID_CODE')) {
+        errorMessage = 'Invalid code. Please check and try again.';
+      } else if (e.message?.includes('network') || e.message?.includes('Network')) {
+        errorMessage = 'Network error. Please check your connection.';
       }
+      // Don't show raw backend errors like "Invalid email or password" to the user
       
       setError(errorMessage);
       shake();

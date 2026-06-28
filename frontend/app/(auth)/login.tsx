@@ -296,24 +296,6 @@ export default function LoginScreen() {
           <Ionicons name="call" size={18} color="#9B59B6" />
           <Text style={styles.phoneButtonText}>Continue with phone</Text>
         </TouchableOpacity>
-
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Email - dark outline button */}
-        <TouchableOpacity
-          style={styles.emailButton}
-          onPress={() => { resetForm(); setMode('email-login'); }}
-          disabled={socialLoading !== null}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="mail-outline" size={18} color="rgba(255,255,255,0.6)" />
-          <Text style={styles.emailButtonText}>Continue with email</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Terms */}
@@ -449,7 +431,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {mode === 'options' ? renderOptions() : renderEmailForm()}
+          {renderOptions()}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
