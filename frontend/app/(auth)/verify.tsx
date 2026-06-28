@@ -111,8 +111,27 @@ export default function VerifyScreen() {
         const userCredential = await confirmationResult.confirm(verificationCode);
         firebaseUser = userCredential.user;
         idToken = await firebaseUser.getIdToken();
+      } else if (confirmationResult?.type === 'rest') {
+        // Native: REST API flow - verify code and get idToken directly
+        const apiKey = 'AIzaSyDmH6FKtn9loWwyqz0zOiKrssdCXfz7Ceo';
+        const verifyResponse = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionInfo: confirmationResult.sessionInfo,
+              code: verificationCode,
+            }),
+          }
+        );
+        const verifyData = await verifyResponse.json();
+        if (verifyData.error) {
+          throw new Error(verifyData.error.message || 'Invalid verification code');
+        }
+        idToken = verifyData.idToken;
       } else {
-        // Native: Use React Native Firebase confirmation
+        // Fallback: web SDK confirm
         const userCredential = await confirmationResult.confirm(verificationCode);
         firebaseUser = userCredential.user;
         idToken = await firebaseUser.getIdToken();

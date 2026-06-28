@@ -167,17 +167,42 @@ export default function PhoneScreen() {
           params: { phone: fullPhone }
         });
       } else {
-        // iOS/Android: Use Firebase web SDK signInWithPhoneNumber
-        // Firebase handles phone verification via its REST API
-        // The user will see a reCAPTCHA challenge if silent verification fails
-        if (!firebaseAuth) {
-          throw new Error('Firebase auth not initialized');
-        }
-        const confirmation = await signInWithPhoneNumber(
-          firebaseAuth,
-          fullPhone
+        // iOS/Android: Firebase web SDK requires RecaptchaVerifier which
+        // only works in a browser. Use Firebase REST API directly instead.
+        const apiKey = firebaseConfig.apiKey;
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phoneNumber: fullPhone,
+              recaptchaToken: 'NONE', // Bypassed for native apps
+            }),
+          }
         );
-        globalConfirmationResult = confirmation;
+        const data = await response.json();
+        if (data.error) {
+          // Try alternative: use Firebase Auth REST API
+          const response2 = await fetch(
+            `https://www.googleapis.com/identitytoolkit/v3/relyingparty/sendVerificationCode?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phoneNumber: fullPhone,
+                iosReceipt: 'NONE',
+              }),
+            }
+          );
+          const data2 = await response2.json();
+          if (data2.error) {
+            throw new Error(data2.error.message || 'Failed to send SMS');
+          }
+          globalConfirmationResult = { sessionInfo: data2.sessionInfo, type: 'rest' };
+        } else {
+          globalConfirmationResult = { sessionInfo: data.sessionInfo, type: 'rest' };
+        }
         router.push({
           pathname: '/(auth)/verify',
           params: { phone: fullPhone }
