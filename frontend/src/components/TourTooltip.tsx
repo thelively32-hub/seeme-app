@@ -8,7 +8,7 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from 'react-native-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTour, TOUR_STEPS } from '../context/TourContext';

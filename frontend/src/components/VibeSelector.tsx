@@ -12,7 +12,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from 'react-native-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../theme/colors';
 import api from '../services/api';

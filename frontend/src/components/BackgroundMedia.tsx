@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from 'react-native-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 

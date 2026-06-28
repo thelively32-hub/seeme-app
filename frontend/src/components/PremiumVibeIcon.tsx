@@ -7,7 +7,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from 'react-native-linear-gradient';
 
 import COLORS from '../theme/colors';
 import { VibeType } from '../constants/vibes';
