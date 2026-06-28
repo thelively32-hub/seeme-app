@@ -21,10 +21,22 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { PurchasesPackage, PurchasesOffering } from 'react-native-purchases';
+
 import COLORS from '../../src/theme/colors';
 import { useAuth } from '../../src/context/AuthContext';
-import revenueCatService, { PREMIUM_ENTITLEMENT_ID } from '../../src/services/revenueCat';
+
+
+// RevenueCat temporarily disabled for iOS 26 compatibility testing
+const revenueCatService = {
+  initialize: async (userId?: string) => {},
+  getOfferings: async () => null,
+  purchasePackage: async (pkg: any) => { throw new Error('Purchases temporarily unavailable'); },
+  restorePurchases: async () => { throw new Error('Purchases temporarily unavailable'); },
+};
+const PREMIUM_ENTITLEMENT_ID = 'premium';
+type PurchasesPackage = any;
+type PurchasesOffering = any;
+
 
 const { width } = Dimensions.get('window');
 
