@@ -7,26 +7,15 @@ import {
   Animated,
   Dimensions,
   Platform,
-  ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Video, ResizeMode } from 'expo-av';
 import { useAuth } from '../src/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 const VIDEO_URL = 'https://res.cloudinary.com/dxgtxlgyr/video/upload/v1748612258/See_me_intro_ready_hxj0xq.mp4';
-
-// iOS 26 beta has a CoreGraphics rendering bug with expo-av Video component
-// Detect iOS major version to use static background on iOS 26+
-const iosVersion = Platform.OS === 'ios' ? parseInt(Platform.Version as string, 10) : 0;
-const useVideoBackground = Platform.OS === 'web' || (Platform.OS !== 'ios') || iosVersion < 26;
-
-// Lazy import expo-av only when we'll actually use it
-const VideoComponent = useVideoBackground && Platform.OS !== 'web'
-  ? require('expo-av').Video
-  : null;
-const ResizeMode = useVideoBackground ? require('expo-av').ResizeMode : null;
 
 // Web Video Component
 const WebVideo = () => {
@@ -128,8 +117,8 @@ export default function HomeScreen() {
       <View style={styles.videoContainer}>
         {Platform.OS === 'web' ? (
           <WebVideo />
-        ) : useVideoBackground && VideoComponent ? (
-          <VideoComponent
+        ) : (
+          <Video
             source={{ uri: VIDEO_URL }}
             style={styles.backgroundVideo}
             resizeMode={ResizeMode.COVER}
@@ -137,12 +126,8 @@ export default function HomeScreen() {
             isLooping
             isMuted
             onLoad={() => setVideoLoaded(true)}
-            onError={(e: any) => console.log('Video error:', e)}
+            onError={(e) => console.log('Video error:', e)}
           />
-        ) : (
-          // iOS 26 beta fallback - static dark background
-          // Video will work once iOS 26 stable is released
-          <View style={[styles.backgroundVideo, { backgroundColor: '#0a0a0a' }]} />
         )}
       </View>
 
