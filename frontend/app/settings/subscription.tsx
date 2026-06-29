@@ -24,20 +24,7 @@ import Animated, {
 
 import COLORS from '../../src/theme/colors';
 import { useAuth } from '../../src/context/AuthContext';
-
-
-// RevenueCat temporarily disabled for iOS 26 compatibility testing
-const revenueCatService = {
-  initialize: async (userId?: string) => {},
-  getOfferings: async () => null,
-  purchasePackage: async (pkg: any) => { 
-    throw new Error('Premium purchases coming soon. Stay tuned!'); 
-  },
-  restorePurchases: async () => { 
-    throw new Error('No purchases to restore at this time.'); 
-  },
-};
-const PREMIUM_ENTITLEMENT_ID = 'premium';
+import revenueCatService, { PREMIUM_ENTITLEMENT_ID } from '../../src/services/revenueCat';
 type PurchasesPackage = any;
 type PurchasesOffering = any;
 
