@@ -25,7 +25,7 @@ import Animated, {
 import COLORS from '../../src/theme/colors';
 import { useAuth } from '../../src/context/AuthContext';
 import revenueCatService, { PREMIUM_ENTITLEMENT_ID } from '../../src/services/revenueCat';
-type PurchasesPackage = any;
+import { PurchasesPackage, PurchasesOffering } from 'react-native-purchases';type PurchasesPackage = any;
 type PurchasesOffering = any;
 
 
