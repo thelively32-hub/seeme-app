@@ -31,10 +31,11 @@ const firebaseConfig = {
   measurementId: "G-7BBQ01WKLX"
 };
 
-// Web SDK is initialized for all platforms.
-// On native, Firebase uses its REST API for phone auth (no reCAPTCHA needed).
-const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const firebaseAuth = getAuth(firebaseApp);
+// Web SDK only for web platform
+const firebaseApp = Platform.OS === 'web'
+  ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApp())
+  : null;
+const firebaseAuth = Platform.OS === 'web' ? getAuth(firebaseApp!) : null;
 
 const COUNTRIES = [
   { code: '+1', flag: '🇺🇸', name: 'US' },
@@ -167,38 +168,11 @@ export default function PhoneScreen() {
           params: { phone: fullPhone }
         });
       } else {
-        // iOS/Android: Use Firebase web SDK signInWithPhoneNumber
-        // Firebase identifies the app via the appId in the config
-        // and uses APNs silent push for verification on iOS
-        try {
-          const confirmation = await signInWithPhoneNumber(
-            firebaseAuth,
-            fullPhone,
-            // @ts-ignore - passing null as verifier forces Firebase to use
-            // app attestation (APNs) instead of reCAPTCHA on native
-            null
-          );
-          globalConfirmationResult = confirmation;
-        } catch (firebaseError: any) {
-          // If null verifier fails, fall back to REST API with iosBundle
-          const apiKey = firebaseConfig.apiKey;
-          const restResponse = await fetch(
-            `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phoneNumber: fullPhone,
-                iosBundleId: 'com.luisgarcia.seeme',
-              }),
-            }
-          );
-          const restData = await restResponse.json();
-          if (restData.error) {
-            throw new Error(restData.error.message || 'Failed to send verification code');
-          }
-          globalConfirmationResult = { sessionInfo: restData.sessionInfo, type: 'rest' };
-        }
+        // iOS/Android: Use @react-native-firebase/auth
+        // This uses APNs silent push for verification - no reCAPTCHA needed
+        const nativeAuth = require('@react-native-firebase/auth').default;
+        const confirmation = await nativeAuth().signInWithPhoneNumber(fullPhone);
+        globalConfirmationResult = confirmation;
         router.push({
           pathname: '/(auth)/verify',
           params: { phone: fullPhone }
