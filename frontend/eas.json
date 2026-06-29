@@ -39,7 +39,8 @@
       },
       "ios": {
         "resourceClass": "m1-medium",
-        "image": "macos-sequoia-15.6-xcode-26.0"
+        "image": "macos-sequoia-15.6-xcode-26.0",
+        "autoIncrement": true
       }
     }
   },
@@ -51,8 +52,7 @@
       },
       "ios": {
         "appleId": "thelively32@gmail.com",
-        "ascAppId": "6771754975",
-        "autoIncrement": true
+        "ascAppId": "6771754975"
       }
     }
   }
