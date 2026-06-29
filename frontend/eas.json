@@ -51,7 +51,8 @@
       },
       "ios": {
         "appleId": "thelively32@gmail.com",
-        "ascAppId": "6771754975"
+        "ascAppId": "6771754975",
+        "autoIncrement": true
       }
     }
   }
