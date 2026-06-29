@@ -167,41 +167,37 @@ export default function PhoneScreen() {
           params: { phone: fullPhone }
         });
       } else {
-        // iOS/Android: Firebase web SDK requires RecaptchaVerifier which
-        // only works in a browser. Use Firebase REST API directly instead.
-        const apiKey = firebaseConfig.apiKey;
-        const response = await fetch(
-          `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phoneNumber: fullPhone,
-              recaptchaToken: 'NONE', // Bypassed for native apps
-            }),
-          }
-        );
-        const data = await response.json();
-        if (data.error) {
-          // Try alternative: use Firebase Auth REST API
-          const response2 = await fetch(
-            `https://www.googleapis.com/identitytoolkit/v3/relyingparty/sendVerificationCode?key=${apiKey}`,
+        // iOS/Android: Use Firebase web SDK signInWithPhoneNumber
+        // Firebase identifies the app via the appId in the config
+        // and uses APNs silent push for verification on iOS
+        try {
+          const confirmation = await signInWithPhoneNumber(
+            firebaseAuth,
+            fullPhone,
+            // @ts-ignore - passing null as verifier forces Firebase to use
+            // app attestation (APNs) instead of reCAPTCHA on native
+            null
+          );
+          globalConfirmationResult = confirmation;
+        } catch (firebaseError: any) {
+          // If null verifier fails, fall back to REST API with iosBundle
+          const apiKey = firebaseConfig.apiKey;
+          const restResponse = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 phoneNumber: fullPhone,
-                iosReceipt: 'NONE',
+                iosBundleId: 'com.luisgarcia.seeme',
               }),
             }
           );
-          const data2 = await response2.json();
-          if (data2.error) {
-            throw new Error(data2.error.message || 'Failed to send SMS');
+          const restData = await restResponse.json();
+          if (restData.error) {
+            throw new Error(restData.error.message || 'Failed to send verification code');
           }
-          globalConfirmationResult = { sessionInfo: data2.sessionInfo, type: 'rest' };
-        } else {
-          globalConfirmationResult = { sessionInfo: data.sessionInfo, type: 'rest' };
+          globalConfirmationResult = { sessionInfo: restData.sessionInfo, type: 'rest' };
         }
         router.push({
           pathname: '/(auth)/verify',

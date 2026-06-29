@@ -30,8 +30,12 @@ import { useAuth } from '../../src/context/AuthContext';
 const revenueCatService = {
   initialize: async (userId?: string) => {},
   getOfferings: async () => null,
-  purchasePackage: async (pkg: any) => { throw new Error('Purchases temporarily unavailable'); },
-  restorePurchases: async () => { throw new Error('Purchases temporarily unavailable'); },
+  purchasePackage: async (pkg: any) => { 
+    throw new Error('Premium purchases coming soon. Stay tuned!'); 
+  },
+  restorePurchases: async () => { 
+    throw new Error('No purchases to restore at this time.'); 
+  },
 };
 const PREMIUM_ENTITLEMENT_ID = 'premium';
 type PurchasesPackage = any;
