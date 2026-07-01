@@ -8,7 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  Platform,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,455 +18,328 @@ import { useAuth } from '../../src/context/AuthContext';
 import api from '../../src/services/api';
 import COLORS from '../../src/theme/colors';
 import TourTooltip from '../../src/components/TourTooltip';
-import { VibeScore } from '../../src/components/VibeScore';
-import { VibeChips } from '../../src/components/VibeChips';
 
-interface UserProfile {
-  name: string;
-  email: string;
-  age?: number;
-  gender?: string;
-  looking_for?: string;
-  intention?: string;
-  is_visible: boolean;
-}
+const getInitials = (name: string) =>
+  name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
-interface UserStats {
-  total_checkins: number;
-  places_visited: number;
-  current_streak: number;
-}
-
-// Menu Item Component
-const MenuItem = ({ 
-  icon, 
-  label, 
-  onPress, 
-  showArrow = true,
-  danger = false,
-}: { 
-  icon: string; 
-  label: string; 
-  onPress: () => void;
-  showArrow?: boolean;
-  danger?: boolean;
+const MenuItem = ({ icon, label, onPress, danger = false }: {
+  icon: string; label: string; onPress: () => void; danger?: boolean;
 }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-    <View style={[styles.menuIconContainer, danger && styles.menuIconDanger]}>
-      <Ionicons 
-        name={icon as any} 
-        size={20} 
-        color={danger ? COLORS.accent.error : COLORS.gold.primary} 
-      />
-    </View>
-    <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
-    {showArrow && (
-      <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
-    )}
+    <Ionicons name={icon as any} size={20} color={danger ? '#FF5555' : COLORS.text.secondary} />
+    <Text style={[styles.menuLabel, danger && { color: '#FF5555' }]}>{label}</Text>
+    <Ionicons name="chevron-forward" size={18} color={COLORS.text.muted} />
   </TouchableOpacity>
-);
-
-// Stat Badge Component
-const StatBadge = ({ value, label }: { value: number; label: string }) => (
-  <View style={styles.statBadge}>
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
 );
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [stats, setStats] = useState<UserStats | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [ghostMode, setGhostMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [togglingGhost, setTogglingGhost] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  const isPremium = user?.is_premium || profile?.is_premium || false;
+
+  useEffect(() => { loadProfile(); }, []);
 
   const loadProfile = async () => {
     try {
-      const [profileData, statsData] = await Promise.all([
-        api.getProfile(),
-        api.getUserStats(),
-      ]);
+      setLoading(true);
+      const profileData = await api.getProfile();
       setProfile(profileData);
-      setStats(statsData);
+      setGhostMode(profileData?.ghost_mode || false);
+      try {
+        const statsData = await (api as any).getUserStats?.();
+        setStats(statsData);
+      } catch {}
     } catch (e) {
-      console.error('Error loading profile:', e);
+      console.log('Error loading profile:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Log Out', 
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/');
-          }
-        },
-      ]
-    );
+  const handleGhostToggle = async (value: boolean) => {
+    if (!isPremium) {
+      Alert.alert(
+        '👻 Ghost Mode',
+        'Ghost Mode is a Vibe Me Pro feature. Upgrade to browse invisibly.',
+        [
+          { text: 'Maybe later', style: 'cancel' },
+          { text: '✨ Go Pro', onPress: () => router.push('/premium') },
+        ]
+      );
+      return;
+    }
+    try {
+      setTogglingGhost(true);
+      await (api as any).updatePresence?.({ ghost_mode: value });
+      setGhostMode(value);
+    } catch {
+      Alert.alert('Error', 'Could not update Ghost Mode.');
+    } finally {
+      setTogglingGhost(false);
+    }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const handleLogout = () => {
+    Alert.alert('Log Out', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: logout },
+    ]);
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <LinearGradient
-          colors={[COLORS.background.primary, COLORS.background.secondary]}
-          style={StyleSheet.absoluteFill}
-        />
-        <ActivityIndicator size="large" color={COLORS.gold.primary} />
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={COLORS.gold.primary} size="large" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[COLORS.background.primary, COLORS.background.secondary]}
-        style={StyleSheet.absoluteFill}
-      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
-        showsVerticalScrollIndicator={false}
-      >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity 
-            style={styles.settingsButton}
-            onPress={() => router.push('/settings')}
-          >
-            <Ionicons name="settings-outline" size={24} color={COLORS.text.primary} />
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <Text style={styles.headerTitle}>PROFILE</Text>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={22} color={COLORS.text.secondary} />
           </TouchableOpacity>
         </View>
+
+        {/* Premium Banner */}
+        {!isPremium && (
+          <TouchableOpacity style={styles.premiumBanner} onPress={() => router.push('/premium')} activeOpacity={0.85}>
+            <LinearGradient
+              colors={['#2a1f00', '#4a3500', '#2a1f00']}
+              style={styles.premiumBannerGrad}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            >
+              <View style={styles.premiumBannerLeft}>
+                <Text style={{ fontSize: 24 }}>👑</Text>
+                <View>
+                  <Text style={styles.premiumBannerTitle}>Upgrade to Vibe Me Pro</Text>
+                  <Text style={styles.premiumBannerSub}>Ghost Mode · Unlimited Vibes · See who viewed you</Text>
+                </View>
+              </View>
+              <View style={styles.premiumBannerBtn}>
+                <Text style={styles.premiumBannerBtnText}>Go Pro</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            <LinearGradient
-              colors={COLORS.gradients.goldButton as [string, string, string]}
-              style={styles.avatarGradient}
-            >
-              <Text style={styles.avatarText}>
-                {profile?.name ? getInitials(profile.name) : '?'}
-              </Text>
-            </LinearGradient>
-            <TouchableOpacity style={styles.editAvatarButton}>
-              <Ionicons name="camera" size={16} color={COLORS.text.dark} />
-            </TouchableOpacity>
+          <View style={styles.avatarWrap}>
+            {isPremium && <View style={styles.premiumRing} />}
+            {profile?.photo_url ? (
+              <Image source={{ uri: profile.photo_url }} style={styles.avatar} />
+            ) : (
+              <LinearGradient colors={[COLORS.gold.primary, COLORS.gold.secondary || '#B8860B']} style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarInitials}>{getInitials(profile?.name || user?.name || 'U')}</Text>
+              </LinearGradient>
+            )}
+            {isPremium && (
+              <View style={styles.premiumBadge}>
+                <Text style={{ fontSize: 14 }}>👑</Text>
+              </View>
+            )}
           </View>
 
-          {/* Name & Info */}
-          <Text style={styles.profileName}>{profile?.name || 'User'}</Text>
-          <Text style={styles.profileEmail}>{profile?.email}</Text>
+          <Text style={styles.profileName}>{profile?.name || user?.name || 'User'}</Text>
+          {(profile?.phone_number || user?.phone_number) && (
+            <Text style={styles.profileSub}>{profile?.phone_number || user?.phone_number}</Text>
+          )}
 
-          {/* Stats Row */}
           <View style={styles.statsRow}>
-            <StatBadge value={stats?.total_checkins || 0} label="Check-ins" />
-            <View style={styles.statsDivider} />
-            <StatBadge value={stats?.places_visited || 0} label="Places" />
-            <View style={styles.statsDivider} />
-            <StatBadge value={stats?.current_streak || 0} label="Streak" />
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>{stats?.total_checkins || 0}</Text>
+              <Text style={styles.statLabel}>Check-ins</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>{stats?.vibes_sent || 0}</Text>
+              <Text style={styles.statLabel}>Vibes</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>{stats?.friends_count || 0}</Text>
+              <Text style={styles.statLabel}>Friends</Text>
+            </View>
           </View>
 
-          {/* Vibe Score */}
-          <View style={styles.vibeScoreSection}>
-            <VibeScore score={87} size="medium" />
-          </View>
+          {profile?.vibes && profile.vibes.length > 0 && (
+            <View style={styles.vibesRow}>
+              {profile.vibes.slice(0, 4).map((v: string, i: number) => (
+                <View key={i} style={styles.vibePill}>
+                  <Text style={styles.vibePillText}>{v}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
-          {/* My Vibes Chips */}
-          <View style={styles.vibeChipsSection}>
-            <Text style={styles.sectionTitle}>Mi Vibra</Text>
-            <VibeChips 
-              selectedVibes={['social', 'wine', 'house', 'travel']} 
-              editable={false}
-              maxDisplay={4}
-            />
-          </View>
-
-          {/* Edit Profile Button */}
-          <TouchableOpacity 
-            style={styles.editProfileButton}
-            onPress={() => router.push('/settings/edit-profile')}
-          >
-            <Text style={styles.editProfileText}>Edit Profile</Text>
+          <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/settings/edit-profile')}>
+            <Text style={styles.editBtnText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Menu Sections */}
-        <View style={styles.menuSection}>
-          <Text style={styles.menuSectionTitle}>Account</Text>
+        {/* Quick Access */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+
+          {/* Ghost Mode */}
+          <View style={styles.actionCard}>
+            <View style={styles.actionRow}>
+              <View style={styles.actionLeft}>
+                <View style={[styles.actionIcon, { backgroundColor: 'rgba(150,150,255,0.15)' }]}>
+                  <Ionicons name="eye-off-outline" size={20} color="#9B9BFF" />
+                </View>
+                <View>
+                  <Text style={styles.actionLabel}>Ghost Mode</Text>
+                  <Text style={styles.actionSub}>{isPremium ? 'Browse invisibly' : 'Pro feature'}</Text>
+                </View>
+              </View>
+              {isPremium ? (
+                <Switch
+                  value={ghostMode}
+                  onValueChange={handleGhostToggle}
+                  disabled={togglingGhost}
+                  trackColor={{ false: '#333', true: COLORS.gold.primary }}
+                  thumbColor={ghostMode ? '#000' : '#888'}
+                />
+              ) : (
+                <TouchableOpacity style={styles.lockBtn} onPress={() => router.push('/premium')}>
+                  <Ionicons name="lock-closed" size={16} color={COLORS.gold.primary} />
+                  <Text style={styles.lockBtnText}>Unlock</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Who viewed you */}
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/premium')}>
+            <View style={styles.actionRow}>
+              <View style={styles.actionLeft}>
+                <View style={[styles.actionIcon, { backgroundColor: 'rgba(255,215,0,0.15)' }]}>
+                  <Ionicons name="eye-outline" size={20} color={COLORS.gold.primary} />
+                </View>
+                <View>
+                  <Text style={styles.actionLabel}>Who viewed you</Text>
+                  <Text style={styles.actionSub}>{isPremium ? 'See your viewers' : 'Pro feature'}</Text>
+                </View>
+              </View>
+              {isPremium ? (
+                <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+              ) : (
+                <View style={styles.lockBtn}>
+                  <Ionicons name="lock-closed" size={16} color={COLORS.gold.primary} />
+                  <Text style={styles.lockBtnText}>Unlock</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {/* My Vibe */}
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/settings/select-vibe')}>
+            <View style={styles.actionRow}>
+              <View style={styles.actionLeft}>
+                <View style={[styles.actionIcon, { backgroundColor: 'rgba(255,100,100,0.15)' }]}>
+                  <Ionicons name="flame-outline" size={20} color="#FF6464" />
+                </View>
+                <View>
+                  <Text style={styles.actionLabel}>My Vibe</Text>
+                  <Text style={styles.actionSub}>What are you feeling today?</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Status */}
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/settings/status')}>
+            <View style={styles.actionRow}>
+              <View style={styles.actionLeft}>
+                <View style={[styles.actionIcon, { backgroundColor: 'rgba(100,255,150,0.15)' }]}>
+                  <Ionicons name="location-outline" size={20} color="#64FF96" />
+                </View>
+                <View>
+                  <Text style={styles.actionLabel}>My Status</Text>
+                  <Text style={styles.actionSub}>Update your presence</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.text.muted} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Settings simplified */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.menuCard}>
-            <MenuItem 
-              icon="person-outline" 
-              label="Personal Information" 
-              onPress={() => router.push('/settings/edit-profile')}
-            />
-            <MenuItem 
-              icon="notifications-outline" 
-              label="Notifications" 
-              onPress={() => {}}
-            />
-            <MenuItem 
-              icon="shield-outline" 
-              label="Privacy" 
-              onPress={() => router.push('/legal/privacy')}
-            />
+            <MenuItem icon="person-outline" label="Edit Profile" onPress={() => router.push('/settings/edit-profile')} />
+            <MenuItem icon="shield-checkmark-outline" label="Safety & Privacy" onPress={() => router.push('/settings/safety')} />
+            <MenuItem icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/legal/terms')} />
+            <MenuItem icon="lock-closed-outline" label="Privacy Policy" onPress={() => router.push('/legal/privacy')} />
+            <MenuItem icon="log-out-outline" label="Log Out" onPress={handleLogout} danger />
           </View>
         </View>
 
-        <View style={styles.menuSection}>
-          <Text style={styles.menuSectionTitle}>Support</Text>
-          <View style={styles.menuCard}>
-            <MenuItem 
-              icon="help-circle-outline" 
-              label="Help Center" 
-              onPress={() => {}}
-            />
-            <MenuItem 
-              icon="document-text-outline" 
-              label="Terms of Service" 
-              onPress={() => router.push('/legal/terms')}
-            />
-            <MenuItem 
-              icon="chatbubble-outline" 
-              label="Contact Us" 
-              onPress={() => {}}
-            />
-          </View>
-        </View>
-
-        <View style={styles.menuSection}>
-          <View style={styles.menuCard}>
-            <MenuItem 
-              icon="log-out-outline" 
-              label="Log Out" 
-              onPress={handleLogout}
-              showArrow={false}
-              danger
-            />
-          </View>
-        </View>
-
-        {/* App Version */}
-        <Text style={styles.versionText}>Vibe Me v1.0.0</Text>
+        <Text style={styles.version}>Vibe Me v1.0.0</Text>
       </ScrollView>
-
-      {/* Tour Tooltip */}
       <TourTooltip screen="profile" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.background.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileCard: {
-    marginHorizontal: 16,
-    backgroundColor: COLORS.background.card,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-    marginBottom: 20,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 14,
-  },
-  avatarGradient: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: COLORS.text.dark,
-  },
-  editAvatarButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.gold.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.background.card,
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-    marginBottom: 3,
-  },
-  profileEmail: {
-    fontSize: 13,
-    color: COLORS.text.tertiary,
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statBadge: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text.primary,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.text.tertiary,
-    marginTop: 2,
-  },
-  statsDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.border.light,
-  },
-  vibeScoreSection: {
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  vibeChipsSection: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.text.secondary,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  editProfileButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 28,
-    borderRadius: 18,
-    backgroundColor: 'rgba(244, 197, 66, 0.15)',
-  },
-  editProfileText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.gold.primary,
-  },
-  menuSection: {
-    marginBottom: 20,
-    paddingHorizontal: 16,
-  },
-  menuSectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.text.tertiary,
-    marginBottom: 10,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  menuCard: {
-    backgroundColor: COLORS.background.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.light,
-  },
-  menuIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(244, 197, 66, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  menuIconDanger: {
-    backgroundColor: 'rgba(255, 82, 82, 0.15)',
-  },
-  menuLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text.primary,
-  },
-  menuLabelDanger: {
-    color: COLORS.accent.error,
-  },
-  versionText: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: COLORS.text.muted,
-    marginTop: 8,
-    marginBottom: 16,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background.primary },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: COLORS.gold.primary, letterSpacing: 3 },
+  settingsBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+  premiumBanner: { marginHorizontal: 16, marginBottom: 16, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)' },
+  premiumBannerGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
+  premiumBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  premiumBannerTitle: { fontSize: 14, fontWeight: '700', color: COLORS.gold.primary },
+  premiumBannerSub: { fontSize: 11, color: 'rgba(255,215,0,0.7)', marginTop: 2 },
+  premiumBannerBtn: { backgroundColor: COLORS.gold.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 },
+  premiumBannerBtnText: { fontSize: 13, fontWeight: '800', color: '#000' },
+  profileCard: { marginHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 16 },
+  avatarWrap: { position: 'relative', marginBottom: 14 },
+  premiumRing: { position: 'absolute', top: -3, left: -3, right: -3, bottom: -3, borderRadius: 48, borderWidth: 2, borderColor: COLORS.gold.primary, zIndex: 0 },
+  avatar: { width: 84, height: 84, borderRadius: 42, borderWidth: 2, borderColor: COLORS.gold.primary },
+  avatarPlaceholder: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' },
+  avatarInitials: { fontSize: 30, fontWeight: '800', color: '#000' },
+  premiumBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.background.primary, borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  profileName: { fontSize: 22, fontWeight: '700', color: COLORS.text.primary, marginBottom: 4 },
+  profileSub: { fontSize: 13, color: COLORS.text.muted, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  statItem: { alignItems: 'center', flex: 1 },
+  statNum: { fontSize: 22, fontWeight: '800', color: COLORS.text.primary },
+  statLabel: { fontSize: 11, color: COLORS.text.muted, marginTop: 2 },
+  statDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.1)' },
+  vibesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 16 },
+  vibePill: { backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,215,0,0.2)' },
+  vibePillText: { fontSize: 12, color: COLORS.gold.primary, fontWeight: '500' },
+  editBtn: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 10 },
+  editBtnText: { fontSize: 14, color: COLORS.text.secondary, fontWeight: '500' },
+  section: { paddingHorizontal: 16, marginBottom: 16 },
+  sectionTitle: { fontSize: 12, fontWeight: '600', color: COLORS.text.muted, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, marginLeft: 4 },
+  actionCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  actionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: 15, fontWeight: '600', color: COLORS.text.primary },
+  actionSub: { fontSize: 12, color: COLORS.text.muted, marginTop: 1 },
+  lockBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,215,0,0.1)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)' },
+  lockBtnText: { fontSize: 12, color: COLORS.gold.primary, fontWeight: '600' },
+  menuCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  menuLabel: { flex: 1, fontSize: 15, color: COLORS.text.primary },
+  version: { textAlign: 'center', fontSize: 12, color: COLORS.text.muted, marginTop: 8, marginBottom: 20 },
 });
