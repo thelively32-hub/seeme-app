@@ -9,15 +9,16 @@ import api from './api';
 
 // RevenueCat API Keys
 const REVENUECAT_API_KEY_ANDROID = 'goog_pkPOlOUWjajEGjrvfDXmTpnpnmk';
-const REVENUECAT_API_KEY_IOS = ''; // Add iOS key when available
+const REVENUECAT_API_KEY_IOS = 'appl_mZiXSQaiYFOlcVoffsOTMrsuekv';
 
 // Entitlement ID for premium access
 export const PREMIUM_ENTITLEMENT_ID = 'premium';
 
-// Product IDs
+// Product IDs - must match exactly what's in App Store Connect
 export const PRODUCT_IDS = {
-  MONTHLY: 'seeme_premium_monthly',
-  YEARLY: 'seeme_premium_yearly',
+  MONTHLY: 'Vibe_Me_monthly',
+  YEARLY: 'Vibe_Me_Yearly',
+  DAILY: 'Vibe_Me_Pro_Daily',
 };
 
 class RevenueCatService {

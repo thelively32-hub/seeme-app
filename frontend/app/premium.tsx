@@ -8,6 +8,8 @@ import {
   Dimensions,
   Platform,
   Animated,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import COLORS from '../src/theme/colors';
 import { GlassCard } from '../src/components/GlassCard';
+import revenueCatService, { PRODUCT_IDS } from '../src/services/revenueCat';
+import { useAuth } from '../src/context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -29,8 +33,48 @@ const PREMIUM_BENEFITS = [
 
 export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
+  const { user, refreshUser } = useAuth();
+  const [selectedPlan, setSelectedPlan] = useState<'daily' | 'monthly' | 'yearly'>('yearly');
+  const [purchasing, setPurchasing] = useState(false);
   const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const getProductId = () => {
+    if (selectedPlan === 'daily') return PRODUCT_IDS.DAILY;
+    if (selectedPlan === 'monthly') return PRODUCT_IDS.MONTHLY;
+    return PRODUCT_IDS.YEARLY;
+  };
+
+  const handleUpgrade = async () => {
+    try {
+      setPurchasing(true);
+      const offerings = await revenueCatService.getOfferings();
+      if (!offerings) {
+        Alert.alert('Error', 'Could not load plans. Please try again.');
+        return;
+      }
+      const productId = getProductId();
+      const pkg = offerings?.current?.availablePackages?.find(
+        (p: any) => p.product?.productIdentifier === productId
+      );
+      if (!pkg) {
+        Alert.alert('Error', 'Plan not available. Please try again later.');
+        return;
+      }
+      const result = await revenueCatService.purchasePackage(pkg);
+      if (result.success) {
+        await refreshUser?.();
+        Alert.alert('🎉 Welcome to Vibe Me Pro!', 'Your subscription is now active.', [
+          { text: 'Let\'s go!', onPress: () => router.back() }
+        ]);
+      }
+    } catch (e: any) {
+      if (!e.message?.includes('cancelled')) {
+        Alert.alert('Error', e.message || 'Purchase failed. Please try again.');
+      }
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   useEffect(() => {
     Animated.loop(
@@ -113,6 +157,21 @@ export default function PremiumScreen() {
 
         {/* Plan Selector */}
         <View style={styles.planSelector}>
+          {/* Daily */}
+          <TouchableOpacity
+            style={[styles.planOption, selectedPlan === 'daily' && styles.planOptionActive]}
+            onPress={() => setSelectedPlan('daily')}
+          >
+            <Text style={[styles.planPrice, selectedPlan === 'daily' && styles.planPriceActive]}>
+              $0.99
+            </Text>
+            <Text style={[styles.planPeriod, selectedPlan === 'daily' && styles.planPeriodActive]}>
+              /day
+            </Text>
+            <Text style={styles.planTrial}>Try it</Text>
+          </TouchableOpacity>
+
+          {/* Monthly */}
           <TouchableOpacity
             style={[styles.planOption, selectedPlan === 'monthly' && styles.planOptionActive]}
             onPress={() => setSelectedPlan('monthly')}
@@ -125,6 +184,7 @@ export default function PremiumScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* Yearly */}
           <TouchableOpacity
             style={[styles.planOption, selectedPlan === 'yearly' && styles.planOptionActive]}
             onPress={() => setSelectedPlan('yearly')}
@@ -135,11 +195,9 @@ export default function PremiumScreen() {
             <Text style={[styles.planPeriod, selectedPlan === 'yearly' && styles.planPeriodActive]}>
               /year
             </Text>
-            {selectedPlan === 'yearly' && (
-              <View style={styles.bestValueBadge}>
-                <Text style={styles.bestValueText}>BEST VALUE</Text>
-              </View>
-            )}
+            <View style={styles.bestValueBadge}>
+              <Text style={styles.bestValueText}>BEST VALUE</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -162,25 +220,57 @@ export default function PremiumScreen() {
         </View>
 
         {/* CTA Button */}
-        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.9}>
+        <TouchableOpacity 
+          style={[styles.ctaButton, purchasing && { opacity: 0.7 }]} 
+          activeOpacity={0.9}
+          onPress={handleUpgrade}
+          disabled={purchasing}
+        >
           <LinearGradient
             colors={COLORS.gradients.goldButton}
             style={styles.ctaGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Ionicons name="diamond" size={20} color={COLORS.background.primary} />
-            <Text style={styles.ctaText}>Upgrade to Pro</Text>
+            {purchasing ? (
+              <ActivityIndicator color="#000" size="small" />
+            ) : (
+              <>
+                <Ionicons name="diamond" size={20} color={COLORS.background.primary} />
+                <Text style={styles.ctaText}>
+                  {selectedPlan === 'daily' ? 'Try for $0.99' : 
+                   selectedPlan === 'monthly' ? 'Start Monthly — $9.99' : 
+                   'Start Yearly — $59.99'}
+                </Text>
+              </>
+            )}
           </LinearGradient>
         </TouchableOpacity>
 
         {/* Terms */}
         <Text style={styles.terms}>
-          Cancel anytime. Subscription auto-renews unless cancelled at least 24 hours before the end of the current period.
+          {selectedPlan === 'daily' 
+            ? '24 hours of full access. No automatic renewal.'
+            : 'Cancel anytime. Subscription auto-renews unless cancelled at least 24 hours before the end of the current period.'}
         </Text>
 
         {/* Restore Purchases */}
-        <TouchableOpacity style={styles.restoreButton}>
+        <TouchableOpacity 
+          style={styles.restoreButton}
+          onPress={async () => {
+            try {
+              const result = await revenueCatService.restorePurchases();
+              if (result.success && result.isPremium) {
+                await refreshUser?.();
+                Alert.alert('✅ Restored!', 'Your subscription has been restored.');
+              } else {
+                Alert.alert('No purchases', 'No previous purchases found.');
+              }
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Could not restore purchases.');
+            }
+          }}
+        >
           <Text style={styles.restoreText}>Restore Purchases</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -320,7 +410,12 @@ const styles = StyleSheet.create({
   planPeriodActive: {
     color: COLORS.text.secondary,
   },
-  bestValueBadge: {
+  planTrial: {
+    fontSize: 10,
+    color: COLORS.gold.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
     position: 'absolute',
     top: -10,
     backgroundColor: COLORS.premium.primary,
